@@ -27,7 +27,7 @@
 
 <head>
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*; connect-src 'self' https://* http://localhost:* http://127.0.0.1:*; manifest-src 'self' data:;">
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*; connect-src 'self' https://* http://localhost:* http://127.0.0.1:*; manifest-src 'self' data:;">
     <meta charset="UTF-8">
     <!-- Updated Viewport for Notch Support -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -40,8 +40,6 @@
     <!-- Android/Universal PWA Support -->
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#111827">
-    <link rel="manifest"
-        href='data:application/manifest+json,{"name":"EllipsisLM","short_name":"EllipsisLM","start_url":".","display":"standalone","background_color":"%23111827","theme_color":"%23111827","orientation":"any","icons":[{"src":"https://github.com/pacmanincarnate/EllipsisLM/blob/main/logo.jpg?raw=true","sizes":"512x512","type":"image/png"}]}'>
 
     <title>EllipsisLM</title>
     <link rel="apple-touch-icon" href="https://github.com/pacmanincarnate/EllipsisLM/blob/main/logo.jpg?raw=true">
@@ -686,6 +684,19 @@
             animation: fadeIn var(--transition-medium);
         }
 
+        /* Swarm Deliberation Summary Card */
+        .swarm-summary-card .swarm-summary-body {
+            display: none;
+        }
+
+        .swarm-summary-card.swarm-open .swarm-summary-body {
+            display: block;
+        }
+
+        .swarm-summary-card.swarm-open .swarm-chevron {
+            transform: rotate(180deg);
+        }
+
         .bubble-header {
             display: flex;
             justify-content: space-between;
@@ -1218,6 +1229,7 @@
         /* Visual settings sliders */
         input[type="range"] {
             -webkit-appearance: none;
+            appearance: none;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 8px;
             height: 6px;
@@ -1225,6 +1237,7 @@
 
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
+            appearance: none;
             background: var(--brand-color);
             height: 16px;
             width: 16px;
@@ -2295,7 +2308,7 @@
 
         <div id="settings-appearance-content" class="space-y-6">
             <!-- Application Update Checker [MANUAL] -->
-            <div class="mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
+            <div id="app-maintenance-section" class="mb-6 animate-in fade-in slide-in-from-top-2 duration-500">
                 <div class="p-4 bg-indigo-500/10 rounded-xl border border-indigo-500/20 shadow-lg backdrop-blur-sm">
                     <div class="flex items-center justify-between mb-3 border-b border-indigo-500/10 pb-2">
                         <div class="flex items-center gap-2">
@@ -2966,6 +2979,28 @@
                     </div>
                 </div>
             </div>
+
+            <!-- ── SWARM MODE PANEL ─────────────────────────────────────────────────── -->
+            <div class="space-y-3 pt-4 border-t border-gray-700/50 mt-2">
+                <div class="flex items-center justify-between px-1">
+                    <div>
+                        <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Swarm Mode <span
+                                class="ml-1 text-[10px] bg-indigo-600/60 text-indigo-300 px-1.5 py-0.5 rounded uppercase font-bold">Experimental</span>
+                        </h3>
+                        <p class="text-xs text-gray-600 mt-0.5">Each character deliberates privately. A Director agent
+                            then resolves all intent conflicts into a single scene.</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer ml-4 shrink-0">
+                        <input type="checkbox" id="swarm-mode-toggle" class="sr-only peer">
+                        <div
+                            class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
+                        </div>
+                    </label>
+                </div>
+
+
+            </div>
+            <!-- ── END SWARM MODE PANEL ──────────────────────────────────────────────── -->
 
 
         </div>
@@ -3863,7 +3898,14 @@
                 strings.forEach((string, i) => {
                     result += string;
                     if (i < values.length) {
-                        const val = values[i];
+                        let val = values[i];
+
+                        // Defensive Safeguard: Prevent un-interpolated placeholders from leaking into the DOM
+                        if (typeof val === 'string' && val.includes('${imgSrc}')) {
+                            console.warn("DOM.html: Intercepted un-interpolated ${imgSrc} placeholder. Clearing.");
+                            val = "";
+                        }
+
                         if (Array.isArray(val)) {
                             // Recursively join arrays
                             result += val.join('');
@@ -5079,7 +5121,13 @@
                         static_entries: safeStaticEntries,
                         worldMap: safeWorldMap,
                         character_stats: currentState.character_stats || {},
-                        last_stat_deltas: currentState.last_stat_deltas || {}
+                        last_stat_deltas: currentState.last_stat_deltas || {},
+                        // SWARM SETTINGS (Narrative Level)
+                        // JSON round-trip strips Proxy wrappers, preventing IDB DataCloneError.
+                        swarmMode: currentState.swarmMode || false,
+                        swarmNarrativeCapital: JSON.parse(JSON.stringify(currentState.swarmNarrativeCapital || {})),
+                        swarmSecrets: JSON.parse(JSON.stringify(currentState.swarmSecrets || {})),
+                        swarmLastIntents: JSON.parse(JSON.stringify(currentState.swarmLastIntents || {}))
                     }
                 };
 
@@ -5194,7 +5242,8 @@
                         chat_history: [], messageCounter: 0,
                         static_entries: [{ id: UTILITY.uuid(), title: "World Overview", content: "The location for this roleplay as described in the character descriptions." }],
                         worldMap: { grid: UTILITY.createDefaultMapGrid(), currentLocation: { x: 4, y: 4 }, destination: { x: null, y: null }, path: [] },
-                        livingPersonaCounters: {}, evolved_characters: {}
+                        livingPersonaCounters: {}, evolved_characters: {},
+                        swarmMode: false, swarmNarrativeCapital: {}, swarmSecrets: {}, swarmLastIntents: {}
                     }
                 };
 
@@ -5305,7 +5354,8 @@
                         messageCounter: 0,
                         static_entries: scenario.static_entries ? JSON.parse(JSON.stringify(scenario.static_entries)) : [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }],
                         worldMap: scenario.worldMap ? JSON.parse(JSON.stringify(scenario.worldMap)) : { grid: UTILITY.createDefaultMapGrid(), currentLocation: { x: 4, y: 4 }, destination: { x: null, y: null }, path: [] },
-                        livingPersonaCounters: {}, evolved_characters: {}
+                        livingPersonaCounters: {}, evolved_characters: {},
+                        swarmMode: false, swarmNarrativeCapital: {}, swarmSecrets: {}, swarmLastIntents: {}
                     }
                 };
 
@@ -6737,7 +6787,9 @@
                     visual_master_base_prompt: "You are a visual director. Based on the provided chat history, characters, and location, generate a high-quality, vivid, and detailed image generation prompt that captures the current scene. Focus on atmosphere, lighting, and key subjects. Output ONLY the visual description.",
                     prompt_auto_static_knowledge: "You are an automated archivist. Analyze the recent conversation transcript and the EXISTING static knowledge base. Your goal is to keep the knowledge base up-to-date and concise.\n\nTASKS:\n1. Identify SIGNIFICANT new facts, rules, or lore established in the transcript.\n2. Review EXISTING entries to avoid redundancy.\n3. If a new fact updates or contradicts an existing entry, propose an update to that entry using its exact current Title.\n4. If a fact is completely new, propose a new entry.\n\nEXISTING KNOWLEDGE:\n{existing_knowledge}\n\nTRANSCRIPT:\n{transcript}\n\nOUTPUT FORMAT:\nRespond with a valid JSON object or array of objects: { \"title\": \"Exact Title\", \"content\": \"Updated or New Content\" }.\nIf no changes are needed, return { \"title\": null }.",
                     prompt_response_options_gen: "You are a master roleplayer and choose-your-own-adventure guide.\nBased on the current story context, characters, and the last response, generate 4 drastically different and divergent follow-up actions or responses strictly from the first-person perspective of the user character, {user_character}.\nEach option must take the narrative in a completely distinct direction. Ensure no two options are similar in tone, intent, or action.\nEach option should have a short, catchy 'label' (for a button) and a full 'prompt' (the text that will be sent to the AI if selected, written from the user character's perspective).\nLabels should be highly distinct and represent entirely different emotional or strategic paths (e.g., Aggressive Confrontation, Cautious Retreat, Clever Deception, Compassionate Inquiry).\n\nCONTEXT:\n{context}\n\nLAST RESPONSE:\n{last_response}\n\nRespond ONLY with a valid JSON array of objects: [{ \"label\": \"Short Action\", \"prompt\": \"The full detailed response text representing {user_character}'s action or dialogue.\" }]. Generate exactly 4 options.",
-                    prompt_stats_init: "You are analyzing a roleplay story to determine appropriate character stats for a game-like RPG system.\n\nSTORY CONTEXT:\n{context}\n\nCHARACTERS:\n{characters}\n\nTASK:\nGenerate 4 to 6 stats appropriate for this story's genre and setting, interpersonal relationships, and emotions. Each stat must have a brief one-sentence description explaining what it measures and how it can change. Each character should have unique values reflecting their strengths, weaknesses, and relationships. Values range 0-100.\n\nReturn valid JSON:\n{\n  \"stats\": [{\"name\": \"Stat1\", \"description\": \"Brief explanation of what this stat measures.\"}, {\"name\": \"Stat2\", \"description\": \"Brief explanation.\"}],\n  \"characters\": {\n    \"CharacterName1\": [val1, val2],\n    \"CharacterName2\": [val1, val2]\n  }\n}"
+                    prompt_stats_init: "You are analyzing a roleplay story to determine appropriate character stats for a game-like RPG system.\n\nSTORY CONTEXT:\n{context}\n\nCHARACTERS:\n{characters}\n\nTASK:\nGenerate 4 to 6 stats appropriate for this story's genre and setting, interpersonal relationships, and emotions. Each stat must have a brief one-sentence description explaining what it measures and how it can change. Each character should have unique values reflecting their strengths, weaknesses, and relationships. Values range 0-100.\n\nReturn valid JSON:\n{\n  \"stats\": [{\"name\": \"Stat1\", \"description\": \"Brief explanation of what this stat measures.\"}, {\"name\": \"Stat2\", \"description\": \"Brief explanation.\"}],\n  \"characters\": {\n    \"CharacterName1\": [val1, val2],\n    \"CharacterName2\": [val1, val2]\n  }\n}",
+                    swarm_scratchpad_prompt: "You are playing the part of {character_name}. You are privately evaluating the current scene. Let your emotions and personal history guide you.\n\n[YOUR PERSONA]\n{character_description}\n\n[PRIVATE SECRETS YOU HOLD]\n{character_secrets}\n\n[RECENT SCENE — LAST 5 EXCHANGES]\n{recent_history}\n\n[THE USER JUST DID]\n{user_action}\n\n[YOUR TASK]\nEvaluate this scene privately from your own perspective, considering your current motivations and desires. How does your personality influence what you want out of this interaction right now? Be emotionally driven and self-reflective.\n\nRespond with a paragraph of your deep, internal emotional chain-of-thought (never shown to others).",
+                    swarm_director_prompt: "You are the Scene Architect and Narrative Director. Your goal is to shape this scene's momentum, tension, and subtext.\n\n[RECENT NARRATIVE CONTEXT]\n{recent_history}\n\n[THE USER JUST DID]\n{user_action}\n\n[TOP CHARACTERS' INNER THOUGHTS]\n{winner_intents}\n\n[CHARACTER REFERENCE]\n{character_descriptions}\n\n[THE SELECTED SPEAKER]\nThe character chosen to respond next is: {primary_speaker}\n\n[YOUR ARCHITECTURE]\nReview the competing internal thoughts of the characters. Your job is to give a stage direction ONLY for the selected speaker ({primary_speaker}) that pushes things in a compelling direction, builds upon complex character relationships, and lets their internal thoughts bleed through into their next actions.\n\nDirecting Principles:\n- Subtext & Tone: Tell them *how* to play it (e.g., 'Do it with a hint of sarcasm to mask your fear', 'Let your true anger bleed through your polite words').\n- Conflict & Tension: Use their intentions, combined with the secrets of others, to push the scene toward its most interesting path.\n- Perspective: Use second person ('You [verb]...')."
                 };
             },
             /**
@@ -7488,6 +7540,131 @@ You must respond with a raw JSON object containing a "characters" array with exa
                 "opening_message": "The opening lines of the scene...",
                 "scenario_lore": "Static lore describing the scene..."
             }`;
+            },
+
+            /**
+             * Builds the hidden scratchpad prompt for a single character agent.
+             * Contains ONLY this character's private knowledge — no other character's internals.
+             * The reasoning field in the output is STRIPPED by SwarmOrchestrator before forwarding to the Director.
+             * @param {Object} char - The character object.
+             * @param {string} userAction - The user's submitted action text.
+             * @param {Object} state - The reactive narrative state.
+             * @returns {string}
+             */
+            buildSwarmScratchpadPrompt(char, userAction, state) {
+                const promptTemplate = state.swarm_scratchpad_prompt || UTILITY.getDefaultSystemPrompts().swarm_scratchpad_prompt;
+
+                // Get the last 5 visible chat messages for context
+                const recentHistory = (state.chat_history || [])
+                    .filter(m => m && m.type === 'chat' && !m.isHidden)
+                    .slice(-5)
+                    .map(m => {
+                        const speaker = ReactiveStore.getCharacter(m.character_id);
+                        return `${speaker ? speaker.name : 'Unknown'}: ${m.content}`;
+                    }).join('\n');
+
+                const ncEntry = (state.swarmNarrativeCapital || {})[char.id] || { balance: 100, max: 100 };
+                const descSource = (state.evolved_characters && state.evolved_characters[char.id])
+                    ? state.evolved_characters[char.id]
+                    : (char.description || '');
+
+                const secrets = (state.swarmSecrets || {})[char.id] || 'No special secrets defined.';
+
+                return promptTemplate
+                    .replace(/\{character_name\}/g, char.name)
+                    .replace(/\{character_description\}/g, descSource.substring(0, 1200))
+                    .replace(/\{character_secrets\}/g, secrets)
+                    .replace(/\{recent_history\}/g, recentHistory)
+                    .replace(/\{user_action\}/g, userAction)
+                    .replace(/\{nc_current\}/g, String(Math.round(ncEntry.balance)))
+                    .replace(/\{nc_max\}/g, String(ncEntry.max || 100));
+            },
+
+            /**
+             * Builds the Director prompt from the winning agents' intents.
+             * CRITICAL: Only the 'intent' field from each agent is forwarded — NOT 'reasoning'.
+             * The Director receives no scratchpad internal monologue.
+             * The Director now returns a JSON directive list, not prose.
+             * @param {string} userAction
+             * @param {Array<{char, result, bid}>} winners
+             * @param {Object} state
+             * @returns {string}
+             */
+            buildSwarmDirectorPrompt(userAction, winners, state) {
+                const promptTemplate = state.swarm_director_prompt || UTILITY.getDefaultSystemPrompts().swarm_director_prompt;
+
+                // Recent history — last 8 messages for narrative flow context
+                const recentHistory = (state.chat_history || [])
+                    .filter(m => m && m.type === 'chat' && !m.isHidden)
+                    .slice(-8)
+                    .map(m => {
+                        const speaker = ReactiveStore.getCharacter(m.character_id);
+                        return `${speaker ? speaker.name : 'Unknown'}: ${m.content}`;
+                    }).join('\n\n');
+
+                // Winner intents & Private reflection (Leaked ONLY to the Director)
+                const winnerIntents = winners.map(w =>
+                    `* Character: ${w.char.name}\n  - Inner Thoughts: "${w.result.reflection}"`
+                ).join('\n\n');
+
+                // ID list so the Director can reference exact character IDs in JSON output
+                const winnerCharIds = winners.map(w =>
+                    `${w.char.name} → id: "${w.char.id}"`
+                ).join('\n');
+
+                // Brief character descriptions (active AI chars only)
+                const activeAiChars = [...(state.characters || []), ...ReactiveStore.getActiveLocationCharacters()]
+                    .filter(c => !c.is_user && c.is_active);
+                const charDescriptions = activeAiChars.map(c => {
+                    const desc = (state.evolved_characters && state.evolved_characters[c.id])
+                        ? state.evolved_characters[c.id]
+                        : (c.description || '');
+                    return `${c.name}: ${desc.substring(0, 300)}`;
+                }).join('\n\n');
+
+                // In the new flow, 'winners' includes all candidates. The 'primarySpeaker' is passed via state, or we default.
+                const primarySpeakerName = state.swarmPrimarySpeaker ? state.swarmPrimarySpeaker.name : "the primary character";
+
+                return promptTemplate
+                    .replace(/\{recent_history\}/g, recentHistory)
+                    .replace(/\{user_action\}/g, userAction)
+                    .replace(/\{winner_intents\}/g, winnerIntents)
+                    .replace(/\{winner_char_ids\}/g, winnerCharIds)
+                    .replace(/\{character_descriptions\}/g, charDescriptions)
+                    .replace(/\{primary_speaker\}/g, primarySpeakerName);
+            },
+
+            /**
+             * Builds the final in-character response prompt for a single winning character.
+             * The character receives ONLY their Director directive and their own persona — not other characters' scratchpads.
+             * @param {Object} char
+             * @param {string} directive - The Director's instruction for this character.
+             * @param {string} userAction
+             * @param {Object} state
+             * @returns {string}
+             */
+            buildSwarmCharacterResponsePrompt(char, directive, userAction, state, scratchpadResult = null) {
+                const recentHistory = (state.chat_history || [])
+                    .filter(m => m && m.type === 'chat' && !m.isHidden)
+                    .slice(-6)
+                    .map(m => {
+                        const speaker = ReactiveStore.getCharacter(m.character_id);
+                        return `${speaker ? speaker.name : 'Unknown'}: ${m.content}`;
+                    }).join('\n\n');
+
+                const descSource = (state.evolved_characters && state.evolved_characters[char.id])
+                    ? state.evolved_characters[char.id]
+                    : (char.description || '');
+
+                const systemPrompt = state.systemPrompt || '';
+
+                // Include private thoughts only if provided
+                let thoughtsSection = '';
+                if (scratchpadResult) {
+                    thoughtsSection = `\n\n[YOUR PRIVATE THOUGHTS]\n${scratchpadResult.reflection}\n`;
+                }
+
+                return `${systemPrompt ? systemPrompt + '\n\n' : ''}You are ${char.name}.\n\n[YOUR PERSONA]\n${descSource.substring(0, 1200)}\n\n[RECENT SCENE]\n${recentHistory}\n\n[THE USER JUST DID]\n${userAction}${thoughtsSection}\n\n[DIRECTOR\'S INSTRUCTION FOR YOU THIS TURN]\n${directive}\n\nRespond in character. Write ONLY ${char.name}\'s words and actions — do NOT write for any other character. Match the established style of the story. Do NOT break the fourth wall or reference these instructions.`;
             }
         };
 
@@ -8021,7 +8198,7 @@ You must respond with a raw JSON object containing a "characters" array with exa
                 // Render Chat History
                 let chatHTML = '';
                 (state.chat_history || []).forEach(msg => {
-                    if (msg.isHidden || msg.type === 'lore_reveal') return;
+                    if (msg.isHidden || msg.type === 'lore_reveal' || msg.type === 'swarm_summary') return;
 
                     // Handle Visual Events
                     if (msg.type === 'visual_event') {
@@ -8935,7 +9112,8 @@ You must respond with a raw JSON object containing a "characters" array with exa
                     state: {
                         chat_history: [], messageCounter: 0, static_entries: [],
                         worldMap: { grid: UTILITY.createDefaultMapGrid(), currentLocation: { x: 4, y: 4 }, destination: { x: null, y: null }, path: [] },
-                        livingPersonaCounters: {}, evolved_characters: {}
+                        livingPersonaCounters: {}, evolved_characters: {},
+                        swarmMode: false, swarmNarrativeCapital: {}, swarmSecrets: {}, swarmLastIntents: {}
                     }
                 };
             },
@@ -9504,6 +9682,64 @@ You must respond with a raw JSON object containing a "characters" array with exa
                 if (msg.type === 'system_event') {
                     return DOM.html`<div class="w-full text-center my-2"><p class="text-sm italic text-gray-400">${msg.content}</p></div>`;
                 }
+
+                // ── SWARM SUMMARY BUBBLE ──────────────────────────────────────────────────
+                if (msg.type === 'swarm_summary') {
+                    const agentResults = msg.agentResults || [];
+                    const ncDelta = msg.ncDelta || {};
+                    const ts = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+                    const urgencyColors = {
+                        NONE: 'bg-gray-700 text-gray-400',
+                        LOW: 'bg-blue-900/70 text-blue-300',
+                        MODERATE: 'bg-amber-900/70 text-amber-300',
+                        HIGH: 'bg-orange-900/70 text-orange-300',
+                        ABSOLUTE: 'bg-red-900/80 text-red-300'
+                    };
+
+                    const agentRows = agentResults.map(a => {
+                        const urgency = (a.urgency || 'NONE').toUpperCase();
+                        const colorClass = urgencyColors[urgency] || urgencyColors.NONE;
+                        const ncInfo = ncDelta[a.charId] || {};
+                        const ncStr = (ncInfo.remaining !== undefined)
+                            ? `<span class="text-gray-500 text-[10px] ml-2">NC ${ncInfo.remaining} (${ncInfo.spent > 0 ? '-' + ncInfo.spent : '≈'})</span>`
+                            : '';
+                        const intentText = UTILITY.escapeHTML(a.intent || '…');
+                        return `<div class="flex items-start gap-2 py-1.5 border-t border-white/5 first:border-t-0">
+                            <span class="shrink-0 font-medium text-gray-300 text-xs w-20 truncate" title="${UTILITY.escapeHTML(a.charName)}">${UTILITY.escapeHTML(a.charName)}</span>
+                            <span class="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${colorClass}">${urgency}</span>
+                            ${ncStr}
+                            <span class="text-gray-400 text-xs italic flex-1">${intentText}</span>
+                        </div>`;
+                    }).join('');
+
+                    const vacuumBadge = msg.vacuumTriggered
+                        ? '<span class="text-[10px] bg-violet-900/60 text-violet-300 font-bold px-2 py-0.5 rounded uppercase ml-2">Vacuum</span>'
+                        : '';
+
+                    const summaryId = `swarm-summary-${index}`;
+                    return DOM.html`<div class="chat-bubble-container w-full my-2 flex justify-center" data-message-index="${index}">
+                        <div class="swarm-summary-card w-full max-w-2xl" id="${summaryId}">
+                            <button class="swarm-summary-toggle w-full flex items-center gap-2 text-left px-3 py-2 rounded-t-lg bg-gray-900/60 border border-indigo-900/40 hover:bg-gray-900/80 transition-colors"
+                                onclick="this.closest('.swarm-summary-card').classList.toggle('swarm-open')">
+                                <svg class="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/>
+                                </svg>
+                                <span class="text-[11px] font-semibold text-indigo-400 uppercase tracking-wider">Swarm Deliberation</span>
+                                ${DOM.unsafe(vacuumBadge)}
+                                <span class="ml-auto text-[10px] text-gray-600">${ts}</span>
+                                <svg class="swarm-chevron w-3 h-3 text-gray-500 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
+                            </button>
+                            <div class="swarm-summary-body hidden px-3 py-2 bg-gray-950/60 border border-t-0 border-indigo-900/30 rounded-b-lg">
+                                ${DOM.unsafe(agentRows || '<p class="text-gray-600 text-xs italic">No agent data.</p>')}
+                            </div>
+                        </div>
+                    </div>`;
+                }
+                // ── END SWARM SUMMARY BUBBLE ──────────────────────────────────────────────
 
                 const character = ReactiveStore.getCharacter(msg.character_id);
                 if (!character) return '';
@@ -10846,23 +11082,23 @@ You must respond with a raw JSON object containing a "characters" array with exa
                     }
                     return;
                 }
-                
+
                 // Deselect previously selected items
                 document.querySelectorAll('.narrative-item.selected').forEach(el => {
                     el.classList.remove('selected', 'ring-2', 'ring-sky-500', 'bg-gray-700/80');
                 });
-                
+
                 // Highlight the new selection
                 if (element) {
                     element.classList.add('selected', 'ring-2', 'ring-sky-500', 'bg-gray-700/80');
                 }
-                
+
                 // Show actions container
                 const actionsContainer = document.getElementById('narrative-active-actions');
                 if (actionsContainer) {
                     actionsContainer.classList.remove('hidden');
                 }
-                
+
                 // Update datasets for controls
                 const actions = ['load', 'duplicate', 'elevate', 'delete'];
                 actions.forEach(action => {
@@ -12340,6 +12576,8 @@ You must respond with a raw JSON object containing a "characters" array with exa
 
                 // 4. Legacy Web URL Fallback
                 if (character.image_url && !character.image_url.startsWith('local_idb_')) {
+                    // Defensive Safeguard: Prevent literal placeholder strings from being treated as URLs
+                    if (character.image_url.includes('${imgSrc}')) return null;
                     return character.image_url;
                 }
 
@@ -13819,8 +14057,26 @@ You must respond with a raw JSON object containing a "characters" array with exa
                         'prompt_location_gen': 'Generates a location\'s detailed prompt. Variables: {name}, {description}',
                         'prompt_entry_gen': 'Used for Static/Dynamic memory entries. Variables: {title}, {triggers}',
                         'prompt_location_memory_gen': 'Auto-summarizes events when leaving a location. Variable: {transcript}',
-                        'prompt_auto_static_knowledge': 'Runs in background every 6 turns to generate static knowledge. Variables: {transcript}, {existing_knowledge}'
+                        'prompt_auto_static_knowledge': 'Runs in background every 6 turns to generate static knowledge. Variables: {transcript}, {existing_knowledge}',
+                        'swarm_scratchpad_prompt': 'Swarm Mode: Private scratchpad for each character agent. Variables: {character_name}, {character_description}, {character_secrets}, {recent_history}, {user_action}, {nc_current}, {nc_max}',
+                        'swarm_director_prompt': 'Swarm Mode: Director agent that resolves all character intents into a single prose scene. Variables: {recent_history}, {user_action}, {winner_intents}, {character_descriptions}'
                     };
+
+                    // Dynamically add Swarm prompts to the selector if not already present
+                    if (promptSelector) {
+                        const existingKeys = Array.from(promptSelector.options).map(o => o.value);
+                        if (!existingKeys.includes('swarm_scratchpad_prompt')) {
+                            const optGroup = document.createElement('optgroup');
+                            optGroup.label = 'Swarm Mode';
+                            ['swarm_scratchpad_prompt', 'swarm_director_prompt'].forEach(key => {
+                                const opt = document.createElement('option');
+                                opt.value = key;
+                                opt.textContent = key === 'swarm_scratchpad_prompt' ? 'Swarm Scratchpad' : 'Swarm Director';
+                                optGroup.appendChild(opt);
+                            });
+                            promptSelector.appendChild(optGroup);
+                        }
+                    }
 
                     const savePromptChange = debounce(() => {
                         if (typeof ReactiveStore.forceSave === 'function') ReactiveStore.forceSave();
@@ -13924,6 +14180,20 @@ You must respond with a raw JSON object containing a "characters" array with exa
                         if (typeof ReactiveStore.forceSave === 'function') ReactiveStore.forceSave();
                     });
                 }
+
+                // ── SWARM MODE SETTINGS WIRING ──────────────────────────────────────────
+                const swarmToggle = document.getElementById('swarm-mode-toggle');
+                if (swarmToggle) {
+                    swarmToggle.checked = state.swarmMode === true;
+                    // Use cloneNode to strip any previous listener before re-attaching
+                    const freshToggle = swarmToggle.cloneNode(true);
+                    swarmToggle.parentNode.replaceChild(freshToggle, swarmToggle);
+                    freshToggle.checked = state.swarmMode === true;
+                    freshToggle.addEventListener('change', (e) => {
+                        NarrativeController.setSwarmMode(e.target.checked);
+                    });
+                }
+                // ── END SWARM MODE SETTINGS WIRING ──────────────────────────────────────
 
                 // Font Selector
                 const fontSelector = document.getElementById('font-selector');
@@ -17567,6 +17837,294 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
 
         /**
          * =================================================================================================
+         * [SEC:JS:CTRL:SWM]
+         * SwarmOrchestrator
+         * Multi-Agent Swarm engine. Orchestrates per-character hidden scratchpad calls,
+         * the Narrative Capital (NC) economy arbitration, and the Director synthesis phase.
+         * All swarm metadata is ephemeral — it is NEVER injected into the permanent LLM context.
+         * =================================================================================================
+         */
+        const SwarmOrchestrator = {
+
+            // ── PHASE 1: BROADCAST ────────────────────────────────────────────────────
+
+
+            /**
+             * Fires a single character's hidden scratchpad prompt.
+             * The scratchpad reflection is NEVER stored in state — only the structured result is used.
+             * @param {Object} char - The character object.
+             * @param {string} userAction - The user's submitted action text.
+             * @param {Object} state - The reactive narrative state.
+             * @param {AbortSignal} signal
+             * @returns {Promise<{reflection: string, intent: string, secret_used: boolean}>}
+             */
+            async _runAgentScratchpad(char, userAction, state, signal) {
+                const prompt = PromptBuilder.buildSwarmScratchpadPrompt(char, userAction, state);
+
+                try {
+                    console.log(`%c[Swarm Thinking] Calling Scratchpad for ${char.name}...`, "color: #94a3b8; font-style: italic;");
+                    const rawResponse = await APIService.callAI(prompt, false, signal);
+                    if (!rawResponse) throw new Error('Empty scratchpad response.');
+                    console.log(`%c[Swarm Thinking] ${char.name} Raw:`, "color: #64748b; font-size: 10px;", rawResponse);
+
+                    // Just return the raw prose response as the reflection
+                    return {
+                        reflection: rawResponse.trim(),
+                        intent: rawResponse.trim(), // Keep intent populated so state maps don't break
+                        secret_used: false
+                    };
+                } catch (e) {
+                    if (e.name === 'AbortError') throw e;
+                    console.warn(`SwarmOrchestrator: Scratchpad call failed for ${char.name}:`, e.message);
+                    // Graceful degradation: agent defaults to passive observation
+                    return { reflection: `${char.name} watches silently.`, intent: `${char.name} stays silent.`, secret_used: false };
+                }
+            },
+
+            /**
+             * Broadcasts the user action to a specific set of AI characters simultaneously via Promise.all().
+             * The character set is pre-filtered by determineSwarmCandidates() before this is called.
+             * On single-threaded local backends (KoboldCPP), requests queue automatically.
+             * Failed agents degrade gracefully to NONE urgency.
+             * @param {string} userAction
+             * @param {Object} state
+             * @param {AbortSignal} signal
+             * @param {Object[]|null} candidates - Pre-filtered character objects to broadcast to.
+             *   If null, falls back to the full active AI pool (legacy/vacuum path only).
+             * @returns {Promise<Array<{char, result}>>}
+             */
+            async broadcast(userAction, state, signal, candidates = null) {
+                const activeAiChars = candidates || (
+                    [...(state.characters || []), ...ReactiveStore.getActiveLocationCharacters()]
+                        .filter(c => !c.is_user && !c.is_narrator && c.is_active)
+                );
+
+                if (activeAiChars.length === 0) return [];
+
+                console.log(`[Swarm] Broadcasting to ${activeAiChars.length} agent(s):`, activeAiChars.map(c => c.name));
+
+                const agentPromises = activeAiChars.map(char =>
+                    this._runAgentScratchpad(char, userAction, state, signal)
+                        .then(result => {
+                            console.log(`%c[Swarm Thinking] ${char.name} (Result):`, "color: #10b981; font-weight: bold;", result);
+                            return { char, result };
+                        })
+                        .catch(err => {
+                            if (err.name === 'AbortError') throw err;
+                            console.error(`%c[Swarm Thinking] ${char.name} (Error):`, "color: #ef4444;", err);
+                            return { char, result: { urgency_level: 'NONE', intent: `${char.name} stays silent.`, secret_used: false } };
+                        })
+                );
+
+                const results = await Promise.all(agentPromises);
+                console.groupEnd();
+                return results;
+            },
+
+            // ── PHASE 2: DIRECTOR → CHARACTER RESPONSES ──────────────────────────────
+
+            /**
+             * Calls the Director agent to get a stage direction for the primary speaker.
+             * @param {string} userAction
+             * @param {Array<{char, result}>} agentResults - Scratchpads from all active candidates
+             * @param {Object} primarySpeaker - The character selected to respond
+             * @param {Object} state
+             * @param {AbortSignal} signal
+             * @returns {Promise<string>} The directive string
+             */
+            async direct(userAction, agentResults, primarySpeaker, state, signal) {
+                if (!agentResults || agentResults.length === 0 || !primarySpeaker) {
+                    throw new Error('[Swarm] direct() called with empty context.');
+                }
+
+                // Expose the primary speaker to the builder via state
+                state.swarmPrimarySpeaker = primarySpeaker;
+                const prompt = PromptBuilder.buildSwarmDirectorPrompt(userAction, agentResults, state);
+                state.swarmPrimarySpeaker = null; // cleanup
+
+                console.groupCollapsed("%c[Swarm Director] Prompt Details", "color: #818cf8; font-weight: bold;");
+                console.log(prompt);
+                console.groupEnd();
+
+                const raw = await APIService.callAI(prompt, false, signal);
+                if (!raw || !raw.trim()) throw new Error('Director returned empty response.');
+                console.log("%c[Swarm Director] Raw Response:", "color: #64748b; font-size: 10px;", raw);
+
+                try {
+                    const parsed = UTILITY.extractAndParseJSON(raw);
+                    if (parsed && parsed.directive) {
+                        if (parsed.reasoning) {
+                            console.log("%c[Swarm Director Reasoning]:", "color: #818cf8; font-weight: bold; font-size: 11px;", parsed.reasoning);
+                        }
+                        return parsed.directive;
+                    }
+                } catch (e) {
+                    console.warn('[Swarm Director] JSON parse failed, using raw response:', e.message);
+                }
+
+                return raw; // Fallback to raw text if it wasn't valid JSON
+            },
+
+            /**
+             * Executes a single winning character's final in-character response call.
+             * @param {Object} char
+             * @param {string} directive - The Director's instruction for this character.
+             * @param {string} userAction
+             * @param {Object} state
+             * @param {AbortSignal} signal
+             * @returns {Promise<string>} The character's in-character prose response.
+             */
+            async _executeDirective(char, directive, userAction, state, signal, scratchpadResult = null) {
+                const prompt = PromptBuilder.buildSwarmCharacterResponsePrompt(char, directive, userAction, state, scratchpadResult);
+
+                console.groupCollapsed(`%c[Swarm Phase 4] Character Response: ${char.name}`, "color: #ec4899; font-weight: bold;");
+                console.log("%cDirective:", "color: #f472b6; font-weight: bold;", directive);
+                console.log("%cFull Prompt:", "color: #94a3b8; font-size: 10px;", prompt);
+                console.groupEnd();
+
+                const raw = await APIService.callAI(prompt, false, signal);
+                if (!raw || !raw.trim()) throw new Error(`${char.name} returned an empty response.`);
+
+                let prose = raw.trim();
+
+                // Apply text formatting if a style is set
+                try {
+                    if (state.responseStyle === 'prose') {
+                        prose = TextFormatter.toProse(prose);
+                    } else if (state.responseStyle === 'roleplay') {
+                        prose = TextFormatter.toRoleplay(prose);
+                    }
+                } catch (e) {
+                    console.warn(`[Swarm] TextFormatter error for ${char.name}:`, e);
+                }
+
+                return prose;
+            },
+
+            // ── VACUUM TRIGGER ────────────────────────────────────────────────────────
+
+            /**
+             * Handles the "Silent Room" case — all bids were zero.
+             * Provides minimal environmental narration.
+             * @param {Object} state
+             * @param {AbortSignal} signal
+             * @returns {Promise<string>} Environmental narration prose.
+             */
+            async handleVacuumTrigger(state, signal) {
+                const recentHistory = (state.chat_history || [])
+                    .filter(m => m && m.type === 'chat' && !m.isHidden)
+                    .slice(-5)
+                    .map(m => {
+                        const char = ReactiveStore.getCharacter(m.character_id);
+                        return `${char ? char.name : 'Unknown'}: ${m.content}`;
+                    }).join('\n');
+
+                const prompt = `You are a minimalist narrator. The scene has gone quiet — none of the characters feel compelled to act right now. Write 2–3 short sentences describing the physical environment and the tension in the room. Do NOT write dialogue. Do NOT have characters act. Capture the silence and weight of the moment.\n\nRECENT CONTEXT:\n${recentHistory}`;
+
+                const narration = await APIService.callAI(prompt, false, signal);
+                return narration ? narration.trim() : '*The silence stretches on. Nobody moves.*';
+            },
+
+            // ── MAIN ENTRY POINT ──────────────────────────────────────────────────────
+
+            /**
+             * Executes a full swarm turn: Broadcast → Direct → CharacterResponse.
+             * Returns an array of character responses (each to be rendered as a separate bubble)
+             * plus swarm metadata.
+             * @param {string} userAction - The user's submitted message.
+             * @param {Object} state - The reactive narrative state.
+             * @param {AbortSignal} signal - AbortController signal for cancellation.
+             * @returns {Promise<{
+             *   charResponses: Array<{char: Object, prose: string}>,
+             *   winners: Array,
+             *   agentResults: Array,
+             *   vacuumTriggered: boolean
+             * }>}
+             */
+            async runTurn(userAction, state, signal) {
+                console.group(`%c[Swarm Turn] "${userAction || 'Generate Next'}"`, "background: #1e1b4b; color: #818cf8; padding: 4px 8px; border-radius: 4px; font-weight: bold;");
+
+                // ── Phase 0: Cast ───────────────────────────────────────────────────────────
+                // Ask the Scriptwriter to narrow the pool to the top 3 and pick the primary speaker.
+                let candidates = [];
+                let primarySpeaker = null;
+                try {
+                    const result = await NarrativeController.determineSwarmSpeakerAndCandidates();
+                    candidates = result.candidates;
+                    primarySpeaker = result.primarySpeaker;
+                } catch (e) {
+                    console.warn('[Swarm] Casting failed, using full pool (capped at 3):', e.message);
+                    candidates = [...(state.characters || []), ...ReactiveStore.getActiveLocationCharacters()]
+                        .filter(c => !c.is_user && !c.is_narrator && c.is_active)
+                        .slice(0, 3);
+                    primarySpeaker = candidates[0];
+                }
+
+                if (!primarySpeaker) {
+                    throw new Error('No primary speaker could be determined for the swarm.');
+                }
+
+                // ── Phase 0.5: Narrator Bypass ──────────────────────────────────────────────
+                if (primarySpeaker.is_narrator) {
+                    console.log(`%c[Swarm Phase 0.5] Narrator selected (${primarySpeaker.name}). Bypassing thoughts and director.`, "color: #f59e0b; font-weight: bold;");
+                    const prompt = PromptBuilder.buildPrompt(primarySpeaker.id, false);
+                    const raw = await APIService.callAI(prompt, false, signal);
+                    if (!raw || !raw.trim()) throw new Error('Narrator returned empty response.');
+                    
+                    let prose = raw.trim();
+                    if (state.responseStyle === 'prose' && window.TextFormatter) prose = window.TextFormatter.toProse(prose);
+                    else if (state.responseStyle === 'roleplay' && window.TextFormatter) prose = window.TextFormatter.toStrictRoleplay(prose, primarySpeaker.name);
+
+                    return {
+                        charResponses: [{ char: primarySpeaker, prose }],
+                        winners: [],
+                        agentResults: [],
+                        vacuumTriggered: false
+                    };
+                }
+
+                if (!candidates || candidates.length === 0) {
+                    throw new Error('No active AI characters available to participate in the swarm broadcast.');
+                }
+
+                console.log(`[Swarm] Cast for this turn (${candidates.length}):`, candidates.map(c => c.name), ` | Primary: ${primarySpeaker.name}`);
+
+                // Phase 1: Broadcast to candidates to get their deep reflections
+                console.groupCollapsed("%c[Swarm Phase 1] Emotional Reflection", "color: #10b981; font-weight: bold;");
+                const agentResults = await this.broadcast(userAction, state, signal, candidates);
+                console.groupEnd();
+
+                // Phase 2: Director synthesizes thoughts and yields directive to primary speaker
+                const directive = await this.direct(userAction, agentResults, primarySpeaker, state, signal);
+                console.log(`[Swarm] Director issued directive to ${primarySpeaker.name}:`, directive);
+
+                // Keep track of intents to provide back-end continuity
+                state.swarmLastIntents = state.swarmLastIntents || {};
+                agentResults.forEach(r => state.swarmLastIntents[r.char.id] = r.result.intent);
+
+                // Phase 3: Primary character responds
+                const charResponses = [];
+                const primaryScratchpad = agentResults.find(r => r.char.id === primarySpeaker.id)?.result || null;
+                try {
+                    const prose = await this._executeDirective(primarySpeaker, directive, userAction, state, signal, primaryScratchpad);
+                    charResponses.push({ char: primarySpeaker, prose });
+                } catch (e) {
+                    if (e.name === 'AbortError') throw e;
+                    console.warn(`[Swarm] ${primarySpeaker.name} response failed:`, e.message);
+                }
+
+                if (charResponses.length === 0) {
+                    throw new Error('Character response failed. The swarm yielded no output.');
+                }
+
+                console.groupEnd(); // [Swarm Turn]
+                return { charResponses, winners: [{ char: primarySpeaker, result: primaryScratchpad }], agentResults, vacuumTriggered: false };
+            }
+        };
+
+
+        /**
+         * =================================================================================================
          * [SEC:JS:CTRL:NAR]
          * NarrativeController
          * The primary engine for managing chat interactions, AI generation, and narrative flow.
@@ -17618,12 +18176,19 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
                         UIManager.RUNTIME.streamingInterval = null;
                     }
 
+                    const state = ReactiveStore.state;
+
                     const selectorElement = document.getElementById('ai-character-selector');
                     let selectorVal = selectorElement.value;
                     const forceEventMaster = selectorVal === 'event_master';
 
-                    // 1. Run Event Master (BLOCKING)
-                    // Trigger Event Master for this turn as well
+                    // 1. If swarm mode is active and no specific character is forced, bypass standard pipeline entirely
+                    if (state.swarmMode && typeof SwarmOrchestrator !== 'undefined' && selectorVal === 'any') {
+                        await this._executeSwarmTurn('');
+                        return;
+                    }
+
+                    // 2. Run Event Master (BLOCKING)
                     await this.checkEventMaster(forceEventMaster);
 
                     if (forceEventMaster) {
@@ -17631,24 +18196,20 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
                         selectorVal = 'any';
                     }
 
-                    // 2. Run Visual Master & Speaker Selection (Concurrent)
-                    // We match the logic in sendMessage() for consistency
+                    // 3. Run Visual Master & Speaker Selection (Concurrent)
                     let speakerPromise = null;
                     if (selectorVal === 'any') {
-                        // Auto-select: Launch the AI selector task
                         speakerPromise = this.determineNextSpeaker(false);
                     } else {
-                        // Manual select: Resolve immediately
                         speakerPromise = Promise.resolve(selectorVal);
                     }
 
-                    // B. Run Visual Master (Concurrent)
                     let visualBlocker = null;
                     if (typeof VisualMaster !== 'undefined') {
                         visualBlocker = VisualMaster.checkTrigger();
                     }
 
-                    // 3. Trigger Character Response
+                    // 4. Trigger standard single-character response
                     await this.triggerAIResponse(speakerPromise, '', false, null, visualBlocker);
                 } else {
                     this.sendMessage();
@@ -18077,6 +18638,68 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
              * Sends a user message.
              * Adds the message, checks triggers, runs Event Master, and triggers AI response.
              */
+            /**
+             * Executes a full multi-agent swarm turn.
+             * Encapsulates orchestration, response streaming, and post-turn analysis.
+             * Called from both sendMessage() (text present) and handlePrimaryAction() (empty input pass-turn).
+             * @param {string} userMessage - The user's input text (may be empty string for a pass-turn).
+             */
+            async _executeSwarmTurn(userMessage) {
+                const state = ReactiveStore.state;
+                if (!this._isModelConfigured(state)) {
+                    this.addSystemMessageToHistory('AI model not configured. Check Settings.');
+                    return;
+                }
+
+                UIManager.showLoadingSpinner('Swarm deliberating\u2026');
+                UIManager.setButtonToStopMode();
+                this.RUNTIME.activeRequestAbortController = new AbortController();
+
+                try {
+                    const result = await SwarmOrchestrator.runTurn(
+                        userMessage,
+                        state,
+                        this.RUNTIME.activeRequestAbortController.signal
+                    );
+                    UIManager.hideLoadingSpinner();
+
+                    // Commit each character response as a separate chat bubble, in order.
+                    let lastCharId = null;
+                    let lastIndex = -1;
+                    for (const { char, prose } of result.charResponses) {
+                        this.startStreamingResponse(char.id, prose, 'neutral');
+                        lastCharId = char.id;
+                        lastIndex = state.chat_history.length - 1;
+                    }
+
+                    // Post-turn emotion analysis on the last character's bubble.
+                    if (lastCharId !== null && lastIndex >= 0) {
+                        const lastProse = result.charResponses[result.charResponses.length - 1]?.prose || '';
+                        this.analyzeTurn(lastProse, lastCharId).then(aiAnalysis => {
+                            const msg = state.chat_history[lastIndex];
+                            if (msg && msg.type === 'chat') {
+                                msg.emotion = aiAnalysis.emotion;
+                                if (state.characterImageMode === 'bubble') {
+                                    this.updateMessagePortrait(lastIndex, lastCharId, aiAnalysis.emotion);
+                                }
+                            }
+                        }).catch(err => console.warn('[Swarm] Post-turn analysis failed:', err));
+                    }
+
+                } catch (error) {
+                    UIManager.hideLoadingSpinner();
+                    if (error.name === 'AbortError') {
+                        console.log('[Swarm] Generation stopped by user.');
+                    } else {
+                        this.addSystemMessageToHistory(`Swarm Error: ${error.message}`);
+                    }
+                } finally {
+                    UIManager.setButtonToSendMode();
+                    this.RUNTIME.activeRequestAbortController = null;
+                    UIManager.hideLoadingSpinner();
+                }
+            },
+
             async sendMessage() {
                 if (this.RUNTIME.activeRequestAbortController) {
                     this.stopGeneration();
@@ -18116,6 +18739,15 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                 let selectorVal = selectorElement.value;
                 const forceEventMaster = selectorVal === 'event_master';
 
+                // ── SWARM MODE BRANCH ─────────────────────────────────────────────────────
+                // When swarm mode is active, delegate entirely to _executeSwarmTurn UNLESS a specific character is forced.
+                // The standard Event Master / Speaker Selection path is NOT executed.
+                if (state.swarmMode && typeof SwarmOrchestrator !== 'undefined' && selectorVal === 'any') {
+                    await this._executeSwarmTurn(messageContent);
+                    return; // EXIT EARLY — do not fall through to standard path
+                }
+                // ── END SWARM MODE BRANCH ─────────────────────────────────────────────────
+
                 // 3. Run Event Master (BLOCKING)
                 // This "cuts in line" before the character replies.
                 await this.checkEventMaster(forceEventMaster);
@@ -18153,6 +18785,7 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
 
                 // 5. Cleanup / Auto-Save logic is handled by ReactiveStore
             },
+
 
             // --- Streaming & UI ---
 
@@ -18385,6 +19018,88 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                     container.classList.add('hidden');
                 }
 
+                // ── SWARM REGEN BRANCH ─────────────────────────────────────────────────
+                // Re-runs ONLY the Director using cached swarmLastIntents.
+                // This preserves the agent deliberation but generates fresh prose.
+                if (state.swarmMode && typeof SwarmOrchestrator !== 'undefined' &&
+                    state.swarmLastIntents && Object.keys(state.swarmLastIntents).length > 0) {
+
+                    if (!this._isModelConfigured(state)) {
+                        this.addSystemMessageToHistory("AI model not configured. Check Settings.");
+                        return;
+                    }
+
+                    UIManager.showLoadingSpinner('Director rethinking…');
+                    UIManager.setButtonToStopMode();
+                    this.RUNTIME.activeRequestAbortController = new AbortController();
+
+                    try {
+                        // Reconstruct winner objects from the cached last intents
+                        const allAiChars = [...(state.characters || []), ...ReactiveStore.getActiveLocationCharacters()]
+                            .filter(c => !c.is_user && c.is_active);
+
+                        const cachedWinners = allAiChars
+                            .filter(c => state.swarmLastIntents[c.id])
+                            .map(c => ({
+                                char: c,
+                                result: { urgency_level: 'HIGH', intent: state.swarmLastIntents[c.id] },
+                                bid: 1
+                            }));
+
+                        if (cachedWinners.length === 0) throw new Error('No cached intents to regen from.');
+
+                        // Find the last user message for context
+                        const lastUserMsg = [...(state.chat_history || [])].reverse()
+                            .find(m => m.type === 'chat' && ReactiveStore.getCharacter(m.character_id)?.is_user);
+                        const lastUserContent = lastUserMsg ? lastUserMsg.content : '';
+
+                        // Phase 3b: Re-run Director with cached intents
+                        const orderedDirectives = await SwarmOrchestrator.direct(
+                            lastUserContent,
+                            cachedWinners,
+                            state,
+                            this.RUNTIME.activeRequestAbortController.signal
+                        );
+
+                        UIManager.hideLoadingSpinner();
+
+                        // Find the last AI bubble index(es) to overwrite (one per directive)
+                        // Strategy: collect the last N AI bubbles in reverse, overwrite from last backward
+                        const history = state.chat_history;
+                        const lastAiIndices = [];
+                        for (let i = history.length - 1; i >= 0 && lastAiIndices.length < orderedDirectives.length; i--) {
+                            const msg = history[i];
+                            if (msg.type === 'chat' && !msg.isHidden) {
+                                const c = ReactiveStore.getCharacter(msg.character_id);
+                                if (c && !c.is_user) lastAiIndices.unshift(i); // prepend so order is chronological
+                            }
+                        }
+
+                        // Execute each directive and write it (overwrite existing or append new)
+                        for (let i = 0; i < orderedDirectives.length; i++) {
+                            const { char, directive } = orderedDirectives[i];
+                            const newProse = await SwarmOrchestrator._executeDirective(
+                                char, directive, lastUserContent, state,
+                                this.RUNTIME.activeRequestAbortController.signal
+                            );
+                            const targetIdx = lastAiIndices[i] !== undefined ? lastAiIndices[i] : null;
+                            this.startStreamingResponse(char.id, newProse, 'neutral', targetIdx);
+                        }
+
+                    } catch (error) {
+                        UIManager.hideLoadingSpinner();
+                        if (error.name !== 'AbortError') {
+                            this.addSystemMessageToHistory(`Swarm Regen Error: ${error.message}`);
+                        }
+                    } finally {
+                        UIManager.setButtonToSendMode();
+                        this.RUNTIME.activeRequestAbortController = null;
+                        UIManager.hideLoadingSpinner();
+                    }
+                    return;
+                }
+                // ── END SWARM REGEN BRANCH ─────────────────────────────────────────────
+
                 const history = state.chat_history;
                 let targetIndex = -1;
 
@@ -18419,6 +19134,7 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                     await this.triggerAIResponse(targetId);
                 }
             },
+
 
             /**
              * Cycles through versions of a message.
@@ -19388,6 +20104,108 @@ Rules:
                 } finally {
                     UIManager.hideTypingIndicator(); // Ensure bubble is removed
                 }
+            },
+
+            /**
+             * Swarm-specific variant of the Scriptwriter call.
+             * Evaluates the active pool to return up to 3 candidate character *objects*
+             * AND explicitly identifies which ONE of those candidates should be the primary speaker.
+             * @returns {Promise<{candidates: Object[], primarySpeaker: Object}>}
+             */
+            async determineSwarmSpeakerAndCandidates() {
+                const state = ReactiveStore.state;
+                const pool = [...(state.characters || []), ...ReactiveStore.getActiveLocationCharacters()]
+                    .filter(c => !c.is_user && !c.is_narrator && c.is_active);
+
+                // Recency fallback generic logic (we need this generated here just in case pool <= 3 or scriptwriter fails)
+                const recentIds = [...(state.chat_history || [])]
+                    .filter(m => m && m.type === 'chat')
+                    .reverse()
+                    .map(m => m.character_id);
+                const sortedByRecency = [...pool].sort((a, b) => {
+                    const ai = recentIds.indexOf(a.id);
+                    const bi = recentIds.indexOf(b.id);
+                    return (ai === -1 ? 9999 : ai) - (bi === -1 ? 9999 : bi);
+                });
+
+                const narrators = state.characters.filter(c => c.is_narrator && c.is_active);
+                const narratorNames = narrators.map(c => c.name).join(', ');
+
+                // Skip the LLM call if the pool is empty
+                if (pool.length === 0 && narrators.length === 0) {
+                    return { candidates: [], primarySpeaker: null };
+                }
+                
+                if (pool.length === 0 && narrators.length > 0) {
+                    return { candidates: [], primarySpeaker: narrators[0] };
+                }
+
+                if (pool.length <= 1 && narrators.length === 0) {
+                    return { candidates: pool, primarySpeaker: pool[0] };
+                }
+
+                UIManager.showTypingIndicator(null, '...', 'Casting…');
+
+                try {
+                    const activeChars = pool.map(c => c.name).join(', ');
+                    const userChar = state.characters.find(c => c.is_user);
+                    const userCharName = userChar ? userChar.name : 'User';
+
+                    const recentHistory = (state.chat_history || [])
+                        .filter(m => m && m.type === 'chat' && !m.isHidden)
+                        .slice(-10)
+                        .map(m => {
+                            const char = ReactiveStore.getCharacter(m.character_id);
+                            return `${char ? char.name : 'System'}: ${m.content}`;
+                        }).join('\n');
+
+                    const prompt = `You are a scriptwriter casting the next scene in an ongoing roleplay.
+From the active character pool, select the 3 characters MOST LIKELY to react to the recent events. 
+Out of those 3 (or an active Narrator), select exactly ONE character who MUST be the primary speaker this round. If the situation demands an objective description or an environmental event, you MUST select a Narrator as the primary speaker.
+
+Active characters: ${activeChars || "None"}
+Narrators: ${narratorNames || "None"}
+
+RECENT CONVERSATION:
+${recentHistory}
+
+Rules:
+1. Names must be EXACT matches from the active characters or narrators lists.
+2. Do NOT select "${userCharName}".
+3. Return exactly 3 candidates (only from active characters list) and 1 primary speaker (who must be a candidate OR a narrator).
+4. Output ONLY valid JSON.
+
+Return JSON:
+{"top_3_candidates": ["Name1", "Name2", "Name3"], "primary_speaker": "Name1"}`;
+
+                    const response = await APIService.callAI(prompt, true);
+                    const data = UTILITY.extractAndParseJSON(response);
+
+                    if (data && Array.isArray(data.top_3_candidates) && data.top_3_candidates.length > 0 && data.primary_speaker) {
+                        const candidates = data.top_3_candidates
+                            .slice(0, 3)
+                            .map(name => pool.find(c => c.name.toLowerCase() === name.toLowerCase()))
+                            .filter(Boolean); // drop any unresolved names
+
+                        const matchedNarrator = narrators.find(n => n.name.toLowerCase() === data.primary_speaker.toLowerCase());
+                        const primarySpeaker = matchedNarrator || pool.find(c => c.name.toLowerCase() === data.primary_speaker.toLowerCase()) || candidates[0];
+
+                        if (primarySpeaker) {
+                            console.log(`[Swarm Casting] Scriptwriter selected ${candidates.length} candidate(s), Speaker: ${primarySpeaker.name}`);
+                            return { candidates, primarySpeaker };
+                        }
+                    }
+
+                    console.warn('[Swarm Casting] Scriptwriter parse failed. Using recency fallback.');
+                } catch (e) {
+                    console.warn('[Swarm Casting] Scriptwriter call failed. Using recency fallback:', e.message);
+                } finally {
+                    UIManager.hideTypingIndicator();
+                }
+
+                // Recency fallback
+                const candidates = sortedByRecency.slice(0, 3);
+                return { candidates, primarySpeaker: candidates[0] };
             },
 
             /**
@@ -20893,10 +21711,30 @@ Return ONLY the JSON object. No preamble or explanation.`;
             },
 
             /**
+             * Toggles swarm mode on/off from the settings UI.
+             * When enabling, initialises the NC ledger for all active AI characters.
+             * Preserves existing balances so toggling mid-session doesn't reset progress.
+             * @param {boolean} enabled
+             */
+            setSwarmMode(enabled) {
+                const state = ReactiveStore.state;
+                state.swarmMode = !!enabled;
+
+                if (enabled) {
+                    console.log(`[Swarm] Mode ENABLED.`);
+                } else {
+                    console.log('[Swarm] Mode DISABLED. Returning to standard narrator flow.');
+                }
+
+                if (typeof ReactiveStore.forceSave === 'function') ReactiveStore.forceSave();
+            },
+
+            /**
              * Displays the raw prompt that would be sent to the AI.
              * Useful for debugging.
              */
             async viewRawPrompt() {
+
                 const state = ReactiveStore.state;
 
                 // [NEW] Check for cached prompt first
@@ -22672,6 +23510,12 @@ Return ONLY the JSON object. No preamble or explanation.`;
                 ActionHandler.init();            // Starts listening for clicks
                 ActionDispatcher.init();         // Wires clicks to Controllers
                 if (typeof CropController !== 'undefined') CropController.init();
+
+                // 5b. Hide Electron-specific UI if not in Electron
+                if (!window.electronBridge) {
+                    const maintenanceSection = document.getElementById('app-maintenance-section');
+                    if (maintenanceSection) maintenanceSection.style.display = 'none';
+                }
 
                 // 6. Initialize Reactive State
                 if (!state || Object.keys(state).length === 0) {

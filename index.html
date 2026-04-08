@@ -27,7 +27,7 @@
 
 <head>
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://esm.run; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*; connect-src 'self' https://* http://localhost:* http://127.0.0.1:*; manifest-src 'self' data:;">
+        content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://esm.run https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*; connect-src 'self' https://* http://localhost:* http://127.0.0.1:*; manifest-src 'self' data:;">
     <meta charset="UTF-8">
     <!-- Updated Viewport for Notch Support -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -46,7 +46,7 @@
     <link rel="icon" type="image/png" href="https://github.com/pacmanincarnate/EllipsisLM/blob/main/logo.jpg?raw=true">
 
     <!-- External Libraries -->
-    <link rel="stylesheet" href="electron/tailwind.css">
+    <link rel="stylesheet" href="electron/tailwind.css" onerror="this.onerror=null;this.remove();const s=document.createElement('script');s.src='https://cdn.tailwindcss.com';document.head.appendChild(s);">
     <script src="https://cdn.jsdelivr.net/npm/jszip/dist/jszip.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>

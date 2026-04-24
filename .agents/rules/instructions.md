@@ -6,14 +6,14 @@ trigger: always_on
 
 Welcome to the **EllipsisLM** source code! This document provides crucial context, architectural overviews, and strict guidelines for modifying and extending the application. Before contributing code, review this document thoroughly to ensure that changes align with the project's philosophy, structure, and standards.
 
-## 1. Overall Goals & Intent of the Project
+## Overall Goals & Intent of the Project
 EllipsisLM is an open-source, private, and deeply customizable AI-powered roleplay engine. The main intent is to provide a premium, highly immersive storytelling experience directly on the user's device. 
 Its core philosophy revolves around:
 - **Privacy & Local-First Execution**: Capable of running entirely offline using local LLM backends (like KoboldCPP and LM Studio).
 - **Infinite Portability**: The core application functions seamlessly offline as a single monolithic HTML file.
 - **Deep World-Building**: Expanding beyond standard chat limits by providing complex multi-character management, map generation, and persistent dynamic background agents.
 
-## 2. Architecture and Libraries Used
+## Architecture and Libraries Used
 EllipsisLM uses an unconventional but highly deliberate architecture that prioritizes extreme zero-install portability alongside robust desktop capabilities.
 
 ### Core Architecture
@@ -27,7 +27,7 @@ No major frontend frameworks (like React, Vue, or Angular) are used in the core 
 - **JSZip & Pako**: For handling complex data package formats (zipping/unzipping imports/exports).
 - **Marked.js**: For parsing and rendering Markdown from LLM outputs.
 
-## 3. Overall Structure of the Application's Code
+## Overall Structure of the Application's Code
 Understanding the internal structure of `index.html` is critical. It is internally routed through specifically named ID brackets:
 - `[SEC:HTML:BODY]` UI structure, modals, containers.
 - `[SEC:JS:STATE:RS]` Custom implementation of a Proxy-based state `ReactiveStore` to manage reactive data.
@@ -38,7 +38,7 @@ Understanding the internal structure of `index.html` is critical. It is internal
 
 When making extensive updates, ensure that new functions and variables are slotted into their appropriate categorized bracket.
 
-## 4. Exhaustive List of Features and Controls
+## Exhaustive List of Features and Controls
 EllipsisLM features an immense array of dynamic roleplay elements:
 - **Hierarchical Story Organization**: 
   - *Stories*: Parent containers acting as the root character card.
@@ -67,7 +67,7 @@ EllipsisLM features an immense array of dynamic roleplay elements:
 - **Import/Export**: Extensive support for reading/writing internal JSON backups, standard V2 PNG Character cards, BYAF cards, and bulk-folder importing.
 - **Customizable UI/UX**: Toggles for Desktop (Horizontal)/Mobile (Vertical) view, Cinematic modes, bubble layout customization, fonts, background blur, and theme colors.
 
-## 5. Data Storage Hierarchy & Scoping
+## Data Storage Hierarchy & Scoping
 EllipsisLM uses a tiered data structure to ensure that specific playthroughs remain isolated while sharing a global "World Bible." Information is stored across four primary scopes:
 
 ### Universal (Application-Level)
@@ -91,7 +91,7 @@ EllipsisLM uses a tiered data structure to ensure that specific playthroughs rem
 *   **Evolution**: Narrative-specific memories and summarized states that diverge from the base scenario.
 *   **Live Map State**: The player's current coordinates, planned path, and journey destination.
 
-## 6. Generation Pipelines & Multi-Prompting
+## Generation Pipelines & Multi-Prompting
 For complex tasks (like creating an entire story from a single prompt), EllipsisLM utilizes a **Pipeline** pattern. This avoids "one-shot" failures by breaking the task into discrete, logical phases:
 - **World Phase**: Generates the underlying lore and setting.
 - **Casting Phase**: Generates the characters and their relationships based on the world.
@@ -100,14 +100,14 @@ For complex tasks (like creating an entire story from a single prompt), Ellipsis
 
 When implementing features that require significant AI "reasoning," always look to utilize or extend the `StoryGenerationPipeline` rather than writing monolithic prompts.
 
-## 7. Coding Standards and Best Practices
+## Coding Standards and Best Practices
 When contributing code to EllipsisLM, the following standards are non-negotiable:
 - **Maintain the Monolith Safely**: All frontend logic additions must be made inside `index.html`. Do not attempt to add external script bundles or install complex component libraries via NPM. 
 - **Vanilla DOM Handling**: Rely on the existing DOM orchestration mechanisms (`UIManager`, `ReactiveStore`, `ActionHandler`).
 - **Responsive Layout First**: Always ensure your UI additions gracefully fall back through the flexbox rules into vertical (Mobile) mode cleanly. Always test your UI changes against horizontal mode overlapping.
 - **Thorough Section Tagging**: Maintain to the strict bracket-ID schema established. If you need a new functional subsection, document and map it.
 
-## 8. How to Think About Changes ("Red-Teaming" Features)
+## How to Think About Changes ("Red-Teaming" Features)
 Do not immediately accept the first idea that comes to mind when addressing an issue or building a feature. You must actively **"red-team"** your implementation plan.
 
 When you develop a plan, challenge its integrity:
@@ -118,19 +118,19 @@ When you develop a plan, challenge its integrity:
 
 If an approach introduces friction or causes edge-case bugs, discard it and redesign it. Anticipate failures, UX degradation, and state desynchronization, and select the architectural route that solves these fundamentally.
 
-## 9. We Take the Best Path, Not the Easiest
+## We Take the Best Path, Not the Easiest
 **Shortcuts are strictly forbidden.** We do not implement hacky workarounds or "good enough" fixes. Every feature or refactor must follow the best possible implementation path. 
 
 If adding a new UI toggle requires you to write an extensive custom CSS module, adjust the Proxy event listener, and refactor a legacy `[SEC:JS:...]` template, you will do exactly that. The integrity of the codebase and the quality of the user experience are paramount.
 
-## 10. "Token Agnostic" Philosophy
+## "Token Agnostic" Philosophy
 EllipsisLM is explicitly designed to be **Token Agnostic**. 
 
 When conceptualizing prompt logic, AI interactions, or data summarizations for the LLM, you are allowed to use as many tokens as necessary to achieve high-quality functionality. The application delegates the cost and model hardware explicitly to the user via local generation (KoboldCPP, LM Studio) or BYO-Keys (Gemini, OpenRouter). 
 
 **Do not cripple functionality in the name of marginal token efficiency!** While prompt compression and context brevity are important for speed and avoiding context cliffs, they must absolutely **not** come at the cost of the AI's intelligence, depth, or functionality. If the Event Master or World Map auto-generator requires a 400-token system prompt and rigorous output checking to be highly robust, write the 400-token prompt.
 
-## 11. UI/UX Philosophy & Implementation
+## UI/UX Philosophy & Implementation
 EllipsisLM is built with a "User-First" design philosophy that prioritizes aesthetic immersion and functional clarity. Unlike many open-source projects where the interface is a cluttered "cockpit" of buttons with little regard for usability, EllipsisLM aims for **Invisible Utility**.
 
 ### Core UX Goals

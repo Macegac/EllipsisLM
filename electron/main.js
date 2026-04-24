@@ -32,13 +32,13 @@ function getKoboldPath() {
     // 1. Check user data (downloaded version)
     const userPath = path.join(app.getPath('userData'), EXE_NAME);
     if (fs.existsSync(userPath)) return userPath;
-    
+
     // 2. Check bundled resources (if packaged)
     if (app.isPackaged) {
         const bundledPath = path.join(process.resourcesPath, EXE_NAME);
         if (fs.existsSync(bundledPath)) return bundledPath;
     }
-    
+
     // 3. Check dev path (next to app)
     const devPath = path.join(__dirname, '..', EXE_NAME);
     if (fs.existsSync(devPath)) return devPath;
@@ -86,16 +86,16 @@ async function getLocalVersion() {
             const data = JSON.parse(fs.readFileSync(p, 'utf8'));
             return data.version || 'unknown';
         }
-        
+
         // Fallback: If we have the EXE but no version JSON (e.g. from a previous manual install)
         const exePath = getKoboldPath();
         if (fs.existsSync(exePath)) {
             // Most modern versions of KoboldCPP support -v or --version
             // We'll try to capture it. If it fails, we fall back to 'unknown'.
-            const result = spawnSync(exePath, ['--version'], { 
-                encoding: 'utf8', 
-                timeout: 2000, 
-                windowsHide: true 
+            const result = spawnSync(exePath, ['--version'], {
+                encoding: 'utf8',
+                timeout: 2000,
+                windowsHide: true
             });
             const output = (result.stdout || result.stderr || '').toString();
             // Look for patterns like "v1.78" or "KoboldCPP v1.78"
@@ -146,15 +146,15 @@ async function getLatestVersion() {
 
 function downloadKobold(opts) {
     const { targetVersion = 'latest' } = opts;
-    const url = targetVersion === 'latest' 
-        ? KOBOLD_URL 
+    const url = targetVersion === 'latest'
+        ? KOBOLD_URL
         : `https://github.com/LostRuins/koboldcpp/releases/download/${targetVersion}/${EXE_NAME}`;
 
     const exePath = path.join(app.getPath('userData'), EXE_NAME);
     const tempPath = exePath + '.tmp';
-    
+
     setKoboldStatus('downloading');
-    
+
     async function executeDownload(versionToRecord) {
         sendKoboldLog(`[INFO] Preparing to download KoboldCPP ${versionToRecord}...`);
         get(url, versionToRecord);
@@ -177,7 +177,7 @@ function downloadKobold(opts) {
                 sendKoboldLog(`[ERROR] Download failed (Status ${res.statusCode})`);
                 return;
             }
-            
+
             const file = fs.createWriteStream(tempPath);
             const totalSize = parseInt(res.headers['content-length'], 10);
             let downloadedSize = 0;
@@ -194,7 +194,7 @@ function downloadKobold(opts) {
             res.on('end', () => {
                 file.end(() => {
                     if (process.platform !== 'win32') {
-                        try { fs.chmodSync(tempPath, 0o755); } catch(e) { console.error('[KoboldCPP] Failed to set permissions:', e); }
+                        try { fs.chmodSync(tempPath, 0o755); } catch (e) { console.error('[KoboldCPP] Failed to set permissions:', e); }
                     }
                     fs.rename(tempPath, exePath, async (err) => {
                         if (err) {
@@ -202,10 +202,10 @@ function downloadKobold(opts) {
                             // This is expected for an update while roleplaying.
                             if (err.code === 'EPERM' || err.code === 'EBUSY') {
                                 sendKoboldLog('[INFO] Download complete. Swapping versions...');
-                                
+
                                 // Perform a more aggressive kill to unlock the file
-                                stopKobold(true); 
-                                
+                                stopKobold(true);
+
                                 // Wait a moment for the OS to release the file handle
                                 let retries = 0;
                                 const tryRename = setInterval(() => {
@@ -278,10 +278,15 @@ function startKobold(opts = {}) {
 
     const {
         modelPath = '',
-        contextSize = 18432,
+        contextSize = 20480,
         port = 5001,
         useCuda = true,
-        quantKv = 1
+        quantKv = 1,
+        batchSize = 512,
+        chatcompletionsadapter = 'None',
+        autoFit = true,
+        defaultgenamt = 2048,
+        autofitpadding = 1024,
     } = opts;
 
     // Build CLI args — model is optional; user may load one from the KoboldCPP UI
@@ -291,13 +296,21 @@ function startKobold(opts = {}) {
             // Apple Silicon and Intel Macs use Metal for GPU acceleration
             args.push('--usemetal');
         } else {
-            // Windows/Linux use CUDA (NVIDIA)
-            args.push('--usecublas');
+            // Windows/Linux use CUDA (NVIDIA) with optimized parameters
+            args.push('--usecublas', 'normal', '0', 'mmq');
         }
     }
+
+    if (autoFit) args.push('--autofit');
+
     args.push('--contextsize', String(contextSize));
+    args.push('--batchsize', String(batchSize));
     args.push('--quantkv', String(quantKv));
     args.push('--port', String(port));
+    args.push('--chatcompletionsadapter', String(chatcompletionsadapter));
+    args.push('--defaultgenamt', String(defaultgenamt));
+    args.push('--autofitpadding', String(autofitpadding));
+
     if (modelPath && fs.existsSync(modelPath)) {
         args.push('--model', modelPath);
     }
@@ -361,7 +374,7 @@ function stopKobold(force = false) {
     }
 
     if (!koboldProcess) return;
-    
+
     console.log('[KoboldCPP] Stopping tracked process...');
     try {
         koboldProcess.kill('SIGTERM');
@@ -369,7 +382,7 @@ function stopKobold(force = false) {
         if (!force) {
             setTimeout(() => {
                 if (koboldProcess) {
-                    try { koboldProcess.kill('SIGKILL'); } catch (e) {}
+                    try { koboldProcess.kill('SIGKILL'); } catch (e) { }
                     koboldProcess = null;
                 }
             }, 3000);
@@ -414,18 +427,18 @@ ipcMain.handle('app:getLatestVersion', async () => {
                     if (!json || !json.tag_name) {
                         return reject(new Error('Invalid GitHub response structure (missing tag_name)'));
                     }
-                    const assets = Array.isArray(json.assets) 
+                    const assets = Array.isArray(json.assets)
                         ? json.assets.map(a => ({ name: a.name, url: a.browser_download_url }))
                         : [];
-                    
+
                     resolve({
                         version: json.tag_name,
                         notes: json.body || '',
                         assets: assets
                     });
-                } catch (e) { 
+                } catch (e) {
                     console.error('[AppUpdate] Parse error:', body);
-                    reject(new Error('Failed to parse GitHub response')); 
+                    reject(new Error('Failed to parse GitHub response'));
                 }
             });
         }).on('error', (err) => {
@@ -439,10 +452,10 @@ ipcMain.handle('app:downloadUpdate', async (_event, url) => {
     const tempDir = app.getPath('temp');
     const ext = process.platform === 'darwin' ? '.dmg' : '.exe';
     const installerPath = path.join(tempDir, `EllipsisLM_Setup_Update${ext}`);
-    
+
     return new Promise((resolve, reject) => {
         const file = fs.createWriteStream(installerPath);
-        
+
         function get(downloadUrl) {
             https.get(downloadUrl, (res) => {
                 if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
@@ -467,7 +480,7 @@ ipcMain.handle('app:downloadUpdate', async (_event, url) => {
                     file.end(() => resolve(installerPath));
                 });
             }).on('error', (err) => {
-                fs.unlink(installerPath, () => {});
+                fs.unlink(installerPath, () => { });
                 reject(err);
             });
         }
@@ -477,7 +490,7 @@ ipcMain.handle('app:downloadUpdate', async (_event, url) => {
 
 ipcMain.handle('app:applyUpdate', (_event, installerPath) => {
     console.log('[AppUpdate] Launching installer:', installerPath);
-    
+
     if (process.platform === 'darwin') {
         shell.openPath(installerPath);
         app.quit();

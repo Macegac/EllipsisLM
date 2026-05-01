@@ -5963,7 +5963,7 @@
                     state: {
                         chat_history: [],
                         messageCounter: 0,
-                        static_entries: scenario.static_entries ? JSON.parse(JSON.stringify(scenario.static_entries)) : [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }],
+                        static_entries: (scenario.static_entries && scenario.static_entries.length > 0) ? JSON.parse(JSON.stringify(scenario.static_entries)) : [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }],
                         worldMap: scenario.worldMap ? JSON.parse(JSON.stringify(scenario.worldMap)) : { grid: UTILITY.createDefaultMapGrid(), currentLocation: { x: 4, y: 4 }, destination: { x: null, y: null }, path: [] },
                         livingPersonaCounters: {}, evolved_characters: {},
                         swarmMode: false, swarmNarrativeCapital: {}, swarmSecrets: {}, swarmLastIntents: {}
@@ -6329,6 +6329,10 @@
                                 destination: { x: null, y: null },
                                 path: []
                             };
+                        }
+
+                        if (!this.data.activeNarrativeState.static_entries || this.data.activeNarrativeState.static_entries.length === 0) {
+                            this.data.activeNarrativeState.static_entries = [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }];
                         }
                     } else {
                         this.data.activeNarrativeState = {};

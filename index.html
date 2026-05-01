@@ -175,10 +175,6 @@
                 max-width: 100% !important;
                 border-radius: 0.75rem !important;
             }
-
-            .chat-bubble-container {
-                overflow-x: hidden;
-            }
         }
 
         body {
@@ -1009,6 +1005,24 @@
             /* Prevent baseline gaps */
         }
 
+        /* Ensure code blocks don't break the bubble layout on mobile */
+        .bubble-body pre {
+            max-width: 100%;
+            overflow-x: auto;
+            background-color: #1e1e1e;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 0.5em 0;
+        }
+
+        /* Ensure markdown tables don't cause sideways scroll */
+        .bubble-body table {
+            display: block;
+            max-width: 100%;
+            overflow-x: auto;
+            border-collapse: collapse;
+        }
+
         /* Restore natural spacing for Markdown elements inside bubbles */
         .bubble-body p {
             margin-bottom: 0.0rem;
@@ -1775,7 +1789,7 @@
                     class="absolute inset-0 bg-cover bg-no-repeat bg-center transition-opacity duration-1000 pointer-events-none opacity-0">
                 </div>
                 <!-- Chat Window: Scrollable area for message bubbles -->
-                <div id="chat-window" class="relative z-10 flex-grow overflow-y-auto"></div>
+                <div id="chat-window" class="relative z-10 flex-grow overflow-y-auto overflow-x-hidden"></div>
                 <!-- Active Character Portrait: Displayed alongside chat on desktop -->
                 <div id="character-portrait-container" class="flex-shrink-0 flex-col justify-center items-center"
                     style="padding-right: 0.5rem;"></div>
@@ -4201,7 +4215,7 @@
          * Application Build Information
          * Update this variable to change the footer in Appearance Settings.
          */
-        const APP_BUILD_TIMESTAMP = "Version: 2026.04.24 - 16:23";
+        const APP_BUILD_TIMESTAMP = "Version: 2026.05.01 - 14:25";
 
 
         /**
@@ -6741,6 +6755,22 @@
             async callKoboldCPP(prompt, signal, isJson = false) {
                 const state = StateManager.getState();
 
+                const stopSequences = ["<|eot_id|>", "<|im_end|>", "<|end_of_text|>"];
+                const allChars = [...(state.characters || []), ...(typeof ReactiveStore !== 'undefined' && ReactiveStore.getActiveLocationCharacters ? ReactiveStore.getActiveLocationCharacters() : [])];
+                allChars.forEach(c => {
+                    if (c.name) {
+                        stopSequences.push(`\n${c.name}: `);
+                        stopSequences.push(`\n${c.name}:`);
+                        stopSequences.push(`\n${c.name}:\n`);
+                        stopSequences.push(`\n[${c.name}]: `);
+                        stopSequences.push(`\n[${c.name}]:`);
+                        stopSequences.push(`\n[${c.name}]:\n`);
+                        stopSequences.push(`\n### ${c.name}: `);
+                        stopSequences.push(`\n### ${c.name}:`);
+                        stopSequences.push(`\n### ${c.name}:\n`);
+                    }
+                });
+
                 let cleanPrompt = prompt;
                 if (typeof cleanPrompt === 'string') {
                     cleanPrompt = cleanPrompt.replace(/<\|ELLIPSIS_CACHE_BREAK\|>\n?/g, '');
@@ -6758,7 +6788,7 @@
                     top_k: 0,
                     tfs: 1,
                     typical: 1,
-                    rep_pen: 1.0,
+                    rep_pen: isJson ? 1.1 : 1.0,
                     rep_pen_range: 2048,
                     rep_pen_slope: 0.7,
                     mirostat: 0,
@@ -6767,8 +6797,9 @@
                     dry_multiplier: state.koboldcpp_dry,
                     dry_base: 1.75,
                     dry_allowed_length: 2,
-                    dry_penalty_last_n: -1,
-                    sampler_order: [6, 0, 1, 2, 3, 4, 5]
+                    dry_penalty_last_n: state.koboldcpp_dry > 0 ? -1 : 0,
+                    dry_sequence_breakers: isJson ? [] : ["\n", ":", "\"", "*"],
+                    stop_sequence: stopSequences
                 };
 
                 const res = await fetch(`${state.koboldcpp_url}/api/v1/generate`, {
@@ -6785,7 +6816,23 @@
                 }
 
                 const data = await res.json();
-                return data.results[0].text.trim();
+                let resultText = data.results[0].text;
+
+                let truncateIdx = -1;
+                for (const seq of stopSequences) {
+                    if (seq.startsWith('\n')) {
+                        const idx = resultText.indexOf(seq);
+                        if (idx !== -1 && (truncateIdx === -1 || idx < truncateIdx)) {
+                            truncateIdx = idx;
+                        }
+                    }
+                }
+
+                if (truncateIdx !== -1) {
+                    resultText = resultText.substring(0, truncateIdx);
+                }
+
+                return resultText.trim();
             },
 
             /**
@@ -6796,6 +6843,19 @@
              */
             async streamKoboldPolled(prompt, onChunk, signal) {
                 const state = StateManager.getState();
+
+                const stopSequences = ["<|eot_id|>", "<|im_end|>", "<|end_of_text|>"];
+                const allChars = [...(state.characters || []), ...(typeof ReactiveStore !== 'undefined' && ReactiveStore.getActiveLocationCharacters ? ReactiveStore.getActiveLocationCharacters() : [])];
+                allChars.forEach(c => {
+                    if (c.name) {
+                        stopSequences.push(`\n${c.name}: `);
+                        stopSequences.push(`\n${c.name}:`);
+                        stopSequences.push(`\n${c.name}:\n`);
+                        stopSequences.push(`\n[${c.name}]: `);
+                        stopSequences.push(`\n[${c.name}]:`);
+                        stopSequences.push(`\n[${c.name}]:\n`);
+                    }
+                });
 
                 let cleanPrompt = prompt;
                 if (typeof cleanPrompt === 'string') {
@@ -6814,8 +6874,9 @@
                     dry_multiplier: state.koboldcpp_dry,
                     dry_base: 1.75,
                     dry_allowed_length: 2,
-                    dry_penalty_last_n: -1,
-                    sampler_order: [6, 0, 1, 2, 3, 4, 5]
+                    dry_penalty_last_n: state.koboldcpp_dry > 0 ? -1 : 0,
+                    dry_sequence_breakers: ["\n", ":", "\"", "*"],
+                    stop_sequence: stopSequences
                 };
 
                 const res = await fetch(`${state.koboldcpp_url}/api/v1/generate`, {
@@ -6835,7 +6896,25 @@
                         const data = await check.json();
 
                         if (data.results && data.results[0]) {
-                            onChunk(data.results[0].text);
+                            let textSoFar = data.results[0].text;
+                            let truncateIdx = -1;
+                            for (const seq of stopSequences) {
+                                if (seq.startsWith('\n')) {
+                                    const idx = textSoFar.indexOf(seq);
+                                    if (idx !== -1 && (truncateIdx === -1 || idx < truncateIdx)) {
+                                        truncateIdx = idx;
+                                    }
+                                }
+                            }
+
+                            if (truncateIdx !== -1) {
+                                textSoFar = textSoFar.substring(0, truncateIdx);
+                                onChunk(textSoFar);
+                                finished = true;
+                                try { fetch(`${state.koboldcpp_url}/api/extra/abort`, { method: 'POST' }); } catch (e) { }
+                                break;
+                            }
+                            onChunk(textSoFar);
                         }
 
                         if (data.done) finished = true;
@@ -8925,7 +9004,7 @@ Write only the character's message.`;
                         return `${c.name}: ${appearance}`;
                     }).join('\n');
 
-                const swarmSystem = `${systemPrompt ? systemPrompt + '\n\n' : ''}You are ${char.name}.\n\n### OBJECTIVE SCENE REALITY\n${objectiveDescription}\n\n### YOUR PERSONA\n${descSource.substring(0, 1200)}\n\n### OTHER CHARACTERS PRESENT\n${otherCharsContext}`;
+                const swarmSystem = `${systemPrompt ? systemPrompt + '\n\n' : ''}You are ${char.name}. Write the next response from your perspective. Use the following details to inform and influence your response, focusing on your character's most likely reaction to the objective scene reality based on their personality and relationship to the other characters in the scene. Be realistic and authentic.\n\n### OBJECTIVE SCENE REALITY\n${objectiveDescription}\n\n### YOUR PERSONA\n${descSource.substring(0, 1200)}\n\n### OTHER CHARACTERS PRESENT\n${otherCharsContext}`;
 
                 // History — Director Mode specific history slice (last 6 messages)
                 const historyArray = this._getSmartHistorySlice(state.chat_history || [], 2000, char.id).slice(-6);
@@ -25753,8 +25832,9 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                             }
                         }
 
-                        // Check if Enter was pressed WITHOUT Shift
-                        if (e.key === 'Enter' && !e.shiftKey) {
+                        // On desktop, Enter sends without Shift. On mobile, Enter adds a newline.
+                        const isMobile = document.body.classList.contains('layout-vertical');
+                        if (e.key === 'Enter' && !e.shiftKey && !isMobile) {
                             // Prevent the default new line insertion
                             e.preventDefault();
                             // Trigger the send action

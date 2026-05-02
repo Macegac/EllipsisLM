@@ -42,8 +42,14 @@
     <meta name="theme-color" content="#111827">
 
     <title>EllipsisLM</title>
-    <link rel="apple-touch-icon" href="https://github.com/pacmanincarnate/EllipsisLM/blob/main/logo.jpg?raw=true">
-    <link rel="icon" type="image/png" href="https://github.com/pacmanincarnate/EllipsisLM/blob/main/logo.jpg?raw=true">
+    <link rel="manifest" href="./manifest.json">
+    <link rel="apple-touch-icon" href="./icon-512.png">
+    <link rel="icon" type="image/png" href="./logo.jpg">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+      }
+    </script>
 
     <!-- External Libraries -->
     <link rel="stylesheet" href="electron/tailwind.css"

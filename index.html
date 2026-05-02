@@ -4215,7 +4215,7 @@
          * Application Build Information
          * Update this variable to change the footer in Appearance Settings.
          */
-        const APP_BUILD_TIMESTAMP = "Version: 2026.05.01 - 14:25";
+        const APP_BUILD_TIMESTAMP = "Version: 2026.05.01 - 23:45";
 
 
         /**
@@ -4259,6 +4259,9 @@
                                 .replace(/>/g, "&gt;")
                                 .replace(/"/g, "&quot;")
                                 .replace(/'/g, "&#039;");
+                        } else {
+                            // Ensure null/undefined becomes an empty string in the DOM
+                            result += "";
                         }
                     }
                 });
@@ -6413,10 +6416,16 @@
             updateTagCache() {
                 const allTags = new Set();
                 this.data.library.stories.forEach(story => {
-                    if (story.tags) story.tags.forEach(tag => allTags.add(tag.toLowerCase()));
+                    if (story.tags) {
+                        const tagsArray = Array.isArray(story.tags) ? story.tags : (typeof story.tags === 'string' ? story.tags.split(',').map(t => t.trim()) : []);
+                        tagsArray.forEach(tag => { if (tag) allTags.add(tag.toLowerCase()); });
+                    }
                     if (story.characters) {
                         story.characters.forEach(char => {
-                            if (char.tags) char.tags.forEach(tag => allTags.add(tag.toLowerCase()));
+                            if (char.tags) {
+                                const tagsArray = Array.isArray(char.tags) ? char.tags : (typeof char.tags === 'string' ? char.tags.split(',').map(t => t.trim()) : []);
+                                tagsArray.forEach(tag => { if (tag) allTags.add(tag.toLowerCase()); });
+                            }
                         });
                     }
                 });
@@ -11003,7 +11012,7 @@ Write only the character's message.`;
              * Renders a single character card for the roster.
              */
             CharacterTile(char) {
-                const tagsHTML = (char.tags || []).map(tag => DOM.html`<span class="bg-indigo-500/50 text-indigo-200 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded">${tag}</span>`);
+                const tagsHTML = (Array.isArray(char.tags) ? char.tags : []).map(tag => DOM.html`<span class="bg-indigo-500/50 text-indigo-200 text-xs font-semibold mr-2 px-2.5 py-0.5 rounded">${tag}</span>`);
                 const visualStyle = char.is_active ? "" : "opacity: 0.5; filter: grayscale(80%);";
 
                 // FIX: Role-based Border Logic
@@ -12364,7 +12373,7 @@ Write only the character's message.`;
 
                 // Pre-process Tags HTML to pill spans matching Character Details UI exactly
                 let tagsHTML = '';
-                (story.tags || []).forEach(tag => {
+                (Array.isArray(story.tags) ? story.tags : []).forEach(tag => {
                     const escaped = String(tag).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
                     tagsHTML += `<span class="bg-indigo-900/40 text-indigo-300 text-[11px] font-bold px-2.5 py-1 rounded-md border border-indigo-500/30 flex items-center shadow-sm whitespace-nowrap gap-1">${escaped} <button onclick="LibraryController.removeStoryTag('${story.id}', '${escaped}')" class="hover:text-white transition-colors ml-1">&times;</button></span>`;
                 });
@@ -14140,7 +14149,7 @@ Write only the character's message.`;
 
                 // Pre-process Tags HTML to pill spans
                 let tagsHTML = '';
-                (char.tags || []).forEach(tag => {
+                (Array.isArray(char.tags) ? char.tags : []).forEach(tag => {
                     const escaped = String(tag).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
                     tagsHTML += `<span class="bg-indigo-900/40 text-indigo-300 text-[11px] font-bold px-2.5 py-1 rounded-md border border-indigo-500/30 flex items-center shadow-sm whitespace-nowrap gap-1">${escaped} <button onclick="NarrativeController.removeCharacterTag('${char.id}', '${escaped}')" class="hover:text-white transition-colors ml-1">&times;</button></span>`;
                 });
@@ -17505,7 +17514,7 @@ Write only the descriptive paragraphs.`;
                     const story = library.stories.find(s => s.id === storyId);
                     if (!story) return;
 
-                    let tags = (story.tags || []).filter(t => t !== tagToRemove);
+                    let tags = (Array.isArray(story.tags) ? story.tags : []).filter(t => t !== tagToRemove);
                     await this.updateStoryTags(storyId, tags.join(', '));
                     if (UIManager.RUNTIME.viewingStoryId === storyId) {
                         UIManager.openStoryDetails(storyId);
@@ -20219,16 +20228,16 @@ Generate the technical metadata and skeleton for this character.
 
 You MUST format your response using EXACTLY these headings:
 
-[MODEL_INSTRUCTIONS]
+### Model Instructions
 Write instructions for an AI model to roleplay as you. Write this in your own voice. Example: "I speak quietly and rarely make eye contact. I am suspicious of strangers..."
 
-[SHORT_DESCRIPTION]
+### Short Description
 A standard, objective 3rd-person summary of who you are (one sentence).
 
-[TAGS]
+### Tags
 tag1, tag2, tag3 (comma separated list)
 
-[COLOR_HEX]
+### Color Hex
 #71717a (generate a hex code for a color that you feel matches this character's personality)`;
 
                 try {

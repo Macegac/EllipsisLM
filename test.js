@@ -1,12 +1,48 @@
-// Single-file-friendly test runner for EllipsisLM.
+// EllipsisLM test runner.
+// =====================================================================
+// HOW IT WORKS
 //
-// Strategy: index.html is the single source of truth. Rather than splitting it
-// into modules, this runner extracts named code blocks (`const NAME = { ... };`)
-// from the inline <script> by line markers, evaluates each in a fresh vm
-// sandbox, and asserts against the resulting object. UTILITY is pure (no DOM /
-// network), so no stubs are needed.
+//   index.html is the only source of truth — there is no build step and
+//   nothing gets split into modules. To test code that lives inside the
+//   inline <script>, this runner:
 //
-// Run: node test.js   (or: npm test)
+//     1. Reads index.html as plain text.
+//     2. Extracts the `const UTILITY = { ... };` block via line markers
+//        (start: `        const UTILITY = {`, end: next `        };`).
+//     3. Evals that block in a fresh Node `vm` sandbox and pulls out
+//        the resulting UTILITY object.
+//     4. Runs assertions against UTILITY's methods.
+//
+//   UTILITY's helpers are pure JS (no DOM, no fetch, no localStorage),
+//   so the vm sandbox needs no stubs.
+//
+// HOW TO RUN
+//
+//   npm test          (or: node test.js)
+//
+//   Zero dependencies. Uses Node's built-in `node:test` and `node:assert`.
+//
+// HOW TO ADD A TEST
+//
+//   Find the section comment for the helper you're testing (e.g.
+//   `── parseSearchQuery ──`) and add a `test('description', () => {...})`
+//   alongside the existing ones. Use `deepEq(actual, expected)` for arrays
+//   and objects (it strips the vm-sandbox prototype before comparing);
+//   use `assert.equal` / `assert.ok` for primitives.
+//
+//   Discipline: when fixing a bug, write a failing red test first, then
+//   the source fix that turns it green. See `.agents/rules/instructions.md`.
+//
+// WHAT'S NOT TESTED HERE
+//
+//   - DOM-bound helpers (escapeHTML, safeImageSet, ...)        — need a DOM stub.
+//   - Blob / FileReader helpers (base64ToBlob, ...)            — Node lacks these natively.
+//   - localStorage / IndexedDB code (DBService, StateManager)  — needs storage stubs.
+//   - Provider HTTP code (callOpenRouter, ...)                 — needs fetch mocks.
+//   - End-to-end Architect runs                                — would need a headless browser.
+//
+//   These were skipped intentionally. Adding them later doesn't require
+//   redoing this layer — just add a sibling test file or extend this one.
 
 'use strict';
 

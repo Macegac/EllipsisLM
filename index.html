@@ -7484,14 +7484,19 @@
                     cleanTriggers = triggersStr.replace(match[0], ' ');
                 }
 
+                // Operators are accepted in any case (AND, and, And, etc.) so that the
+                // user-facing DSL is forgiving. Split on the operator with whitespace
+                // boundaries so substrings inside keywords are not mistaken for operators.
+                const xorRe = /\s+XOR\s+/i;
+                const andRe = /\s+AND\s+/i;
                 const parts = cleanTriggers.split(',').map(s => s.trim()).filter(Boolean);
                 const groups = parts.map(part => {
-                    if (part.includes(' XOR ')) {
-                        const keywords = part.split(' XOR ').map(k => k.trim().toLowerCase()).filter(Boolean);
+                    if (xorRe.test(part)) {
+                        const keywords = part.split(xorRe).map(k => k.trim().toLowerCase()).filter(Boolean);
                         if (keywords.length === 2) return { type: 'XOR', keywords };
                     }
-                    if (part.includes(' AND ')) {
-                        const keywords = part.split(' AND ').map(k => k.trim().toLowerCase()).filter(Boolean);
+                    if (andRe.test(part)) {
+                        const keywords = part.split(andRe).map(k => k.trim().toLowerCase()).filter(Boolean);
                         if (keywords.length > 0) return { type: 'AND', keywords };
                     }
                     return { type: 'OR', keywords: [part.toLowerCase()] };

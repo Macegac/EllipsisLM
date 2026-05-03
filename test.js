@@ -332,6 +332,16 @@ test('parseLoreTrigger: AND-prefixed chance switches operator', () => {
     assert.equal(r.chanceOperator, 'AND');
 });
 
+test('parseLoreTrigger: AND/XOR operators are case-insensitive', () => {
+    const lower = UTILITY.parseLoreTrigger('dragon and fire');
+    assert.equal(lower.groups[0].type, 'AND');
+    deepEq(lower.groups[0].keywords, ['dragon', 'fire']);
+
+    const mixed = UTILITY.parseLoreTrigger('day Xor night');
+    assert.equal(mixed.groups[0].type, 'XOR');
+    deepEq(mixed.groups[0].keywords, ['day', 'night']);
+});
+
 // ─── testLoreEntries (deterministic with chance=0) ────────────────────────
 
 test('testLoreEntries: triggers entry whose keyword appears in content', () => {

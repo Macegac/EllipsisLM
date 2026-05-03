@@ -7687,31 +7687,50 @@
             extractDelimitedList(text, delimiter = null, keys = null) {
                 const items = [];
                 if (!text) return items;
-                const lines = text.split('\n');
-                for (let line of lines) {
-                    line = line.trim();
-                    if (line.startsWith('-') || line.startsWith('*') || /^\d+\./.test(line)) {
-                        line = line.replace(/^[-*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
-                        if (!line) continue;
 
-                        if (delimiter && keys) {
-                            const parts = line.split(delimiter).map(p => p.trim());
-                            const obj = {};
-                            keys.forEach((key, i) => {
-                                const part = parts[i] || "";
-                                const colonIdx = part.indexOf(':');
-                                if (colonIdx !== -1) {
-                                    obj[key] = part.substring(colonIdx + 1).trim();
-                                } else {
-                                    obj[key] = part;
-                                }
-                            });
-                            items.push(obj);
-                        } else {
-                            items.push(line);
-                        }
+                const bulletRe = /^([-*]\s+|\d+\.\s+)/;
+                const stripBullet = (s) => s.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '').trim();
+
+                const lines = text.split('\n');
+                for (const raw of lines) {
+                    const line = raw.trim();
+                    if (!line) continue;
+                    const stripped = stripBullet(line);
+                    if (!stripped) continue;
+
+                    if (delimiter && keys) {
+                        // Bullet markers explicitly signal "this is a row" — accept regardless.
+                        // Unbulleted lines must contain the delimiter so prose intros get filtered.
+                        // Several prompts ask the LLM for unbulleted "Title | Content" rows.
+                        const wasBulleted = bulletRe.test(line);
+                        if (!wasBulleted && !stripped.includes(delimiter)) continue;
+                        const parts = stripped.split(delimiter).map(p => p.trim());
+                        const obj = {};
+                        keys.forEach((key, i) => {
+                            const part = parts[i] || "";
+                            const colonIdx = part.indexOf(':');
+                            if (colonIdx !== -1) {
+                                obj[key] = part.substring(colonIdx + 1).trim();
+                            } else {
+                                obj[key] = part;
+                            }
+                        });
+                        items.push(obj);
+                    } else if (bulletRe.test(line)) {
+                        // Bare-list mode: only accept actually-bulleted rows so prose is filtered.
+                        items.push(stripped);
                     }
                 }
+
+                // Bare-list fallback: if the LLM returned a single comma-separated line
+                // (the in-story scenario topics prompt asks for exactly this), accept it.
+                if (!delimiter && items.length === 0) {
+                    const trimmed = text.trim();
+                    if (trimmed.includes(',') && !trimmed.includes('\n')) {
+                        return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+                }
+
                 return items;
             },
 
@@ -8007,6 +8026,9 @@
                 if (!story) return false;
 
                 if (parsedQuery.isRegex) {
+                    // Reset lastIndex so a global/sticky-flagged regex doesn't carry state
+                    // across multiple matchStory() calls and produce false negatives.
+                    parsedQuery.regex.lastIndex = 0;
                     return parsedQuery.regex.test(story.search_index || story.name || "");
                 }
 

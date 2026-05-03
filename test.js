@@ -169,6 +169,45 @@ test('extractDelimitedList: bare list (no delimiter) returns trimmed strings', (
     deepEq(r, ['Locations', 'Factions', 'History']);
 });
 
+test('extractDelimitedList: parses unbulleted pipe rows (LLM-followed prompt format)', () => {
+    // Several prompts (auto-knowledge, archivist, stat tracker, relationship matrix)
+    // ask the LLM for "Title | Content" rows with no bullet markers.
+    const text = `Old Mill | A creaking watermill on the edge of town.
+Red Guard | The captain's elite unit.`;
+    const r = UTILITY.extractDelimitedList(text, '|', ['title', 'content']);
+    assert.equal(r.length, 2);
+    assert.equal(r[0].title, 'Old Mill');
+    assert.equal(r[0].content, 'A creaking watermill on the edge of town.');
+    assert.equal(r[1].title, 'Red Guard');
+});
+
+test('extractDelimitedList: skips intro/prose lines that lack the delimiter', () => {
+    // Intro chatter from the LLM should be filtered when a delimiter is required.
+    const text = `Sure! Here are the entries:
+Old Mill | A creaking watermill.
+Red Guard | The captain's elite unit.`;
+    const r = UTILITY.extractDelimitedList(text, '|', ['title', 'content']);
+    assert.equal(r.length, 2);
+    assert.equal(r[0].title, 'Old Mill');
+});
+
+test('extractDelimitedList: comma-separated single line in bare-list mode', () => {
+    // The in-story scenario prompt asks the LLM for "comma-separated list of topics"
+    // on a single line. Without bullet markers, the old gate dropped everything.
+    const r = UTILITY.extractDelimitedList('The Old Mill, The Red Guard, The Great Fire');
+    deepEq(r, ['The Old Mill', 'The Red Guard', 'The Great Fire']);
+});
+
+test('extractDelimitedList: stat-row format (name|delta) parses cleanly', () => {
+    // analyzeTurn prompt explicitly asks for `<stat_name>|<delta>` rows.
+    const r = UTILITY.extractDelimitedList('Health|-5\nMorale|+10', '|', ['name', 'delta']);
+    assert.equal(r.length, 2);
+    assert.equal(r[0].name, 'Health');
+    assert.equal(r[0].delta, '-5');
+    assert.equal(r[1].name, 'Morale');
+    assert.equal(r[1].delta, '+10');
+});
+
 // ─── extractAndParseJSON ──────────────────────────────────────────────────
 
 test('extractAndParseJSON: null/empty input returns null', () => {
@@ -401,14 +440,12 @@ test('parseSearchQuery: invalid regex falls back to text-token parsing', () => {
 test('parseSearchQuery: tokenizes negation, phrases, and field prefixes', () => {
     const r = UTILITY.parseSearchQuery('dragon -boring "fire breath" tag:adventure');
     assert.equal(r.isRegex, false);
-    const find = (text) => r.tokens.find(t => t.text === text);
-    assert.ok(find('dragon'), 'plain token present');
-    const neg = find('boring');
-    assert.ok(neg && neg.isNegative, 'negation flagged');
-    const phrase = find('fire breath');
-    assert.ok(phrase && phrase.isPhrase, 'phrase flagged');
-    const tagTok = find('adventure');
-    assert.ok(tagTok && tagTok.field === 'tag', 'field captured');
+    deepEq(r.tokens, [
+        { text: 'dragon',     isNegative: false, isPhrase: false, field: null  },
+        { text: 'boring',     isNegative: true,  isPhrase: false, field: null  },
+        { text: 'fire breath', isNegative: false, isPhrase: true, field: null  },
+        { text: 'adventure',  isNegative: false, isPhrase: false, field: 'tag' }
+    ]);
 });
 
 // ─── matchStory ───────────────────────────────────────────────────────────
@@ -422,6 +459,20 @@ test('matchStory: regex query tests against search_index then name', () => {
     const story = { id: '1', name: 'Dragon Tale', search_index: '' };
     const q = UTILITY.parseSearchQuery('/dragon/i');
     assert.equal(UTILITY.matchStory(story, q), true);
+});
+
+test('matchStory: regex with global flag must work on every story (no lastIndex carryover)', () => {
+    // /pattern/g sets lastIndex on RegExp.prototype.test; reusing the same
+    // regex across stories without resetting causes stateful false negatives.
+    const stories = [
+        { id: '1', name: 'A', search_index: 'dragon' },
+        { id: '2', name: 'B', search_index: 'dragon' },
+        { id: '3', name: 'C', search_index: 'dragon' }
+    ];
+    const q = UTILITY.parseSearchQuery('/dragon/g');
+    for (const s of stories) {
+        assert.equal(UTILITY.matchStory(s, q), true, `story ${s.id} should match`);
+    }
 });
 
 test('matchStory: positive token must appear in search_index', () => {

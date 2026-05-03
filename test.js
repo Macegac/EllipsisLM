@@ -175,6 +175,24 @@ test('extractStructuredHeadings: empty / null input returns empty object', () =>
     deepEq(UTILITY.extractStructuredHeadings(null, ['Foo']), {});
 });
 
+test('extractStructuredHeadings: tolerates bracket-style markup [KEY]', () => {
+    // analyzeTurn / character skeleton prompts ask the LLM for `[KEY]` headers
+    // rather than `### KEY`. The regex's optional-bracket prefix has to handle both.
+    const sample = `[Emotion]
+happy
+
+[Location]
+The market square
+
+[Stats]
+Health|+5`;
+    const r = UTILITY.extractStructuredHeadings(sample, ['Emotion', 'Location', 'Stats']);
+    assert.equal(r['Emotion'], 'happy');
+    assert.equal(r['Location'], 'The market square');
+    assert.equal(r['Stats'], 'Health|+5');
+    assert.equal(r['emotion'], 'happy', 'lowercase alias must be populated');
+});
+
 // ─── extractDelimitedList ─────────────────────────────────────────────────
 
 test('extractDelimitedList: null/empty input returns empty array', () => {
@@ -232,6 +250,20 @@ test('extractDelimitedList: comma-separated single line in bare-list mode', () =
     // on a single line. Without bullet markers, the old gate dropped everything.
     const r = UTILITY.extractDelimitedList('The Old Mill, The Red Guard, The Great Fire');
     deepEq(r, ['The Old Mill', 'The Red Guard', 'The Great Fire']);
+});
+
+test('extractDelimitedList: strips Key: prefixes from each delimited part (production roster format)', () => {
+    // The Concept Roster prompt asks the LLM for: `- Name: X | Role: Y | Archetype: Z`.
+    // Each delimited part starts with a `Key:` label that the helper must strip.
+    const text = `- Name: Thorne | Role: User | Archetype: The Protagonist (a brave dwarf)
+- Name: Mira | Role: PrimaryAI | Archetype: The Companion`;
+    const r = UTILITY.extractDelimitedList(text, '|', ['name', 'role', 'archetype']);
+    assert.equal(r.length, 2);
+    assert.equal(r[0].name, 'Thorne');
+    assert.equal(r[0].role, 'User');
+    assert.equal(r[0].archetype, 'The Protagonist (a brave dwarf)');
+    assert.equal(r[1].name, 'Mira');
+    assert.equal(r[1].role, 'PrimaryAI');
 });
 
 test('extractDelimitedList: stat-row format (name|delta) parses cleanly', () => {
@@ -376,6 +408,14 @@ test('parseLoreTrigger: AND/XOR operators are case-insensitive', () => {
     const mixed = UTILITY.parseLoreTrigger('day Xor night');
     assert.equal(mixed.groups[0].type, 'XOR');
     deepEq(mixed.groups[0].keywords, ['day', 'night']);
+});
+
+test('parseLoreTrigger: chance-prefix `and` is recognized in any case', () => {
+    // The chance regex carries the /i flag; lowercase `and 50%` must still flip
+    // chanceOperator from default OR to AND. Locks in the case-insensitive contract.
+    const r = UTILITY.parseLoreTrigger('dragon, and 50%');
+    assert.equal(r.chance, 50);
+    assert.equal(r.chanceOperator, 'AND');
 });
 
 // ─── testLoreEntries (deterministic with chance=0) ────────────────────────

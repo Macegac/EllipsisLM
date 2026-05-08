@@ -106,6 +106,7 @@ When contributing code to EllipsisLM, the following standards are non-negotiable
 - **Vanilla DOM Handling**: Rely on the existing DOM orchestration mechanisms (`UIManager`, `ReactiveStore`, `ActionHandler`).
 - **Responsive Layout First**: Always ensure your UI additions gracefully fall back through the flexbox rules into vertical (Mobile) mode cleanly. Always test your UI changes against horizontal mode overlapping.
 - **Thorough Section Tagging**: Maintain to the strict bracket-ID schema established. If you need a new functional subsection, document and map it.
+- **Add Red/Green Tests Where Possible**: For any pure helper added to or modified inside `UTILITY` (parsers, normalizers, formatters, search/match logic), add a test in `test.js`. Run `npm test` before committing — it must be green. When fixing a bug in a covered helper, write a failing red test that demonstrates the bug *first*, then fix the code until it goes green. The runner extracts UTILITY from `index.html` directly, so the single-file constraint is preserved.
 
 ## How to Think About Changes ("Red-Teaming" Features)
 Do not immediately accept the first idea that comes to mind when addressing an issue or building a feature. You must actively **"red-team"** your implementation plan.

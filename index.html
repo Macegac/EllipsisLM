@@ -4701,6 +4701,7 @@
              * @returns {Promise<boolean>} - True if saved successfully.
              */
             async saveStory(story) {
+                UTILITY.normalizeStoryShape(story);
                 return this._performWrite("stories", story);
             },
 
@@ -4716,7 +4717,7 @@
                         const tx = this.db.transaction(["stories"], "readonly");
                         const store = tx.objectStore("stories");
                         const req = store.get(storyId);
-                        req.onsuccess = () => resolve(req.result ?? null);
+                        req.onsuccess = () => resolve(UTILITY.normalizeStoryShape(req.result ?? null));
                         req.onerror = () => resolve(null);
                     } catch (e) { resolve(null); }
                 });
@@ -4733,7 +4734,7 @@
                         const tx = this.db.transaction(["stories"], "readonly");
                         const store = tx.objectStore("stories");
                         const req = store.getAll();
-                        req.onsuccess = () => resolve(req.result ?? []);
+                        req.onsuccess = () => resolve((req.result ?? []).map(s => UTILITY.normalizeStoryShape(s)));
                         req.onerror = () => resolve([]);
                     } catch (e) { resolve([]); }
                 });
@@ -5966,7 +5967,7 @@
                     state: {
                         chat_history: [],
                         messageCounter: 0,
-                        static_entries: scenario.static_entries ? JSON.parse(JSON.stringify(scenario.static_entries)) : [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }],
+                        static_entries: (scenario.static_entries && scenario.static_entries.length > 0) ? JSON.parse(JSON.stringify(scenario.static_entries)) : [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }],
                         worldMap: scenario.worldMap ? JSON.parse(JSON.stringify(scenario.worldMap)) : { grid: UTILITY.createDefaultMapGrid(), currentLocation: { x: 4, y: 4 }, destination: { x: null, y: null }, path: [] },
                         livingPersonaCounters: {}, evolved_characters: {},
                         swarmMode: false, swarmNarrativeCapital: {}, swarmSecrets: {}, swarmLastIntents: {}
@@ -6333,6 +6334,10 @@
                                 path: []
                             };
                         }
+
+                        if (!this.data.activeNarrativeState.static_entries || this.data.activeNarrativeState.static_entries.length === 0) {
+                            this.data.activeNarrativeState.static_entries = [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }];
+                        }
                     } else {
                         this.data.activeNarrativeState = {};
                     }
@@ -6416,16 +6421,10 @@
             updateTagCache() {
                 const allTags = new Set();
                 this.data.library.stories.forEach(story => {
-                    if (story.tags) {
-                        const tagsArray = Array.isArray(story.tags) ? story.tags : (typeof story.tags === 'string' ? story.tags.split(',').map(t => t.trim()) : []);
-                        tagsArray.forEach(tag => { if (tag) allTags.add(tag.toLowerCase()); });
-                    }
-                    if (story.characters) {
+                    if (Array.isArray(story.tags)) story.tags.forEach(tag => allTags.add(String(tag).toLowerCase()));
+                    if (Array.isArray(story.characters)) {
                         story.characters.forEach(char => {
-                            if (char.tags) {
-                                const tagsArray = Array.isArray(char.tags) ? char.tags : (typeof char.tags === 'string' ? char.tags.split(',').map(t => t.trim()) : []);
-                                tagsArray.forEach(tag => { if (tag) allTags.add(tag.toLowerCase()); });
-                            }
+                            if (char && Array.isArray(char.tags)) char.tags.forEach(tag => allTags.add(String(tag).toLowerCase()));
                         });
                     }
                 });
@@ -6508,11 +6507,17 @@
 
                 const messagesPayload = [{ role: 'user', content: cleanPrompt }];
 
+                const extract = (res) => {
+                    const msg = res?.choices?.[0]?.message || {};
+                    const content = msg.content ?? msg.reasoning_content ?? msg.reasoning ?? "";
+                    return typeof content === 'string' ? content : String(content ?? "");
+                };
+
                 try {
                     const res = await this.webllmEngine.chat.completions.create({
                         messages: messagesPayload
                     });
-                    return res.choices[0].message.content;
+                    return extract(res);
                 } catch (error) {
                     // Catch iOS Safari WebGPU context loss and auto-reboot the engine
                     if (error.message && (error.message.includes("device lost") || error.name === "DeviceLostError")) {
@@ -6524,7 +6529,7 @@
                         const res = await this.webllmEngine.chat.completions.create({
                             messages: messagesPayload
                         });
-                        return res.choices[0].message.content;
+                        return extract(res);
                     }
                     throw error;
                 }
@@ -6545,6 +6550,10 @@
                     } else if (state.apiProvider === 'lmstudio') {
                         text = await this.callLMStudio(prompt, signal, isJson);
                     }
+
+                    // Defend against providers that return null/undefined or non-strings.
+                    if (text == null) text = "";
+                    else if (typeof text !== 'string') text = String(text);
 
                     if (isJson) {
                         // Match either {} or [] patterns, whichever comes first
@@ -6649,7 +6658,15 @@
                 }
 
                 const data = await res.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                // Aggregate all non-thought text parts. Some Gemini responses split output
+                // across multiple parts, and reasoning models put thinking in `thought:true`
+                // parts that should be excluded from the user-facing text.
+                const parts = data.candidates?.[0]?.content?.parts || [];
+                const text = parts
+                    .filter(p => p && !p.thought && typeof p.text === 'string')
+                    .map(p => p.text)
+                    .join('');
+                return text || "";
             },
 
             /**
@@ -6725,7 +6742,13 @@
                     throw new Error(`API Error: ${errorDetails}`);
                 }
                 const data = await res.json();
-                return data.choices[0].message.content;
+                const msg = data.choices?.[0]?.message || {};
+                // Some OpenRouter models (reasoning models, refusal responses) return
+                // `content: null` and put the actual text in `reasoning` / `reasoning_content`.
+                // Fall back through those before defaulting to empty string so callAI can
+                // safely .trim() and let upstream retry/fallback logic handle empties.
+                const content = msg.content ?? msg.reasoning_content ?? msg.reasoning ?? "";
+                return typeof content === 'string' ? content : String(content ?? "");
             },
 
             /**
@@ -6825,7 +6848,8 @@
                 }
 
                 const data = await res.json();
-                let resultText = data.results[0].text;
+                let resultText = data.results?.[0]?.text ?? "";
+                if (typeof resultText !== 'string') resultText = String(resultText ?? "");
 
                 let truncateIdx = -1;
                 for (const seq of stopSequences) {
@@ -6905,7 +6929,8 @@
                         const data = await check.json();
 
                         if (data.results && data.results[0]) {
-                            let textSoFar = data.results[0].text;
+                            let textSoFar = data.results[0].text ?? "";
+                            if (typeof textSoFar !== 'string') textSoFar = String(textSoFar ?? "");
                             let truncateIdx = -1;
                             for (const seq of stopSequences) {
                                 if (seq.startsWith('\n')) {
@@ -6973,7 +6998,9 @@
                     throw new Error(`LM Studio API Error: ${errorDetails}`);
                 }
                 const data = await res.json();
-                return data.choices[0].message.content;
+                const msg = data.choices?.[0]?.message || {};
+                const content = msg.content ?? msg.reasoning_content ?? msg.reasoning ?? "";
+                return typeof content === 'string' ? content : String(content ?? "");
             },
         };
 
@@ -7272,6 +7299,50 @@
          */
         const UTILITY = {
             /**
+             * Coerces a value into an array of trimmed, non-empty strings.
+             * Accepts arrays, comma-separated strings, or scalars; returns [] for nullish/garbage input.
+             * Used to repair LLM outputs and legacy/imported data that may store array fields as strings.
+             */
+            toStringArray(val) {
+                if (val == null) return [];
+                if (Array.isArray(val)) {
+                    return val.map(v => (v == null ? '' : String(v)).trim()).filter(Boolean);
+                }
+                if (typeof val === 'string') {
+                    return val.split(',').map(s => s.trim()).filter(Boolean);
+                }
+                if (typeof val === 'object') return [];
+                const s = String(val).trim();
+                return s ? [s] : [];
+            },
+
+            /**
+             * Repairs structural defects in a story object in-place.
+             * Coerces tag fields to string arrays and ensures other expected
+             * collections are arrays. Tolerant of legacy/imported/LLM-malformed data.
+             * Returns the same story reference for chaining.
+             */
+            normalizeStoryShape(story) {
+                if (!story || typeof story !== 'object') return story;
+
+                story.tags = this.toStringArray(story.tags);
+                if (!Array.isArray(story.characters)) story.characters = [];
+                if (!Array.isArray(story.scenarios)) story.scenarios = [];
+                if (!Array.isArray(story.static_entries)) story.static_entries = [];
+                if (!Array.isArray(story.dynamic_entries)) story.dynamic_entries = [];
+                if (!Array.isArray(story.narratives)) story.narratives = [];
+
+                story.characters.forEach(c => {
+                    if (!c || typeof c !== 'object') return;
+                    c.tags = this.toStringArray(c.tags);
+                    if (!Array.isArray(c.extra_portraits)) c.extra_portraits = [];
+                    if (!Array.isArray(c.dynamic_knowledge)) c.dynamic_knowledge = [];
+                });
+
+                return story;
+            },
+
+            /**
              * Strips internal model "thinking" blocks (e.g. <think>...</think>) from a string.
              * Supports standard tags like <think>, [THOUGHTS], [REASONING], etc.
              * @param {string} text - The raw AI response.
@@ -7416,14 +7487,19 @@
                     cleanTriggers = triggersStr.replace(match[0], ' ');
                 }
 
+                // Operators are accepted in any case (AND, and, And, etc.) so that the
+                // user-facing DSL is forgiving. Split on the operator with whitespace
+                // boundaries so substrings inside keywords are not mistaken for operators.
+                const xorRe = /\s+XOR\s+/i;
+                const andRe = /\s+AND\s+/i;
                 const parts = cleanTriggers.split(',').map(s => s.trim()).filter(Boolean);
                 const groups = parts.map(part => {
-                    if (part.includes(' XOR ')) {
-                        const keywords = part.split(' XOR ').map(k => k.trim().toLowerCase()).filter(Boolean);
+                    if (xorRe.test(part)) {
+                        const keywords = part.split(xorRe).map(k => k.trim().toLowerCase()).filter(Boolean);
                         if (keywords.length === 2) return { type: 'XOR', keywords };
                     }
-                    if (part.includes(' AND ')) {
-                        const keywords = part.split(' AND ').map(k => k.trim().toLowerCase()).filter(Boolean);
+                    if (andRe.test(part)) {
+                        const keywords = part.split(andRe).map(k => k.trim().toLowerCase()).filter(Boolean);
                         if (keywords.length > 0) return { type: 'AND', keywords };
                     }
                     return { type: 'OR', keywords: [part.toLowerCase()] };
@@ -7587,20 +7663,22 @@
                     const pattern = `(?:\\[|\\*\\*|#|\\n|^|\\s)*${escapedKey}(?:\\]|\\*\\*|\\:|\\s)*\\n([\\s\\S]*?)(?=\\n\\s*[#\\[\\*\\s]*(${otherKeys})|$)`;
                     const regex = new RegExp(pattern, 'i');
 
+                    let value = "";
                     const match = text.match(regex);
                     if (match && match[1]) {
-                        result[key.toLowerCase()] = match[1].trim();
+                        value = match[1].trim();
                     } else {
-                        // Fallback attempt: if the specific structured search fails, try a simpler "key exists" hunt 
+                        // Fallback attempt: if the specific structured search fails, try a simpler "key exists" hunt
                         // as sometimes the stop lookahead is too strictly formatted.
                         const fallbackRegex = new RegExp(`\\[?${escapedKey}\\]?\\s*\\n?([\\s\\S]*?)(?=\\n\\[|\\n#|\\n\\*\\*|$)`, 'i');
                         const fallbackMatch = text.match(fallbackRegex);
-                        if (fallbackMatch) {
-                            result[key.toLowerCase()] = fallbackMatch[1].trim();
-                        } else {
-                            result[key.toLowerCase()] = "";
-                        }
+                        if (fallbackMatch) value = fallbackMatch[1].trim();
                     }
+                    // Expose the value under both the original case and lowercase so callers using
+                    // either style work. Some readers use `data['Model Instructions']`, others
+                    // use `briefData.tags`.
+                    result[key] = value;
+                    result[key.toLowerCase()] = value;
                 }
                 return result;
             },
@@ -7617,31 +7695,50 @@
             extractDelimitedList(text, delimiter = null, keys = null) {
                 const items = [];
                 if (!text) return items;
-                const lines = text.split('\n');
-                for (let line of lines) {
-                    line = line.trim();
-                    if (line.startsWith('-') || line.startsWith('*') || /^\\d+\\./.test(line)) {
-                        line = line.replace(/^[-*]\\s*/, '').replace(/^\\d+\\.\\s*/, '').trim();
-                        if (!line) continue;
 
-                        if (delimiter && keys) {
-                            const parts = line.split(delimiter).map(p => p.trim());
-                            const obj = {};
-                            keys.forEach((key, i) => {
-                                const part = parts[i] || "";
-                                const colonIdx = part.indexOf(':');
-                                if (colonIdx !== -1) {
-                                    obj[key] = part.substring(colonIdx + 1).trim();
-                                } else {
-                                    obj[key] = part;
-                                }
-                            });
-                            items.push(obj);
-                        } else {
-                            items.push(line);
-                        }
+                const bulletRe = /^([-*]\s+|\d+\.\s+)/;
+                const stripBullet = (s) => s.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '').trim();
+
+                const lines = text.split('\n');
+                for (const raw of lines) {
+                    const line = raw.trim();
+                    if (!line) continue;
+                    const stripped = stripBullet(line);
+                    if (!stripped) continue;
+
+                    if (delimiter && keys) {
+                        // Bullet markers explicitly signal "this is a row" — accept regardless.
+                        // Unbulleted lines must contain the delimiter so prose intros get filtered.
+                        // Several prompts ask the LLM for unbulleted "Title | Content" rows.
+                        const wasBulleted = bulletRe.test(line);
+                        if (!wasBulleted && !stripped.includes(delimiter)) continue;
+                        const parts = stripped.split(delimiter).map(p => p.trim());
+                        const obj = {};
+                        keys.forEach((key, i) => {
+                            const part = parts[i] || "";
+                            const colonIdx = part.indexOf(':');
+                            if (colonIdx !== -1) {
+                                obj[key] = part.substring(colonIdx + 1).trim();
+                            } else {
+                                obj[key] = part;
+                            }
+                        });
+                        items.push(obj);
+                    } else if (bulletRe.test(line)) {
+                        // Bare-list mode: only accept actually-bulleted rows so prose is filtered.
+                        items.push(stripped);
                     }
                 }
+
+                // Bare-list fallback: if the LLM returned a single comma-separated line
+                // (the in-story scenario topics prompt asks for exactly this), accept it.
+                if (!delimiter && items.length === 0) {
+                    const trimmed = text.trim();
+                    if (trimmed.includes(',') && !trimmed.includes('\n')) {
+                        return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+                }
+
                 return items;
             },
 
@@ -7937,6 +8034,9 @@
                 if (!story) return false;
 
                 if (parsedQuery.isRegex) {
+                    // Reset lastIndex so a global/sticky-flagged regex doesn't carry state
+                    // across multiple matchStory() calls and produce false negatives.
+                    parsedQuery.regex.lastIndex = 0;
                     return parsedQuery.regex.test(story.search_index || story.name || "");
                 }
 
@@ -9982,7 +10082,7 @@ Write only the character's message.`;
                     } catch (e) { console.warn("Failed to extract BYAF background:", e); }
                 }
 
-                return { story: this._convertBYAFtoEllipsis(characterData, scenariosData), imageBlob };
+                return { story: this._convertBYAFtoEllipsis(characterData, scenariosData), imageBlob, backgroundImageBlob };
             },
 
             /**
@@ -16667,15 +16767,18 @@ Write only the character's message.`;
             },
 
             async _callAgentText(prompt, retries = 1) {
+                let lastErr = null;
                 for (let i = 0; i <= retries; i++) {
                     try {
                         const res = await APIService.callAI(prompt, false);
                         if (res) return res.trim();
                         throw new Error("Empty text response");
                     } catch (e) {
-                        if (i === retries) return null;
+                        lastErr = e;
                     }
                 }
+                console.warn("[Architect] _callAgentText failed after retries:", lastErr && lastErr.message);
+                return null;
             },
 
             /**
@@ -16911,15 +17014,18 @@ Write only the character's message.`;
             },
 
             async _callAgentText(prompt, retries = 1) {
+                let lastErr = null;
                 for (let i = 0; i <= retries; i++) {
                     try {
                         const res = await APIService.callAI(prompt, false);
                         if (res) return res.trim();
                         throw new Error("Empty text response");
                     } catch (e) {
-                        if (i === retries) return null;
+                        lastErr = e;
                     }
                 }
+                console.warn("[Architect] _callAgentText failed after retries:", lastErr && lastErr.message);
+                return null;
             },
 
             async runScenarioConceptPhase(userPrompt, existingStory, updateUI) {
@@ -18608,9 +18714,18 @@ Write only the descriptive paragraphs.`;
              */
             retryGenStory() {
                 this.RUNTIME_GEN.draftStory = null;
+                this.RUNTIME_GEN.busy = false;
                 document.getElementById('gen-story-approval-view').classList.add('hidden');
                 document.getElementById('gen-story-approval-view').classList.remove('flex');
+                document.getElementById('gen-story-progress-view').classList.add('hidden');
+                document.getElementById('gen-story-progress-view').classList.remove('flex');
                 document.getElementById('gen-story-input-view').classList.remove('hidden');
+                // Re-enable the Phase 1 draft button and restore its label.
+                const phase1Btn = document.querySelector('[data-action="gen-story-phase-1"]');
+                if (phase1Btn) {
+                    phase1Btn.disabled = false;
+                    phase1Btn.innerHTML = 'Draft Concept';
+                }
             },
 
             /**
@@ -18618,6 +18733,11 @@ Write only the descriptive paragraphs.`;
              * This is the "Phase 2" of the Story Architect flow.
              */
             async confirmGenStory() {
+                // Re-entrancy guard: ignore double-clicks while a generation pass is in flight.
+                if (this.RUNTIME_GEN && this.RUNTIME_GEN.busy) return;
+                if (!this.RUNTIME_GEN) this.RUNTIME_GEN = {};
+                this.RUNTIME_GEN.busy = true;
+
                 // Read Edited Values
                 const title = document.getElementById('gen-approval-title-input').value;
                 const summary = document.getElementById('gen-approval-summary-input').value;
@@ -18713,8 +18833,11 @@ Write only the descriptive paragraphs.`;
 
                         story.narratives.push({ id: newNarrative.id, name: newNarrative.name, last_modified: newNarrative.last_modified });
 
-                        await DBService.saveStory(story);
-                        await DBService.saveNarrative(newNarrative);
+                        const storySaved = await DBService.saveStory(story);
+                        const narrativeSaved = await DBService.saveNarrative(newNarrative);
+                        if (!storySaved || !narrativeSaved) {
+                            throw new Error("Failed to persist scenario to local database (disk full or quota exceeded?).");
+                        }
 
                         // Handle Image Imports (The Pipeline generates Blob URLs, but we need to persist them)
                         // The Pipeline `runCastingPhase` assigns `image_url` as Blob URL or internal ID.
@@ -18878,8 +19001,11 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
 
                     draft.narratives.push({ id: newNarrative.id, name: newNarrative.name, last_modified: newNarrative.last_modified });
 
-                    await DBService.saveStory(draft);
-                    await DBService.saveNarrative(newNarrative);
+                    const storySaved = await DBService.saveStory(draft);
+                    const narrativeSaved = await DBService.saveNarrative(newNarrative);
+                    if (!storySaved || !narrativeSaved) {
+                        throw new Error("Failed to persist generated story to local database (disk full or quota exceeded?).");
+                    }
 
                     StateManager.getLibrary().stories.push(draft);
                     await LibraryController.updateSearchIndex(draft);

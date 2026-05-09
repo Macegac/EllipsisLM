@@ -1884,11 +1884,27 @@
                                 <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
                                 <path d="M3 3v5h5"></path>
                                 <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
-                                <path d="M16 21h5v-5"></path>
+                                <path d="M21 21v-5h-5"></path>
                             </svg>
                         </button>
                     </div>
                 </div>
+            </div>
+
+            <!-- Context Menu for Direct Character -->
+            <div id="generate-context-menu" class="hidden absolute z-50 bg-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-xl py-1 overflow-hidden" style="min-width: 200px;">
+                <button data-action="direct-character" data-action-val="user" class="direct-new-btn w-full text-left px-4 py-2 hover:bg-indigo-600/50 text-white text-sm transition-colors flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    Direct my Character
+                </button>
+                <button data-action="direct-character" data-action-val="ai" class="direct-new-btn w-full text-left px-4 py-2 hover:bg-indigo-600/50 text-white text-sm transition-colors flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    Direct Other Character
+                </button>
+                <button data-action="direct-character" data-action-val="regen" class="direct-regen-btn hidden w-full text-left px-4 py-2 hover:bg-emerald-600/50 text-white text-sm transition-colors flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Regen with Directive
+                </button>
             </div>
         </main>
     </div>
@@ -2454,6 +2470,8 @@
                             class="pb-2 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white transition-colors flex-shrink-0">Images</button>
                         <button id="settings-tab-export" onclick="AppController.switchSettingsTab('export')"
                             class="pb-2 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white transition-colors flex-shrink-0">Export</button>
+                        <button id="settings-tab-defaults" onclick="AppController.switchSettingsTab('defaults')"
+                            class="pb-2 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white transition-colors flex-shrink-0">Defaults</button>
                         <button id="settings-tab-personas" onclick="AppController.switchSettingsTab('personas')"
                             class="pb-2 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white transition-colors flex-shrink-0">Users</button>
                     </div>
@@ -2503,6 +2521,111 @@
             <div class="p-4 overflow-y-auto flex-grow flex flex-col min-h-0">
                 <textarea id="edit-modal-input" aria-label="Edit Response Content"
                     class="w-full h-full bg-gray-900 border-gray-700 rounded-lg p-4 resize-none focus:bg-black/40 transition-colors"></textarea>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <!-- Edit Scenario Modal -->
+    <div id="edit-scenario-modal" class="fixed inset-0 z-[60] items-center justify-center hidden p-4">
+        <div class="modal-overlay absolute inset-0 bg-black/60 backdrop-blur-sm" data-action="close-modal"
+            data-id="edit-scenario-modal"></div>
+        <div
+            class="bg-gray-800/90 backdrop-blur-md rounded-lg shadow-2xl w-full max-w-2xl max-h-[85vh] relative flex flex-col overflow-hidden border border-gray-600">
+            <div class="p-4 border-b border-gray-700 flex justify-between items-center flex-shrink-0 bg-gray-900/50">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                        </path>
+                    </svg>
+                    <span id="edit-scenario-modal-title">Edit Scenario</span>
+                </h2>
+                <div class="flex gap-2">
+                    <button onclick="LibraryController.saveScenario()"
+                        class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1.5 px-4 rounded shadow-lg transition-colors border border-indigo-500/50 hover:border-indigo-400">Save</button>
+                    <button data-action="close-modal" data-id="edit-scenario-modal"
+                        class="bg-black/40 hover:bg-red-900/80 text-gray-300 hover:text-white p-1.5 rounded-full backdrop-blur-sm transition-colors border border-gray-600/50 hover:border-red-500/50"
+                        title="Close">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-700 bg-gray-900/80 px-2 overflow-x-auto no-scrollbar flex-shrink-0">
+                <button id="scenario-tab-btn-setup" onclick="LibraryController.switchScenarioTab('setup')" class="px-4 py-3 font-semibold border-b-2 border-indigo-500 text-white whitespace-nowrap transition-colors">Setup</button>
+                <button id="scenario-tab-btn-cast" onclick="LibraryController.switchScenarioTab('cast')" class="px-4 py-3 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap transition-colors">Cast</button>
+                <button id="scenario-tab-btn-static" onclick="LibraryController.switchScenarioTab('static')" class="px-4 py-3 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap transition-colors">Static Lore</button>
+                <button id="scenario-tab-btn-dynamic" onclick="LibraryController.switchScenarioTab('dynamic')" class="px-4 py-3 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap transition-colors">Dynamic Lore</button>
+            </div>
+            
+            <!-- Tab Contents -->
+            <div class="p-4 md:p-6 overflow-y-auto flex-grow flex flex-col relative bg-gray-800">
+                
+                <!-- Setup Tab -->
+                <div id="scenario-tab-setup" class="space-y-5 flex flex-col h-full animate-fade-in">
+                    <p class="text-xs text-gray-400 italic bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                        You may make further modifications within a narrative based on this Scenario and save that as a new Scenario.
+                    </p>
+                    <input type="hidden" id="edit-scenario-story-id">
+                    <input type="hidden" id="edit-scenario-id">
+
+                    <div>
+                        <label class="block text-sm font-bold text-gray-300 mb-1.5">Scenario Name</label>
+                        <input type="text" id="edit-scenario-name"
+                            class="w-full bg-black/40 border border-gray-600 p-2.5 rounded-md focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors text-white"
+                            placeholder="e.g., Tavern Start">
+                    </div>
+
+                    <div class="flex-grow flex flex-col min-h-[200px]">
+                        <label class="block text-sm font-bold text-gray-300 mb-1.5 flex justify-between">
+                            <span>Opening Message</span>
+                            <span class="text-xs text-gray-500 font-normal">Markdown supported</span>
+                        </label>
+                        <textarea id="edit-scenario-message"
+                            class="w-full flex-grow min-h-[200px] bg-black/40 border border-gray-600 p-3 rounded-md resize-y focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors text-white font-mono text-sm leading-relaxed"
+                            placeholder="The story begins..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Cast Tab -->
+                <div id="scenario-tab-cast" class="hidden h-full flex flex-col animate-fade-in">
+                    <p class="text-xs text-gray-400 mb-4 bg-gray-900/50 p-3 rounded-lg border border-gray-700">
+                        Click a character card's <strong>Include</strong> toggle to include them in this scenario. Click the <strong>Set Speaker</strong> button to define who delivers the opening message.
+                    </p>
+                    <div id="edit-scenario-characters" class="grid grid-cols-2 lg:grid-cols-4 gap-4 overflow-y-auto pr-2 pb-2"></div>
+                </div>
+
+                <!-- Static Lore Tab -->
+                <div id="scenario-tab-static" class="hidden h-full flex flex-col md:flex-row gap-4 animate-fade-in">
+                    <div class="w-full md:w-1/3 flex flex-col h-1/3 md:h-full">
+                        <button onclick="LibraryController.addScenarioStaticEntry()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded mb-2 shadow transition-colors text-sm flex items-center justify-center gap-2 flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            New Entry
+                        </button>
+                        <div id="scenario-static-entries-list" class="bg-black/30 rounded p-2 overflow-y-auto flex-grow border border-gray-700"></div>
+                    </div>
+                    <div id="scenario-static-entry-details" class="w-full md:w-2/3 bg-black/30 rounded p-4 overflow-y-auto flex-1 md:flex-none md:h-full border border-gray-700">
+                        <div class="text-gray-400 flex items-center justify-center h-full">Select a static entry.</div>
+                    </div>
+                </div>
+
+                <!-- Dynamic Lore Tab -->
+                <div id="scenario-tab-dynamic" class="hidden h-full flex flex-col md:flex-row gap-4 animate-fade-in">
+                    <div class="w-full md:w-1/3 flex flex-col h-1/3 md:h-full">
+                        <button onclick="LibraryController.addScenarioDynamicEntry()" class="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded mb-2 shadow transition-colors text-sm flex items-center justify-center gap-2 flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            New Rule
+                        </button>
+                        <div id="scenario-dynamic-entries-list" class="bg-black/30 rounded p-2 overflow-y-auto flex-grow border border-gray-700"></div>
+                    </div>
+                    <div id="scenario-dynamic-entry-details" class="w-full md:w-2/3 bg-black/30 rounded p-4 overflow-y-auto flex-1 md:flex-none md:h-full border border-gray-700">
+                        <div class="text-gray-400 flex items-center justify-center h-full">Select a dynamic entry.</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -3309,16 +3432,7 @@
                             Prompt Template</label>
                         <select id="prompt-template-selector"
                             class="w-full bg-black/40 border border-gray-600 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 mb-3">
-                            <option value="event_master_base_prompt">Event Master</option>
-                            <option value="visual_master_base_prompt">Visual Master</option>
-                            <option value="prompt_persona_gen">Persona Generation</option>
-                            <option value="prompt_living_persona_gen">Living Persona Evolution</option>
-                            <option value="prompt_response_options_gen">Response Options Generation</option>
-                            <option value="prompt_world_map_gen">World Map Generation</option>
-                            <option value="prompt_location_gen">Location Prompt Generation</option>
-                            <option value="prompt_entry_gen">Memory Entry Generation</option>
-                            <option value="prompt_location_memory_gen">Location Memory Summary</option>
-                            <option value="prompt_auto_static_knowledge">Auto-Knowledge Generation</option>
+                            <!-- Populated dynamically via AppController.bindSettingsListeners() -->
                         </select>
                         <p id="prompt-template-hint" class="text-gray-400 text-sm mb-3">Select a template to edit.</p>
                         <textarea id="prompt-template-editor"
@@ -3331,6 +3445,180 @@
 
 
 
+        </div>
+        <div id="settings-defaults-content" class="hidden h-full flex flex-col">
+            <div class="space-y-6">
+                <!-- Visual Indicator Banner -->
+                <div class="bg-indigo-900/40 border border-indigo-500/50 rounded-lg p-3 flex items-start gap-3">
+                    <svg class="w-6 h-6 text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <div>
+                        <h4 class="text-sm font-bold text-indigo-200 uppercase tracking-wider">Global App Defaults</h4>
+                        <p class="text-xs text-indigo-300/80 mt-1">These settings and prompt templates act as the foundational baseline. They apply automatically to all stories unless overridden locally in a story's specific Prompts tab.</p>
+                    </div>
+                </div>
+
+                <!-- Agents Section -->
+                <div class="space-y-3 pt-4">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">Agents</h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Director Mode -->
+                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                            <div>
+                                <span class="text-gray-200 font-medium block">Director Mode <span class="ml-1 text-[10px] bg-indigo-600/60 text-indigo-300 px-1.5 py-0.5 rounded uppercase font-bold">Experimental</span></span>
+                                <span class="text-xs text-gray-500">Each character deliberates privately. A Director then resolves all intents into a single scene.</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer ml-4 shrink-0">
+                                <input type="checkbox" id="global-default-swarm-mode-toggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- AI Analysis Toggle -->
+                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                            <div>
+                                <span class="text-gray-200 font-medium block">Enable AI Analysis</span>
+                                <span class="text-xs text-gray-500">Auto-detects emotions and location changes. Disabling saves tokens.</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="global-default-enable-analysis-toggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Auto-Knowledge Toggle -->
+                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                            <div>
+                                <span class="text-gray-200 font-medium block">Auto-Knowledge Agent</span>
+                                <span class="text-xs text-gray-500">Automatically creates and updates static knowledge.</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="global-default-auto-knowledge" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Stats Tracking Toggle -->
+                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                            <div>
+                                <span class="text-gray-200 font-medium block">Character Stats</span>
+                                <span class="text-xs text-gray-500">AI tracks and updates RPG-style stats for each character.</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="global-default-enable-stats-toggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Living Persona Toggle -->
+                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                            <div>
+                                <span class="text-gray-200 font-medium block">Living Persona</span>
+                                <span class="text-xs text-gray-500">AI periodically evolves a character's personality based on history.</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="global-default-living-persona" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Response Options Toggle -->
+                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                            <div>
+                                <span class="text-gray-200 font-medium block">Response Options (CYOA)</span>
+                                <span class="text-xs text-gray-500">Generate 4 suggested actions after AI follows.</span>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="global-default-enable-response-options-toggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generation Settings -->
+                <div class="space-y-3 pt-4 border-t border-gray-700/30">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">Generation</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-gray-900/30 p-4 rounded-lg border border-gray-700/50">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Response Length</label>
+                            <div class="relative">
+                                <select id="global-default-response-length-selector" class="w-full appearance-none rounded-lg p-3 bg-gray-800 border border-gray-600 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors">
+                                    <option value="normal">Default (Unconstrained)</option>
+                                    <option value="short">Short (1-2 Sentences)</option>
+                                    <option value="medium">Medium (3-6 Sentences)</option>
+                                    <option value="long">Long (2-4 Paragraphs)</option>
+                                    <option value="novel">Novel (Creative Writing)</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-900/30 p-4 rounded-lg border border-gray-700/50">
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Response Style</label>
+                            <div class="relative">
+                                <select id="global-default-response-style-selector" class="w-full appearance-none rounded-lg p-3 bg-gray-800 border border-gray-600 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors">
+                                    <option value="normal">Normal</option>
+                                    <option value="prose">Force Prose (Quotes)</option>
+                                    <option value="roleplay">Force Roleplay (Asterisks)</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-4 border-t border-gray-700/30">
+                    <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">Masters & Logic</h3>
+
+                    <div class="space-y-4">
+                        <!-- Sliders -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-gray-900/30 p-4 rounded-lg border border-gray-700/50">
+                                <label for="global-default-event-master-prob-slider" class="text-gray-300 text-sm font-medium mb-2 flex justify-between items-center">
+                                    <span>Event Master Chance</span>
+                                    <span id="global-default-event-master-prob-value" class="text-indigo-400 font-bold whitespace-nowrap">0%</span>
+                                </label>
+                                <input type="range" id="global-default-event-master-prob-slider" class="w-full" min="0" max="100" step="1">
+                                <p class="text-xs text-gray-500 mt-2">Probability of injecting plot twists.</p>
+                            </div>
+                            <div class="bg-gray-900/30 p-4 rounded-lg border border-gray-700/50">
+                                <label for="global-default-visual-master-prob-slider" class="text-gray-300 text-sm font-medium mb-2 flex justify-between items-center">
+                                    <span>Visual Master Chance</span>
+                                    <span id="global-default-visual-master-prob-value" class="text-indigo-400 font-bold whitespace-nowrap">50%</span>
+                                </label>
+                                <input type="range" id="global-default-visual-master-prob-slider" class="w-full" min="0" max="100" step="1">
+                                <p class="text-xs text-gray-500 mt-2">Probability of generating scene visuals.</p>
+                            </div>
+                        </div>
+
+                        <!-- Global Prompt Overrides Editor -->
+                        <div class="bg-gray-900/30 border border-gray-700/50 rounded-lg p-4">
+                            <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
+                                <label for="global-prompt-template-selector" class="block text-gray-300 text-sm font-medium">Edit Default Prompts</label>
+                                <button id="global-prompt-reset-btn" class="bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 text-xs px-3 py-1.5 rounded-lg transition-colors border border-red-900/50 font-medium">
+                                    Reset to Hardcoded Default
+                                </button>
+                            </div>
+                            <select id="global-prompt-template-selector" class="w-full bg-black/40 border border-gray-600 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 mb-3">
+                                <!-- Options populated dynamically via AppController.bindSettingsListeners() -->
+                            </select>
+                            <p id="global-prompt-template-hint" class="text-gray-400 text-sm mb-3">Select a template to view or edit its global default.</p>
+                            <textarea id="global-prompt-template-editor" class="w-full bg-black/20 border border-gray-600 rounded-lg p-3 text-sm text-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-y font-mono" rows="12"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         <div id="settings-personas-content" class="h-full flex flex-col">
             <div class="flex-grow flex flex-col md:flex-row gap-4 min-h-0 h-[60vh]">
@@ -4221,7 +4509,7 @@
          * Application Build Information
          * Update this variable to change the footer in Appearance Settings.
          */
-        const APP_BUILD_TIMESTAMP = "Version: 2026.05.01 - 23:45";
+        const APP_BUILD_TIMESTAMP = "Version: 1.0.7 (2026.05.08 - 16:45)";
 
 
         /**
@@ -4350,6 +4638,44 @@
                     actionName = target.dataset.actionChange;
                     handler = this.actions[actionName];
                     if (handler) handler(target.dataset, target.value, e);
+                });
+
+                // --- DIRECT CHARACTER CONTEXT MENU LOGIC ---
+                document.body.addEventListener('contextmenu', (e) => {
+                    const primaryBtn = e.target.closest('#primary-action-btn');
+                    const regenBtn = e.target.closest('#regen-btn');
+                    const btn = primaryBtn || regenBtn;
+                    
+                    if (btn) {
+                        e.preventDefault();
+                        const contextMenu = document.getElementById('generate-context-menu');
+                        if (contextMenu) {
+                            const isRegen = !!regenBtn;
+                            contextMenu.dataset.source = isRegen ? 'regen' : 'primary';
+
+                            contextMenu.querySelectorAll('.direct-new-btn').forEach(b => b.classList.toggle('hidden', isRegen));
+                            contextMenu.querySelectorAll('.direct-regen-btn').forEach(b => b.classList.toggle('hidden', !isRegen));
+
+                            let leftPos = e.clientX - 100;
+                            let topPos = e.clientY - 90;
+                            if (leftPos < 10) leftPos = 10;
+                            if (topPos < 10) topPos = 10;
+
+                            contextMenu.style.left = `${leftPos}px`;
+                            contextMenu.style.top = `${topPos}px`;
+                            contextMenu.classList.remove('hidden');
+                        }
+                    }
+                });
+
+                // Hide context menu on outside click
+                document.addEventListener('click', (e) => {
+                    const contextMenu = document.getElementById('generate-context-menu');
+                    if (contextMenu && !contextMenu.classList.contains('hidden')) {
+                        if (!e.target.closest('#primary-action-btn') && !e.target.closest('#regen-btn')) {
+                            setTimeout(() => contextMenu.classList.add('hidden'), 50);
+                        }
+                    }
                 });
             }
         };
@@ -4707,6 +5033,7 @@
              * @returns {Promise<boolean>} - True if saved successfully.
              */
             async saveStory(story) {
+                UTILITY.normalizeStoryShape(story);
                 return this._performWrite("stories", story);
             },
 
@@ -4722,7 +5049,7 @@
                         const tx = this.db.transaction(["stories"], "readonly");
                         const store = tx.objectStore("stories");
                         const req = store.get(storyId);
-                        req.onsuccess = () => resolve(req.result ?? null);
+                        req.onsuccess = () => resolve(UTILITY.normalizeStoryShape(req.result ?? null));
                         req.onerror = () => resolve(null);
                     } catch (e) { resolve(null); }
                 });
@@ -4739,7 +5066,7 @@
                         const tx = this.db.transaction(["stories"], "readonly");
                         const store = tx.objectStore("stories");
                         const req = store.getAll();
-                        req.onsuccess = () => resolve(req.result ?? []);
+                        req.onsuccess = () => resolve((req.result ?? []).map(s => UTILITY.normalizeStoryShape(s)));
                         req.onerror = () => resolve([]);
                     } catch (e) { resolve([]); }
                 });
@@ -5620,15 +5947,7 @@
 
                     // --- Characters ---
                     characters: [
-                        {
-                            id: userId,
-                            name: "You",
-                            description: "A mysterious wandering adventurer drawn to the crossroads town of Hearthstone by rumors of the Shattered Crown — an ancient artifact of immense power, fractured into fragments and scattered across Aethermoor two centuries ago.\n\nYou wear a dark, weathered traveling cloak with a deep hood that casts your features into shadow, revealing only a grim, determined jawline and piercing eyes. Beneath the cloak, you wear rugged, practical leather armor suited for long periods on the road. A faint, almost imperceptible magical mist sometimes seems to cling to your silhouette.\n\nYou carry a weathered journal filled with sketches of Crown fragment locations and pre-Shattering runic translations. This journal was passed down to you by your mentor, a scholar who vanished mysteriously while pursuing the same quest. You are resourceful, adaptable, and driven by a quiet determination to finish your mentor's work and discover the truth behind the Crown's shattering.\n\nYou rarely speak of your past before the road, preferring to keep your companions guessing, but your skills in survival and your deep knowledge of arcane history suggest a complicated lineage.",
-                            short_description: "A mysterious wandering adventurer seeking the fragments of the Shattered Crown.",
-                            model_instructions: "Write a response for {character} in a creative, immersive, and descriptive style. Use second-person perspective. Describe sensory details — sights, sounds, smells — to bring the scene alive. Maintain an air of competence and quiet mystery.",
-                            is_user: true, is_active: true, image_url: 'https://raw.githubusercontent.com/pacmanincarnate/EllipsisLM/main/assets/demo/user.png', extra_portraits: [], tags: ["adventurer", "protagonist", "mysterious"], is_narrator: false,
-                            dynamic_knowledge: []
-                        },
+                        UTILITY.getDefaultUserCharacter(),
                         {
                             id: narratorId,
                             name: "Narrator",
@@ -5892,7 +6211,7 @@
                     search_index: "new story",
                     folder_ids: [],
                     characters: [
-                        { id: UTILITY.uuid(), name: "Userian", description: "The protagonist.", short_description: "The main character.", model_instructions: "Write a response for {character} in a creative and descriptive style.", is_user: true, is_active: true, image_url: '', extra_portraits: [], tags: [], is_narrator: false },
+                        UTILITY.getDefaultUserCharacter(),
                         { id: UTILITY.uuid(), name: "Narrator", description: "Describes the world.", short_description: "The storyteller.", model_instructions: "You are a world-class storyteller.", is_user: false, is_active: true, image_url: '', extra_portraits: [], tags: [], color: { base: '#334155', bold: '#94a3b8' }, is_narrator: true }
                     ],
                     dynamic_entries: [{ id: UTILITY.uuid(), title: "Example Lorebook Entry", triggers: "example, 0%", content_fields: ["This is a sample dynamic lore entry."], current_index: 0, triggered_at_turn: null }],
@@ -5961,6 +6280,12 @@
 
                 if (scenario.dynamic_entries) story.dynamic_entries = JSON.parse(JSON.stringify(scenario.dynamic_entries));
                 if (scenario.prompts) Object.assign(story, scenario.prompts);
+                
+                if (scenario.user_character_id) {
+                    story.characters.forEach(c => {
+                        c.is_user = (c.id === scenario.user_character_id);
+                    });
+                }
 
                 const activeIDs = scenario.active_character_ids || story.characters.map(c => c.id);
 
@@ -5972,12 +6297,16 @@
                     state: {
                         chat_history: [],
                         messageCounter: 0,
-                        static_entries: scenario.static_entries ? JSON.parse(JSON.stringify(scenario.static_entries)) : [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }],
+                        static_entries: (scenario.static_entries && scenario.static_entries.length > 0) ? JSON.parse(JSON.stringify(scenario.static_entries)) : [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }],
                         worldMap: scenario.worldMap ? JSON.parse(JSON.stringify(scenario.worldMap)) : { grid: UTILITY.createDefaultMapGrid(), currentLocation: { x: 4, y: 4 }, destination: { x: null, y: null }, path: [] },
                         livingPersonaCounters: {}, evolved_characters: {},
                         swarmMode: false, swarmNarrativeCapital: {}, swarmSecrets: {}, swarmLastIntents: {}
                     }
                 };
+
+                if (scenario.scenario_knowledge) {
+                    newNarrative.state.static_entries.push({ id: UTILITY.uuid(), title: "Scenario Context", content: scenario.scenario_knowledge, is_immutable: true });
+                }
 
                 if (scenario.example_dialogue && Array.isArray(scenario.example_dialogue)) {
                     newNarrative.state.chat_history.push(...JSON.parse(JSON.stringify(scenario.example_dialogue)));
@@ -5985,7 +6314,17 @@
 
                 const firstMessage = scenario.message;
                 if (firstMessage) {
-                    const firstSpeaker = story.characters.find(c => !c.is_user && c.is_active);
+                    let firstSpeaker = null;
+                    if (scenario.opening_character_id) {
+                        firstSpeaker = story.characters.find(c => c.id === scenario.opening_character_id);
+                    }
+                    if (!firstSpeaker) {
+                        firstSpeaker = story.characters.find(c => !c.is_user && activeIDs.includes(c.id));
+                    }
+                    if (!firstSpeaker) {
+                        firstSpeaker = story.characters.find(c => !c.is_user);
+                    }
+
                     if (firstSpeaker) {
                         newNarrative.state.chat_history.push({
                             character_id: firstSpeaker.id, content: firstMessage, type: 'chat',
@@ -6339,6 +6678,10 @@
                                 path: []
                             };
                         }
+
+                        if (!this.data.activeNarrativeState.static_entries || this.data.activeNarrativeState.static_entries.length === 0) {
+                            this.data.activeNarrativeState.static_entries = [{ id: UTILITY.uuid(), title: "World Overview", content: "The world." }];
+                        }
                     } else {
                         this.data.activeNarrativeState = {};
                     }
@@ -6422,16 +6765,10 @@
             updateTagCache() {
                 const allTags = new Set();
                 this.data.library.stories.forEach(story => {
-                    if (story.tags) {
-                        const tagsArray = Array.isArray(story.tags) ? story.tags : (typeof story.tags === 'string' ? story.tags.split(',').map(t => t.trim()) : []);
-                        tagsArray.forEach(tag => { if (tag) allTags.add(tag.toLowerCase()); });
-                    }
-                    if (story.characters) {
+                    if (Array.isArray(story.tags)) story.tags.forEach(tag => allTags.add(String(tag).toLowerCase()));
+                    if (Array.isArray(story.characters)) {
                         story.characters.forEach(char => {
-                            if (char.tags) {
-                                const tagsArray = Array.isArray(char.tags) ? char.tags : (typeof char.tags === 'string' ? char.tags.split(',').map(t => t.trim()) : []);
-                                tagsArray.forEach(tag => { if (tag) allTags.add(tag.toLowerCase()); });
-                            }
+                            if (char && Array.isArray(char.tags)) char.tags.forEach(tag => allTags.add(String(tag).toLowerCase()));
                         });
                     }
                 });
@@ -6514,11 +6851,17 @@
 
                 const messagesPayload = [{ role: 'user', content: cleanPrompt }];
 
+                const extract = (res) => {
+                    const msg = res?.choices?.[0]?.message || {};
+                    const content = msg.content ?? msg.reasoning_content ?? msg.reasoning ?? "";
+                    return typeof content === 'string' ? content : String(content ?? "");
+                };
+
                 try {
                     const res = await this.webllmEngine.chat.completions.create({
                         messages: messagesPayload
                     });
-                    return res.choices[0].message.content;
+                    return extract(res);
                 } catch (error) {
                     // Catch iOS Safari WebGPU context loss and auto-reboot the engine
                     if (error.message && (error.message.includes("device lost") || error.name === "DeviceLostError")) {
@@ -6530,7 +6873,7 @@
                         const res = await this.webllmEngine.chat.completions.create({
                             messages: messagesPayload
                         });
-                        return res.choices[0].message.content;
+                        return extract(res);
                     }
                     throw error;
                 }
@@ -6551,6 +6894,10 @@
                     } else if (state.apiProvider === 'lmstudio') {
                         text = await this.callLMStudio(prompt, signal, isJson);
                     }
+
+                    // Defend against providers that return null/undefined or non-strings.
+                    if (text == null) text = "";
+                    else if (typeof text !== 'string') text = String(text);
 
                     if (isJson) {
                         // Match either {} or [] patterns, whichever comes first
@@ -6655,7 +7002,15 @@
                 }
 
                 const data = await res.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+                // Aggregate all non-thought text parts. Some Gemini responses split output
+                // across multiple parts, and reasoning models put thinking in `thought:true`
+                // parts that should be excluded from the user-facing text.
+                const parts = data.candidates?.[0]?.content?.parts || [];
+                const text = parts
+                    .filter(p => p && !p.thought && typeof p.text === 'string')
+                    .map(p => p.text)
+                    .join('');
+                return text || "";
             },
 
             /**
@@ -6731,7 +7086,13 @@
                     throw new Error(`API Error: ${errorDetails}`);
                 }
                 const data = await res.json();
-                return data.choices[0].message.content;
+                const msg = data.choices?.[0]?.message || {};
+                // Some OpenRouter models (reasoning models, refusal responses) return
+                // `content: null` and put the actual text in `reasoning` / `reasoning_content`.
+                // Fall back through those before defaulting to empty string so callAI can
+                // safely .trim() and let upstream retry/fallback logic handle empties.
+                const content = msg.content ?? msg.reasoning_content ?? msg.reasoning ?? "";
+                return typeof content === 'string' ? content : String(content ?? "");
             },
 
             /**
@@ -6831,7 +7192,8 @@
                 }
 
                 const data = await res.json();
-                let resultText = data.results[0].text;
+                let resultText = data.results?.[0]?.text ?? "";
+                if (typeof resultText !== 'string') resultText = String(resultText ?? "");
 
                 let truncateIdx = -1;
                 for (const seq of stopSequences) {
@@ -6911,7 +7273,8 @@
                         const data = await check.json();
 
                         if (data.results && data.results[0]) {
-                            let textSoFar = data.results[0].text;
+                            let textSoFar = data.results[0].text ?? "";
+                            if (typeof textSoFar !== 'string') textSoFar = String(textSoFar ?? "");
                             let truncateIdx = -1;
                             for (const seq of stopSequences) {
                                 if (seq.startsWith('\n')) {
@@ -6979,7 +7342,9 @@
                     throw new Error(`LM Studio API Error: ${errorDetails}`);
                 }
                 const data = await res.json();
-                return data.choices[0].message.content;
+                const msg = data.choices?.[0]?.message || {};
+                const content = msg.content ?? msg.reasoning_content ?? msg.reasoning ?? "";
+                return typeof content === 'string' ? content : String(content ?? "");
             },
         };
 
@@ -7278,6 +7643,50 @@
          */
         const UTILITY = {
             /**
+             * Coerces a value into an array of trimmed, non-empty strings.
+             * Accepts arrays, comma-separated strings, or scalars; returns [] for nullish/garbage input.
+             * Used to repair LLM outputs and legacy/imported data that may store array fields as strings.
+             */
+            toStringArray(val) {
+                if (val == null) return [];
+                if (Array.isArray(val)) {
+                    return val.map(v => (v == null ? '' : String(v)).trim()).filter(Boolean);
+                }
+                if (typeof val === 'string') {
+                    return val.split(',').map(s => s.trim()).filter(Boolean);
+                }
+                if (typeof val === 'object') return [];
+                const s = String(val).trim();
+                return s ? [s] : [];
+            },
+
+            /**
+             * Repairs structural defects in a story object in-place.
+             * Coerces tag fields to string arrays and ensures other expected
+             * collections are arrays. Tolerant of legacy/imported/LLM-malformed data.
+             * Returns the same story reference for chaining.
+             */
+            normalizeStoryShape(story) {
+                if (!story || typeof story !== 'object') return story;
+
+                story.tags = this.toStringArray(story.tags);
+                if (!Array.isArray(story.characters)) story.characters = [];
+                if (!Array.isArray(story.scenarios)) story.scenarios = [];
+                if (!Array.isArray(story.static_entries)) story.static_entries = [];
+                if (!Array.isArray(story.dynamic_entries)) story.dynamic_entries = [];
+                if (!Array.isArray(story.narratives)) story.narratives = [];
+
+                story.characters.forEach(c => {
+                    if (!c || typeof c !== 'object') return;
+                    c.tags = this.toStringArray(c.tags);
+                    if (!Array.isArray(c.extra_portraits)) c.extra_portraits = [];
+                    if (!Array.isArray(c.dynamic_knowledge)) c.dynamic_knowledge = [];
+                });
+
+                return story;
+            },
+
+            /**
              * Strips internal model "thinking" blocks (e.g. <think>...</think>) from a string.
              * Supports standard tags like <think>, [THOUGHTS], [REASONING], etc.
              * @param {string} text - The raw AI response.
@@ -7422,14 +7831,19 @@
                     cleanTriggers = triggersStr.replace(match[0], ' ');
                 }
 
+                // Operators are accepted in any case (AND, and, And, etc.) so that the
+                // user-facing DSL is forgiving. Split on the operator with whitespace
+                // boundaries so substrings inside keywords are not mistaken for operators.
+                const xorRe = /\s+XOR\s+/i;
+                const andRe = /\s+AND\s+/i;
                 const parts = cleanTriggers.split(',').map(s => s.trim()).filter(Boolean);
                 const groups = parts.map(part => {
-                    if (part.includes(' XOR ')) {
-                        const keywords = part.split(' XOR ').map(k => k.trim().toLowerCase()).filter(Boolean);
+                    if (xorRe.test(part)) {
+                        const keywords = part.split(xorRe).map(k => k.trim().toLowerCase()).filter(Boolean);
                         if (keywords.length === 2) return { type: 'XOR', keywords };
                     }
-                    if (part.includes(' AND ')) {
-                        const keywords = part.split(' AND ').map(k => k.trim().toLowerCase()).filter(Boolean);
+                    if (andRe.test(part)) {
+                        const keywords = part.split(andRe).map(k => k.trim().toLowerCase()).filter(Boolean);
                         if (keywords.length > 0) return { type: 'AND', keywords };
                     }
                     return { type: 'OR', keywords: [part.toLowerCase()] };
@@ -7593,20 +8007,22 @@
                     const pattern = `(?:\\[|\\*\\*|#|\\n|^|\\s)*${escapedKey}(?:\\]|\\*\\*|\\:|\\s)*\\n([\\s\\S]*?)(?=\\n\\s*[#\\[\\*\\s]*(${otherKeys})|$)`;
                     const regex = new RegExp(pattern, 'i');
 
+                    let value = "";
                     const match = text.match(regex);
                     if (match && match[1]) {
-                        result[key.toLowerCase()] = match[1].trim();
+                        value = match[1].trim();
                     } else {
-                        // Fallback attempt: if the specific structured search fails, try a simpler "key exists" hunt 
+                        // Fallback attempt: if the specific structured search fails, try a simpler "key exists" hunt
                         // as sometimes the stop lookahead is too strictly formatted.
                         const fallbackRegex = new RegExp(`\\[?${escapedKey}\\]?\\s*\\n?([\\s\\S]*?)(?=\\n\\[|\\n#|\\n\\*\\*|$)`, 'i');
                         const fallbackMatch = text.match(fallbackRegex);
-                        if (fallbackMatch) {
-                            result[key.toLowerCase()] = fallbackMatch[1].trim();
-                        } else {
-                            result[key.toLowerCase()] = "";
-                        }
+                        if (fallbackMatch) value = fallbackMatch[1].trim();
                     }
+                    // Expose the value under both the original case and lowercase so callers using
+                    // either style work. Some readers use `data['Model Instructions']`, others
+                    // use `briefData.tags`.
+                    result[key] = value;
+                    result[key.toLowerCase()] = value;
                 }
                 return result;
             },
@@ -7623,31 +8039,79 @@
             extractDelimitedList(text, delimiter = null, keys = null) {
                 const items = [];
                 if (!text) return items;
-                const lines = text.split('\n');
-                for (let line of lines) {
-                    line = line.trim();
-                    if (line.startsWith('-') || line.startsWith('*') || /^\\d+\\./.test(line)) {
-                        line = line.replace(/^[-*]\\s*/, '').replace(/^\\d+\\.\\s*/, '').trim();
-                        if (!line) continue;
 
-                        if (delimiter && keys) {
-                            const parts = line.split(delimiter).map(p => p.trim());
-                            const obj = {};
-                            keys.forEach((key, i) => {
-                                const part = parts[i] || "";
-                                const colonIdx = part.indexOf(':');
-                                if (colonIdx !== -1) {
-                                    obj[key] = part.substring(colonIdx + 1).trim();
-                                } else {
-                                    obj[key] = part;
-                                }
-                            });
-                            items.push(obj);
-                        } else {
-                            items.push(line);
+                const bulletRe = /^([-*]\s+|\d+\.\s+)/;
+                const stripBullet = (s) => s.replace(/^[-*]\s+/, '').replace(/^\d+\.\s+/, '').trim();
+
+                const lines = text.split('\n');
+                for (const raw of lines) {
+                    const line = raw.trim();
+                    if (!line) continue;
+                    const stripped = stripBullet(line);
+                    if (!stripped) continue;
+
+                    if (delimiter && keys) {
+                        // Bullet markers explicitly signal "this is a row" — accept regardless.
+                        // Unbulleted lines must contain the delimiter so prose intros get filtered.
+                        // Several prompts ask the LLM for unbulleted "Title | Content" rows.
+                        const wasBulleted = bulletRe.test(line);
+                        // If it's not bulleted and lacks the primary delimiter, it's likely prose
+                        if (!wasBulleted && !stripped.includes(delimiter)) continue;
+
+                        let parts = stripped.split(delimiter).map(p => p.trim());
+
+                        // Fallback: If delimiter not found but we expect 2 keys (e.g., Title/Content),
+                        // try splitting by the first colon or dash if it exists.
+                        if (parts.length === 1 && keys.length === 2) {
+                            if (stripped.includes(':')) {
+                                const firstColon = stripped.indexOf(':');
+                                parts = [
+                                    stripped.substring(0, firstColon).trim(),
+                                    stripped.substring(firstColon + 1).trim()
+                                ];
+                            } else if (stripped.includes('-')) {
+                                const firstDash = stripped.indexOf('-');
+                                parts = [
+                                    stripped.substring(0, firstDash).trim(),
+                                    stripped.substring(firstDash + 1).trim()
+                                ];
+                            }
                         }
+
+                        const obj = {};
+                        keys.forEach((key, i) => {
+                            let part = parts[i] || "";
+
+                            // Attempt to remove label prefixes like "Title: " or "Desc: "
+                            const colonMatch = part.match(/^([a-zA-Z0-9\s_-]{1,25}):(.*)$/);
+                            if (colonMatch) {
+                                const prefix = colonMatch[1].trim().toLowerCase();
+                                const safeLabels = ['title', 'content', 'description', 'name', 'pair', 'desc', 'event', 'relationship', 'lore', 'entry', 'summary', 'location', 'memory'];
+                                if (prefix.includes(key.toLowerCase()) || safeLabels.some(l => prefix === l || prefix.endsWith(' ' + l))) {
+                                    part = colonMatch[2].trim();
+                                }
+                            }
+
+                            // Strip markdown bold if the LLM bolded the value
+                            part = part.replace(/^\*\*|\*\*$/g, '').trim();
+                            obj[key] = part;
+                        });
+                        items.push(obj);
+                    } else if (bulletRe.test(line)) {
+                        // Bare-list mode: only accept actually-bulleted rows so prose is filtered.
+                        items.push(stripped);
                     }
                 }
+
+                // Bare-list fallback: if the LLM returned a single comma-separated line
+                // (the in-story scenario topics prompt asks for exactly this), accept it.
+                if (!delimiter && items.length === 0) {
+                    const trimmed = text.trim();
+                    if (trimmed.includes(',') && !trimmed.includes('\n')) {
+                        return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+                }
+
                 return items;
             },
 
@@ -7676,6 +8140,31 @@
                 const G = (num >> 8 & 0x00FF) - amt;
                 const B = (num & 0x0000FF) - amt;
                 return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 + (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 + (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+            },
+            /**
+             * Returns the default user character, optionally inheriting from the global default persona.
+             * @returns {Object}
+             */
+            getDefaultUserCharacter() {
+                const globals = (typeof StateManager !== 'undefined' && StateManager.data && StateManager.data.globalSettings) ? StateManager.data.globalSettings : {};
+                let userChar = {
+                    id: UTILITY.uuid(),
+                    name: "You",
+                    description: "A mysterious wandering adventurer drawn to the crossroads town of Hearthstone by rumors of the Shattered Crown — an ancient artifact of immense power, fractured into fragments and scattered across Aethermoor two centuries ago.\n\nYou wear a dark, weathered traveling cloak with a deep hood that casts your features into shadow, revealing only a grim, determined jawline and piercing eyes. Beneath the cloak, you wear rugged, practical leather armor suited for long periods on the road. A faint, almost imperceptible magical mist sometimes seems to cling to your silhouette.\n\nYou carry a weathered journal filled with sketches of Crown fragment locations and pre-Shattering runic translations. This journal was passed down to you by your mentor, a scholar who vanished mysteriously while pursuing the same quest. You are resourceful, adaptable, and driven by a quiet determination to finish your mentor's work and discover the truth behind the Crown's shattering.\n\nYou rarely speak of your past before the road, preferring to keep your companions guessing, but your skills in survival and your deep knowledge of arcane history suggest a complicated lineage.",
+                    short_description: "A mysterious wandering adventurer seeking the fragments of the Shattered Crown.",
+                    model_instructions: "Write a response for {character} in a creative, immersive, and descriptive style. Use second-person perspective. Describe sensory details — sights, sounds, smells — to bring the scene alive. Maintain an air of competence and quiet mystery.",
+                    is_user: true, is_active: true, image_url: 'https://raw.githubusercontent.com/pacmanincarnate/EllipsisLM/main/assets/demo/user.png', extra_portraits: [], tags: ["adventurer", "protagonist", "mysterious"], is_narrator: false,
+                    dynamic_knowledge: []
+                };
+
+                if (globals.defaultPersonaId && globals.userPersonas) {
+                    const dp = globals.userPersonas.find(p => p.id === globals.defaultPersonaId);
+                    if (dp) {
+                        userChar = { ...userChar, name: dp.name, description: dp.description, short_description: dp.short_description || '', model_instructions: dp.model_instructions || '', appearance: dp.appearance || '', tags: dp.tags || [] };
+                        if (dp.image_url) userChar.image_url = dp.image_url;
+                    }
+                }
+                return userChar;
             },
             /**
              * Returns default API settings.
@@ -7719,24 +8208,25 @@
              * @returns {Object}
              */
             getDefaultStorySettings() {
+                const globals = (typeof StateManager !== 'undefined' && StateManager.data && StateManager.data.globalSettings) ? StateManager.data.globalSettings : {};
                 return {
                     creator_notes: "",
                     tags: [],
                     event_master_probability: 0,
                     visual_master_probability: 0,
                     enableAnalysis: true,
-                    enableAutoStaticKnowledge: true,
-                    enableResponseOptions: false,
-                    enableStats: false,
-                    enableLivingPersona: false,
-                    responseLength: 'normal'
+                    enableAutoStaticKnowledge: globals.default_enableAutoStaticKnowledge !== undefined ? globals.default_enableAutoStaticKnowledge : true,
+                    enableResponseOptions: globals.default_enableResponseOptions !== undefined ? globals.default_enableResponseOptions : false,
+                    enableStats: globals.default_enableStats !== undefined ? globals.default_enableStats : false,
+                    enableLivingPersona: globals.default_enableLivingPersona !== undefined ? globals.default_enableLivingPersona : false,
+                    responseLength: globals.default_responseLength || 'normal'
                 };
             },
             /**
              * Returns default system prompts.
              * @returns {Object}
              */
-            getDefaultSystemPrompts() {
+            getHardcodedSystemPrompts() {
                 return {
                     system_prompt: 'You are a master storyteller. Follow instructions precisely.',
                     event_master_base_prompt: 'You are a secret Event Master. Read the chat. Generate a brief, secret instruction for AI characters to introduce a logical but unexpected event.',
@@ -7760,6 +8250,26 @@
                     prompt_objectivity_description: "You are a helpful assistant focused on following instructions perfectly. You shall analyze the provided roleplay history and create a strictly objective, out of context, third-person overview of the current scene focusing on physical reality.\n\n### REQUIREMENTS\n1. Describe the character's ({character_name}) immediate physical surroundings.\n2. Describe their current physical position and state (standing, sitting, wounded, etc.).\n3. Summarize the immediate observable actions of other characters in the scene.\n4. Avoid describing emotions, internal thoughts, or hidden subtext.\n5. Keep it concise (1-2 paragraphs).\n\n### ROLEPLAY EXCERPT\n{history}\n### END EXCERPT\n\n### INSTRUCTIONS\nNow you will follow instructions by writing a concise description of the objective physical reality for the character at this exact moment, focusing on what is being done to them.\n### REQUIREMENTS\n1. Describe the character's ({character_name}) immediate physical surroundings.\n2. Describe their current physical position and state (standing, sitting, wounded, etc.).\n3. Summarize the immediate observable actions of other characters in the scene.\n4. Avoid describing emotions, internal thoughts, or hidden subtext.\n5. Keep it concise (1-2 paragraphs).",
                     prompt_objectivity_thoughts: "You are {character_name}. Based on the following objective reality of the current scene, process your internal state before you respond.\n\n### OBJECTIVE REALITY\n{objective_description}\n\n### YOUR TASK\nThink about this reality through the lens of:\n1. Your Personal Goals: {personal_goal}\n2. Your Relationship to others in the scene: {relationships}\n3. Your Physical and Emotional Sensations: {sensations}\n\nWrite a brief, immersive internal monologue (first-person) reflecting on your situation and what you intend to do or say next. This monologue will inform your final roleplay response."
                 };
+            },
+            getDefaultSystemPrompts() {
+                const hardcoded = this.getHardcodedSystemPrompts();
+                const globals = (typeof StateManager !== 'undefined' && StateManager.data && StateManager.data.globalSettings) ? StateManager.data.globalSettings : {};
+                
+                const result = { ...hardcoded };
+                
+                // Historically system_prompt was stored as default_system_prompt
+                if (globals.default_system_prompt) {
+                    result.system_prompt = globals.default_system_prompt;
+                }
+                
+                // Override with globals
+                for (const key in hardcoded) {
+                    if (globals[key] !== undefined && globals[key] !== null && globals[key] !== '') {
+                        result[key] = globals[key];
+                    }
+                }
+                
+                return result;
             },
             /**
              * Creates a default 8x8 map grid.
@@ -7943,6 +8453,9 @@
                 if (!story) return false;
 
                 if (parsedQuery.isRegex) {
+                    // Reset lastIndex so a global/sticky-flagged regex doesn't carry state
+                    // across multiple matchStory() calls and produce false negatives.
+                    parsedQuery.regex.lastIndex = 0;
                     return parsedQuery.regex.test(story.search_index || story.name || "");
                 }
 
@@ -9988,7 +10501,7 @@ Write only the character's message.`;
                     } catch (e) { console.warn("Failed to extract BYAF background:", e); }
                 }
 
-                return { story: this._convertBYAFtoEllipsis(characterData, scenariosData), imageBlob };
+                return { story: this._convertBYAFtoEllipsis(characterData, scenariosData), imageBlob, backgroundImageBlob };
             },
 
             /**
@@ -10273,7 +10786,13 @@ Write only the character's message.`;
                 if (v2Data.mes_example) {
                     const charNameIdMap = { '{{user}}': userChar.id, '{{char}}': aiChar.id };
                     const regex = /({{user}}|{{char}}):([\s\S]*?)(?={{user}}:|{{char}}:|$)/g;
-                    let cleanedText = v2Data.mes_example.replace(/<START>/g).trim();
+                    let cleanedText = v2Data.mes_example.replace(/<START>/gi, '').trim();
+
+                    const formattedExample = cleanedText.replace(/{{char}}/gi, aiChar.name).replace(/{{user}}/gi, "{user}");
+                    if (formattedExample) {
+                        aiChar.model_instructions += `\n\n### Example Dialogue\n${formattedExample}`;
+                    }
+
                     for (const match of cleanedText.matchAll(regex)) {
                         const speakerPrefix = match[1];
                         const messageContent = match[2].trim().replace(/{{char}}/g, aiChar.name).replace(/{{user}}/g, "{user}");
@@ -11071,6 +11590,80 @@ Write only the character's message.`;
             },
 
             /**
+             * [UI:TEMPLATE:SCENARIO_CHARACTER_TILE]
+             * Renders a single character card specifically for the Scenario Cast editor.
+             */
+            ScenarioCharacterTile(char, isActive, isSpeaker, isScenarioUser) {
+                const visualStyle = isActive ? "" : "opacity: 0.5; filter: grayscale(80%);";
+
+                let roleBorderClass = isActive ? 'border-gray-500 hover:border-gray-400' : 'border-gray-600';
+                let roleBadge = '';
+                
+                if (isScenarioUser) {
+                    roleBorderClass = 'border-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.3)]';
+                    roleBadge = DOM.unsafe('<div class="absolute top-2 left-2 bg-indigo-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider z-20 shadow">USER</div>');
+                } else if (char.is_narrator) {
+                    roleBorderClass = 'border-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.3)]';
+                    roleBadge = DOM.unsafe('<div class="absolute top-2 left-2 bg-teal-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider z-20 shadow">Narrator</div>');
+                }
+
+                if (isSpeaker) {
+                    roleBorderClass = 'border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.5)]';
+                }
+
+                const placeholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234b5563' opacity='0.25'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
+                const hasImage = UIManager.RUNTIME.characterImageCache[char.id] || (char.image_url && !char.image_url.startsWith('local_'));
+                const rawUrl = hasImage ? (UIManager.RUNTIME.characterImageCache[char.id] || char.image_url) : placeholder;
+
+                const tileId = `char-scenario-tile-${char.id}`;
+                setTimeout(() => {
+                    const el = document.getElementById(tileId);
+                    if (el) UTILITY.safeBackgroundSet(el, rawUrl);
+                }, 0);
+
+                return DOM.html`
+            <div id="${tileId}" 
+                 onclick="LibraryController.toggleScenarioCharacter('${char.id}')"
+                 class="char-roster-btn bg-gray-800 ${roleBorderClass} group relative transition-all duration-200 cursor-pointer overflow-hidden" 
+                 style="${DOM.unsafe(visualStyle)}; border-width: 2px;">
+                 
+                ${!isActive ? DOM.unsafe('<div class="absolute inset-0 bg-black/40 z-0"></div>') : ''}
+                
+                ${roleBadge}
+                
+                ${isSpeaker ? DOM.unsafe('<div class="absolute bottom-2 right-2 bg-yellow-500 text-black text-[10px] font-black px-2 py-1 rounded shadow-lg flex items-center gap-1 z-20"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg> SPEAKER</div>') : ''}
+                
+                <div class="absolute top-2 right-2 flex flex-col gap-2 items-end z-20">
+                    <div class="bg-black/60 backdrop-blur-sm rounded-full p-1 border ${isActive ? 'border-indigo-500' : 'border-gray-500'}">
+                        ${isActive ? 
+                            DOM.unsafe('<svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>') : 
+                            DOM.unsafe('<svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>')}
+                    </div>
+                    
+                    <div class="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        ${!isScenarioUser && isActive ? DOM.unsafe(`
+                        <button onclick="event.stopPropagation(); LibraryController.setScenarioUser('${char.id}')" class="bg-black/80 p-1.5 rounded-full border border-indigo-500/50 hover:bg-indigo-500/20 hover:border-indigo-400 transition-all shadow-lg text-indigo-400" title="Set as User">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                        </button>
+                        `) : ''}
+                        
+                        ${!isSpeaker && isActive ? DOM.unsafe(`
+                        <button onclick="event.stopPropagation(); LibraryController.setScenarioSpeaker('${char.id}')" class="bg-black/80 p-1.5 rounded-full border border-yellow-500/50 hover:bg-yellow-500/20 hover:border-yellow-400 transition-all shadow-lg text-yellow-400" title="Set as First Speaker">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
+                        </button>
+                        `) : ''}
+                    </div>
+                </div>
+                
+                <div class="char-roster-content text-white p-3 pt-12 bg-gradient-to-t from-gray-900 via-gray-900/80 to-transparent absolute bottom-0 w-full rounded-b-lg z-10">
+                    <h3 class="font-bold text-lg truncate leading-tight">${char.name}</h3>
+                    <p class="text-[11px] text-gray-300 italic truncate mt-0.5">${char.short_description}</p>
+                </div>
+            </div>
+        `;
+            },
+
+            /**
              * [UI:TEMPLATE:MESSAGE_BUBBLE]
              * Renders a single chat message bubble.
              * Handles Markdown parsing, newline preservation, and image embedding.
@@ -11440,7 +12033,7 @@ Write only the character's message.`;
                     <!-- Absolute positioned to hover over text, appearing only on card hover -->
                     <div class="absolute bottom-0 left-0 right-0 p-6 pt-12 bg-gradient-to-t from-black via-black/80 to-transparent flex gap-3 justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20 pointer-events-none">
                         <button data-action="load-scenario" data-story-id="${storyId}" data-scenario-id="${scenario.id}" class="pointer-events-auto text-xs font-semibold uppercase tracking-wider text-indigo-300 hover:text-white px-4 py-2 border border-indigo-500/30 hover:border-indigo-400 bg-indigo-900/60 hover:bg-indigo-600/80 rounded-full transition-all shadow-lg backdrop-blur-sm" title="Load Scenario">Load</button>
-                        <button data-action="rename-scenario" data-story-id="${storyId}" data-scenario-id="${scenario.id}" class="pointer-events-auto text-xs font-semibold uppercase tracking-wider text-gray-400 hover:text-white px-4 py-2 border border-gray-600/50 hover:border-gray-500 bg-gray-800/60 hover:bg-gray-700/80 rounded-full transition-all shadow-lg backdrop-blur-sm" title="Rename">Rename</button>
+                        <button data-action="edit-scenario" data-story-id="${storyId}" data-scenario-id="${scenario.id}" class="pointer-events-auto text-xs font-semibold uppercase tracking-wider text-teal-300 hover:text-white px-4 py-2 border border-teal-500/30 hover:border-teal-400 bg-teal-900/60 hover:bg-teal-600/80 rounded-full transition-all shadow-lg backdrop-blur-sm" title="Edit">Edit</button>
                         <button data-action="delete-scenario" data-story-id="${storyId}" data-scenario-id="${scenario.id}" class="pointer-events-auto text-xs font-semibold uppercase tracking-wider text-red-300/70 hover:text-red-200 px-4 py-2 border border-red-900/30 hover:border-red-500/50 bg-red-900/40 hover:bg-red-900/80 rounded-full transition-all shadow-lg backdrop-blur-sm" title="Delete">Delete</button>
                     </div>
                 </div>
@@ -11597,6 +12190,8 @@ Write only the character's message.`;
                 globalBackgroundImageCache: null,
                 characterImageCache: {},
                 worldImageCache: {},
+                inputHistory: [],
+                inputHistoryIndex: -1,
                 viewingStoryId: null // FIX: Track currently viewed story for layout switching
             },
 
@@ -12451,7 +13046,11 @@ Write only the character's message.`;
                                     <span id="scenario-bulk-count" class="text-xs text-gray-400 font-mono">0 selected</span>
                                     <button onclick="LibraryController.deleteMultipleScenarios('${story.id}')" class="text-xs bg-red-900/80 hover:bg-red-700 text-white font-bold py-1 px-3 rounded border border-red-500 transition-colors">Delete Selected</button>
                                 </div>
-                                <button onclick="LibraryController.startInStoryGeneration('${story.id}')" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1 px-3 rounded flex items-center gap-1 transition-colors">
+                                <button onclick="LibraryController.startInStoryGeneration('${story.id}')" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-1 px-3 rounded flex items-center gap-1 transition-colors" title="Generate with AI">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                    AI Scenario
+                                </button>
+                                <button onclick="LibraryController.createNewScenario('${story.id}')" class="text-xs bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded flex items-center gap-1 transition-colors" title="Create Blank">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                                     New Scenario
                                 </button>
@@ -15191,6 +15790,15 @@ Write only the character's message.`;
             },
 
             /**
+             * Updates a generic global setting and saves the state.
+             */
+            updateGlobalSetting(key, value) {
+                if (!StateManager.data.globalSettings) StateManager.data.globalSettings = {};
+                StateManager.data.globalSettings[key] = value;
+                StateManager.saveGlobalSettings();
+            },
+
+            /**
              * Toggles the mobile navigation menu.
              */
             toggleMobileMenu() {
@@ -15215,7 +15823,7 @@ Write only the character's message.`;
              */
             switchSettingsTab(tabName) {
                 this.RUNTIME.activeSettingsTab = tabName;
-                const tabs = ['appearance', 'prompt', 'model', 'personas', 'image-gen', 'export'];
+                const tabs = ['appearance', 'prompt', 'model', 'personas', 'image-gen', 'export', 'defaults'];
                 const container = document.getElementById('settings-content-container');
                 const template = document.getElementById(`settings-${tabName}-content`);
 
@@ -15589,121 +16197,187 @@ Write only the character's message.`;
                     if (state.backgroundImageURL === 'local_idb_background') {
                         bgHint.textContent = 'Current: [Local Image]';
                     } else if (state.backgroundImageURL) {
-                        bgHint.textContent = 'Current: [Legacy URL]';
-                    } else {
-                        bgHint.textContent = 'Current: None';
+                        bgHint.textContent = 'Current: ' + state.backgroundImageURL;
                     }
                 }
 
-                // --- Bindings: Prompt Tab ---
-                if (document.getElementById('system-prompt-input')) setListener('system-prompt-input', 'system_prompt');
-                // --- Event & Visual Master Sliders ---
-                const setupProbSlider = (sliderId, valueId, stateKey, defaultValue) => {
+                // --- Prompt Editor Logic (Unified) ---
+                const promptGroups = {
+                    'Core Narrative': ['system_prompt', 'prompt_response_options_gen', 'prompt_stats_init', 'prompt_story_notes_gen', 'prompt_story_tags_gen'],
+                    'Agents': ['event_master_base_prompt', 'visual_master_base_prompt', 'prompt_persona_gen', 'prompt_living_persona_gen', 'prompt_timeline_extractor', 'prompt_relationship_matrix'],
+                    'Lore & Map': ['prompt_world_map_gen', 'prompt_location_gen', 'prompt_entry_gen', 'prompt_location_memory_gen', 'prompt_auto_static_knowledge'],
+                    'Director Mode': ['swarm_scratchpad_prompt', 'swarm_director_prompt'],
+                    'Objectivity': ['prompt_objectivity_description', 'prompt_objectivity_thoughts']
+                };
+
+                const promptInfo = {
+                    'system_prompt': 'The core persona and instructions for the main narrative AI. Variables: {character_name}',
+                    'event_master_base_prompt': 'Define the base instruction for the Event Master, which injects plot twists.',
+                    'visual_master_base_prompt': 'Automatically generates visuals for the scene based on chat context. Variable: {chat_history}',
+                    'prompt_persona_gen': 'Used by the AI button on a character\'s persona. Variables: {concept}, {name}',
+                    'prompt_living_persona_gen': 'Evolves a character based on recent history. Variables: {base_persona}, {transcript}',
+                    'prompt_response_options_gen': 'Guide the AI as it generates 4 follow-up options for the user. Variables: {context}, {last_response}',
+                    'prompt_world_map_gen': 'Generates the entire world map. Variables: {characters}, {static}, {recent}',
+                    'prompt_location_gen': 'Generates a location\'s detailed prompt. Variables: {name}, {description}',
+                    'prompt_entry_gen': 'Used for Static/Dynamic memory entries. Variables: {title}, {triggers}',
+                    'prompt_location_memory_gen': 'Auto-summarizes events when leaving a location. Variable: {transcript}',
+                    'prompt_timeline_extractor': 'Extracts a chronological timeline bullet from the narrative. Variable: {transcript}',
+                    'prompt_relationship_matrix': 'Evaluates character relationship changes. Variable: {transcript}',
+                    'prompt_story_notes_gen': 'Generates a short blurb for the library. Variable: {context}',
+                    'prompt_story_tags_gen': 'Generates 3-5 tags for the story. Variable: {context}',
+                    'prompt_auto_static_knowledge': 'Runs in background every 6 turns to generate static knowledge. Variables: {transcript}, {existing_knowledge}',
+                    'prompt_stats_init': 'Generates game-like stats for characters. Variables: {context}, {characters}',
+                    'swarm_scratchpad_prompt': 'Director Mode: Private scratchpad for each character agent. Variables: {character_name}, {objective_description}, {character_description}, {recent_history}',
+                    'swarm_director_prompt': 'Director Mode: Multi-agent orchestrator that resolves all character intents into a single prose scene. Variables: {recent_history}, {winner_intents}, {character_descriptions}, {primary_speaker}',
+                    'prompt_objectivity_description': 'Objectivity Step 1: Neutral overview of the physical scene. Variables: {character_name}, {history}',
+                    'prompt_objectivity_thoughts': 'Objectivity Step 2: Internal character monologue processing the scene. Variables: {character_name}, {objective_description}, {personal_goal}, {relationships}, {sensations}'
+                };
+
+                const setupPromptEditor = (selectorId, editorId, hintId, isGlobal = false, resetBtnId = null) => {
+                    const selector = document.getElementById(selectorId);
+                    const editor = document.getElementById(editorId);
+                    const hint = document.getElementById(hintId);
+                    if (!selector || !editor || !hint) return;
+
+                    const hardcoded = UTILITY.getHardcodedSystemPrompts();
+                    const defs = UTILITY.getDefaultSystemPrompts();
+
+                    // Populate Selector
+                    if (selector.options.length === 0) {
+                        for (const [groupLabel, keys] of Object.entries(promptGroups)) {
+                            const optGroup = document.createElement('optgroup');
+                            optGroup.label = groupLabel;
+                            keys.forEach(key => {
+                                if (hardcoded[key] !== undefined) {
+                                    const opt = document.createElement('option');
+                                    opt.value = key;
+                                    opt.textContent = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                    optGroup.appendChild(opt);
+                                }
+                            });
+                            selector.appendChild(optGroup);
+                        }
+                    }
+
+                    const savePrompt = debounce(() => {
+                        if (isGlobal) {
+                            StateManager.saveGlobalSettings();
+                        } else {
+                            if (typeof ReactiveStore.forceSave === 'function') ReactiveStore.forceSave();
+                        }
+                    }, 500);
+
+                    const loadPrompt = (key) => {
+                        if (!key) return;
+                        let val;
+                        if (isGlobal) {
+                            const globalKey = key === 'system_prompt' ? 'default_system_prompt' : key;
+                            val = globalSettings[globalKey];
+                            if (val === undefined || val === null || val === '') {
+                                val = hardcoded[key] || '';
+                            }
+                        } else {
+                            val = state[key];
+                            if (val === undefined || val === null || val === '') {
+                                val = defs[key] || '';
+                                state[key] = val;
+                                savePrompt();
+                            }
+                        }
+                        editor.value = val;
+
+                        const info = promptInfo[key] || '';
+                        hint.innerHTML = info.replace(/\{([^}]+)\}/g, '<code class="bg-black/40 px-1 rounded text-indigo-300">{$1}</code>');
+                    };
+
+                    loadPrompt(selector.value);
+
+                    selector.addEventListener('change', (e) => loadPrompt(e.target.value));
+
+                    editor.addEventListener('input', (e) => {
+                        const key = selector.value;
+                        if (isGlobal) {
+                            const globalKey = key === 'system_prompt' ? 'default_system_prompt' : key;
+                            globalSettings[globalKey] = e.target.value;
+                        } else {
+                            state[key] = e.target.value;
+                        }
+                        savePrompt();
+                    });
+
+                    if (resetBtnId) {
+                        const resetBtn = document.getElementById(resetBtnId);
+                        if (resetBtn) {
+                            resetBtn.addEventListener('click', () => {
+                                const key = selector.value;
+                                if (isGlobal) {
+                                    const globalKey = key === 'system_prompt' ? 'default_system_prompt' : key;
+                                    delete globalSettings[globalKey];
+                                    loadPrompt(key);
+                                    StateManager.saveGlobalSettings();
+                                }
+                            });
+                        }
+                    }
+                };
+
+                // Bind both editors
+                setupPromptEditor('prompt-template-selector', 'prompt-template-editor', 'prompt-template-hint', false);
+                setupPromptEditor('global-prompt-template-selector', 'global-prompt-template-editor', 'global-prompt-template-hint', true, 'global-prompt-reset-btn');
+
+                // --- Global Toggles & Sliders (Defaults Tab) ---
+                const bindGlobalToggle = (id, globalKey) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.checked = globalSettings[globalKey] === true;
+                    el.addEventListener('change', (e) => {
+                        globalSettings[globalKey] = e.target.checked;
+                        StateManager.saveGlobalSettings();
+                    });
+                };
+
+                const bindGlobalSelect = (id, globalKey) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.value = globalSettings[globalKey] || 'normal';
+                    el.addEventListener('change', (e) => {
+                        globalSettings[globalKey] = e.target.value;
+                        StateManager.saveGlobalSettings();
+                    });
+                };
+
+                const setupGlobalSlider = (sliderId, valueId, globalKey, defaultValue) => {
                     const slider = document.getElementById(sliderId);
                     const label = document.getElementById(valueId);
                     if (!slider || !label) return;
 
-                    if (state[stateKey] === undefined || state[stateKey] === null) {
-                        state[stateKey] = defaultValue;
-                    }
-                    slider.value = state[stateKey];
-                    label.textContent = `${state[stateKey]}%`;
-
-                    const debouncedSaver = debounce(() => {
-                        if (typeof ReactiveStore.forceSave === 'function') ReactiveStore.forceSave();
-                    }, 500);
+                    if (globalSettings[globalKey] === undefined) globalSettings[globalKey] = defaultValue;
+                    slider.value = globalSettings[globalKey];
+                    label.textContent = `${slider.value}%`;
 
                     slider.addEventListener('input', (e) => {
                         label.textContent = `${e.target.value}%`;
-                        state[stateKey] = parseInt(e.target.value, 10);
-                        debouncedSaver();
+                        globalSettings[globalKey] = parseInt(e.target.value, 10);
+                        StateManager.saveGlobalSettings();
                     });
                 };
 
-                setupProbSlider('event-master-prob-slider', 'event-master-prob-value', 'event_master_probability', 0);
-                setupProbSlider('visual-master-prob-slider', 'visual-master-prob-value', 'visual_master_probability', 50);
+                bindGlobalToggle('global-default-swarm-mode-toggle', 'default_swarm_mode');
+                bindGlobalToggle('global-default-enable-analysis-toggle', 'default_enableAnalysis');
+                bindGlobalToggle('global-default-auto-knowledge', 'default_enableAutoStaticKnowledge');
+                bindGlobalToggle('global-default-enable-stats-toggle', 'default_enableStats');
+                bindGlobalToggle('global-default-living-persona', 'default_enableLivingPersona');
+                bindGlobalToggle('global-default-enable-response-options-toggle', 'default_enableResponseOptions');
+                
+                bindGlobalSelect('global-default-response-length-selector', 'default_responseLength');
+                bindGlobalSelect('global-default-response-style-selector', 'default_responseStyle');
 
-                // --- Prompt Editor Logic ---
-                const promptSelector = document.getElementById('prompt-template-selector');
-                const promptEditor = document.getElementById('prompt-template-editor');
-                const promptHint = document.getElementById('prompt-template-hint');
+                setupGlobalSlider('global-default-event-master-prob-slider', 'global-default-event-master-prob-value', 'default_event_master_probability', 0);
+                setupGlobalSlider('global-default-visual-master-prob-slider', 'global-default-visual-master-prob-value', 'default_visual_master_probability', 50);
 
-                if (promptSelector && promptEditor && promptHint) {
-                    const promptInfo = {
-                        'event_master_base_prompt': 'Define the base instruction for the Event Master, which injects plot twists.',
-                        'visual_master_base_prompt': 'Automatically generates visuals for the scene based on chat context. Variable: {chat_history}',
-                        'prompt_persona_gen': 'Used by the AI button on a character\'s persona. Variables: {concept}, {name}',
-                        'prompt_response_options_gen': 'Guide the AI as it generates 4 follow-up options for the user. Variables: {context}, {last_response}',
-                        'prompt_world_map_gen': 'Generates the entire world map. Variables: {characters}, {static}, {recent}',
-                        'prompt_location_gen': 'Generates a location\'s detailed prompt. Variables: {name}, {description}',
-                        'prompt_entry_gen': 'Used for Static/Dynamic memory entries. Variables: {title}, {triggers}',
-                        'prompt_location_memory_gen': 'Auto-summarizes events when leaving a location. Variable: {transcript}',
-                        'prompt_auto_static_knowledge': 'Runs in background every 6 turns to generate static knowledge. Variables: {transcript}, {existing_knowledge}',
-                        'swarm_scratchpad_prompt': 'Director Mode: Private scratchpad for each character agent. Variables: {character_name}, {character_description}, {character_secrets}, {recent_history}, {user_action}, {nc_current}, {nc_max}',
-                        'swarm_director_prompt': 'Director Mode: Multi-agent orchestrator that resolves all character intents into a single prose scene. Variables: {recent_history}, {user_action}, {winner_intents}, {character_descriptions}, {primary_speaker}, {winner_char_ids}',
-                        'prompt_objectivity_description': 'Objectivity Step 1: Neutral overview of the physical scene. Variables: {character_name}, {history}',
-                        'prompt_objectivity_thoughts': 'Objectivity Step 2: Internal character monologue processing the scene. Variables: {character_name}, {objective_description}, {personal_goal}, {relationships}, {sensations}'
-                    };
+                // --- Story Toggles (Prompts Tab) ---
 
-                    // Dynamically add Director Mode prompts to the selector if not already present
-                    if (promptSelector) {
-                        const existingKeys = Array.from(promptSelector.options).map(o => o.value);
-                        if (!existingKeys.includes('swarm_scratchpad_prompt')) {
-                            const optGroup = document.createElement('optgroup');
-                            optGroup.label = 'Director Mode';
-                            ['swarm_scratchpad_prompt', 'swarm_director_prompt'].forEach(key => {
-                                const opt = document.createElement('option');
-                                opt.value = key;
-                                opt.textContent = key === 'swarm_scratchpad_prompt' ? 'Director Scratchpad' : 'Director Dispatch';
-                                optGroup.appendChild(opt);
-                            });
-                            promptSelector.appendChild(optGroup);
-                        }
-
-                        if (!existingKeys.includes('prompt_objectivity_description')) {
-                            const optGroup = document.createElement('optgroup');
-                            optGroup.label = 'Objectivity';
-                            ['prompt_objectivity_description', 'prompt_objectivity_thoughts'].forEach(key => {
-                                const opt = document.createElement('option');
-                                opt.value = key;
-                                opt.textContent = key === 'prompt_objectivity_description' ? 'Objectivity: Scene' : 'Objectivity: Thoughts';
-                                optGroup.appendChild(opt);
-                            });
-                            promptSelector.appendChild(optGroup);
-                        }
-                    }
-
-                    const savePromptChange = debounce(() => {
-                        if (typeof ReactiveStore.forceSave === 'function') ReactiveStore.forceSave();
-                    }, 500);
-
-                    const loadPrompt = (key) => {
-                        const defs = UTILITY.getDefaultSystemPrompts();
-                        let val = state[key];
-                        if (val === undefined || val === null || val === '') {
-                            val = defs[key] || '';
-                            state[key] = val;
-                            savePromptChange();
-                        }
-                        promptEditor.value = val;
-
-                        const info = promptInfo[key] || '';
-                        promptHint.innerHTML = info.replace(/\{([^}]+)\}/g, '<code class="bg-black/40 px-1 rounded text-indigo-300">{$1}</code>');
-                    };
-
-                    loadPrompt(promptSelector.value);
-
-                    promptSelector.addEventListener('change', (e) => {
-                        loadPrompt(e.target.value);
-                    });
-
-                    promptEditor.addEventListener('input', (e) => {
-                        const key = promptSelector.value;
-                        state[key] = e.target.value;
-                        savePromptChange();
-                    });
-                }
-
+                // Auto-Knowledge Toggle
                 // Auto-Knowledge Toggle
                 const autoKnowToggle = document.getElementById('enable-auto-knowledge-toggle');
                 if (autoKnowToggle) {
@@ -16037,8 +16711,11 @@ Write only the character's message.`;
 
                 listContainer.innerHTML = personas.map(p => `
             <div onclick="AppController.selectUserPersona('${p.id}')" class="p-3 rounded-lg cursor-pointer ${this.RUNTIME.selectedPersonaId === p.id ? 'bg-indigo-600' : 'hover:bg-indigo-600/50'} mb-1 transition-colors">
-                <h4 class="font-semibold truncate">${p.name}</h4>
-                <p class="text-xs text-gray-300 truncate">${p.short_description}</p>
+                <div class="flex justify-between items-center gap-2">
+                    <h4 class="font-semibold truncate">${p.name}</h4>
+                    ${globalSettings.defaultPersonaId === p.id ? '<span class="bg-indigo-500/50 border border-indigo-400/30 text-indigo-100 text-[10px] font-bold py-0.5 px-2 rounded-full flex-shrink-0">Default</span>' : ''}
+                </div>
+                <p class="text-xs text-gray-300 truncate mt-1">${p.short_description}</p>
             </div>
         `).join('');
 
@@ -16075,6 +16752,10 @@ Write only the character's message.`;
                 <div class="flex justify-between items-center pb-2 border-b border-gray-700">
                     <h3 class="text-xl font-bold">Edit Persona</h3>
                     <div class="flex gap-2">
+                        ${globalSettings.defaultPersonaId === persona.id ?
+                        DOM.html`<span class="bg-indigo-600/50 text-indigo-200 text-sm font-bold py-1 px-3 rounded flex items-center">Default</span>` :
+                        DOM.html`<button onclick="AppController.updateGlobalSetting('defaultPersonaId', '${persona.id}'); AppController.renderUserPersonaDetails(); AppController.renderUserPersonaList(true)" class="bg-gray-700 hover:bg-gray-600 text-white text-sm font-bold py-1 px-3 rounded">Set Default</button>`
+                    }
                         <button onclick="AppController.applyUserPersonaToCurrentStory('${persona.id}')" class="bg-teal-600 hover:bg-teal-700 text-white text-sm font-bold py-1 px-3 rounded">Add to Roleplay</button>
                         <button onclick="AppController.deleteUserPersona('${persona.id}')" class="bg-red-900/50 hover:bg-red-700/80 text-red-200 text-sm font-bold py-1 px-3 rounded">Delete</button>
                     </div>
@@ -16673,15 +17354,18 @@ Write only the character's message.`;
             },
 
             async _callAgentText(prompt, retries = 1) {
+                let lastErr = null;
                 for (let i = 0; i <= retries; i++) {
                     try {
                         const res = await APIService.callAI(prompt, false);
                         if (res) return res.trim();
                         throw new Error("Empty text response");
                     } catch (e) {
-                        if (i === retries) return null;
+                        lastErr = e;
                     }
                 }
+                console.warn("[Architect] _callAgentText failed after retries:", lastErr && lastErr.message);
+                return null;
             },
 
             /**
@@ -16917,15 +17601,18 @@ Write only the character's message.`;
             },
 
             async _callAgentText(prompt, retries = 1) {
+                let lastErr = null;
                 for (let i = 0; i <= retries; i++) {
                     try {
                         const res = await APIService.callAI(prompt, false);
                         if (res) return res.trim();
                         throw new Error("Empty text response");
                     } catch (e) {
-                        if (i === retries) return null;
+                        lastErr = e;
                     }
                 }
+                console.warn("[Architect] _callAgentText failed after retries:", lastErr && lastErr.message);
+                return null;
             },
 
             async runScenarioConceptPhase(userPrompt, existingStory, updateUI) {
@@ -17227,6 +17914,391 @@ Write only the descriptive paragraphs.`;
                 } finally {
                     UIManager.hideLoadingSpinner();
                 }
+            },
+
+            /**
+             * Creates a new blank scenario and opens the editor.
+             */
+            async createNewScenario(storyId) {
+                const story = await DBService.getStory(storyId);
+                if (!story) return;
+
+                const newScenario = {
+                    id: UTILITY.uuid(),
+                    name: "New Scenario",
+                    message: "The story begins..."
+                };
+
+                if (!story.scenarios) story.scenarios = [];
+                story.scenarios.push(newScenario);
+                story.last_modified = new Date().toISOString();
+
+                await DBService.saveStory(story);
+
+                const library = StateManager.getLibrary();
+                const storyInLibrary = library.stories.find(s => s.id === storyId);
+                if (storyInLibrary) {
+                    storyInLibrary.scenarios = story.scenarios;
+                    storyInLibrary.last_modified = story.last_modified;
+                }
+
+                UIManager.openStoryDetails(storyId);
+                this.editScenario(storyId, newScenario.id);
+            },
+
+            /**
+             * Opens the scenario edit modal.
+             */
+            // --- SCENARIO EDITING STATE ---
+            currentEditScenario: null,
+            currentEditScenarioStoryId: null,
+            selectedScenarioStaticId: null,
+            selectedScenarioDynamicId: null,
+
+            switchScenarioTab(tabId) {
+                const tabs = ['setup', 'cast', 'static', 'dynamic'];
+                tabs.forEach(t => {
+                    const tabEl = document.getElementById(`scenario-tab-${t}`);
+                    if (tabEl) tabEl.classList.add('hidden');
+                    const btn = document.getElementById(`scenario-tab-btn-${t}`);
+                    if (btn) {
+                        btn.classList.remove('border-indigo-500', 'text-white');
+                        btn.classList.add('border-transparent', 'text-gray-400');
+                    }
+                });
+                
+                const activeTabEl = document.getElementById(`scenario-tab-${tabId}`);
+                if (activeTabEl) activeTabEl.classList.remove('hidden');
+                
+                const activeBtn = document.getElementById(`scenario-tab-btn-${tabId}`);
+                if (activeBtn) {
+                    activeBtn.classList.remove('border-transparent', 'text-gray-400');
+                    activeBtn.classList.add('border-indigo-500', 'text-white');
+                }
+
+                if (tabId === 'static') this.renderScenarioStaticDetails();
+                if (tabId === 'dynamic') this.renderScenarioDynamicDetails();
+            },
+
+            async editScenario(storyId, scenarioId) {
+                const story = await DBService.getStory(storyId);
+                if (!story) return;
+
+                const scenario = story.scenarios.find(sc => sc.id === scenarioId);
+                if (!scenario) return;
+
+                // Deep clone for isolated editing
+                this.currentEditScenario = JSON.parse(JSON.stringify(scenario));
+                this.currentEditScenarioStoryId = storyId;
+
+                // Migrate legacy scenario_knowledge to static entries if needed
+                if (this.currentEditScenario.scenario_knowledge && (!this.currentEditScenario.static_entries || this.currentEditScenario.static_entries.length === 0)) {
+                    this.currentEditScenario.static_entries = [{
+                        id: UTILITY.uuid(),
+                        title: "Scenario Context",
+                        content: this.currentEditScenario.scenario_knowledge,
+                        is_immutable: true
+                    }];
+                    delete this.currentEditScenario.scenario_knowledge;
+                }
+
+                if (!this.currentEditScenario.static_entries) this.currentEditScenario.static_entries = [];
+                if (!this.currentEditScenario.dynamic_entries) this.currentEditScenario.dynamic_entries = [];
+                if (!this.currentEditScenario.active_character_ids) {
+                    this.currentEditScenario.active_character_ids = story.characters.map(c => c.id);
+                }
+
+                // Reset selections
+                this.selectedScenarioStaticId = null;
+                this.selectedScenarioDynamicId = null;
+
+                if (this.currentEditScenario.user_character_id === undefined) {
+                    const existingUser = story.characters.find(c => c.is_user);
+                    this.currentEditScenario.user_character_id = existingUser ? existingUser.id : null;
+                }
+
+                // Populate Setup
+                document.getElementById('edit-scenario-story-id').value = storyId;
+                document.getElementById('edit-scenario-id').value = scenarioId;
+                document.getElementById('edit-scenario-name').value = this.currentEditScenario.name || '';
+                document.getElementById('edit-scenario-message').value = this.currentEditScenario.message || '';
+
+                this.switchScenarioTab('setup');
+                this.renderScenarioCast(story.characters);
+                this.renderScenarioStaticEntries();
+                this.renderScenarioDynamicEntries();
+
+                AppController.openModal('edit-scenario-modal');
+            },
+
+            renderScenarioCast(allCharacters) {
+                const container = document.getElementById('edit-scenario-characters');
+                if (!container) return;
+                
+                const html = allCharacters.map(char => {
+                    const isActive = this.currentEditScenario.active_character_ids.includes(char.id);
+                    const isSpeaker = this.currentEditScenario.opening_character_id === char.id;
+                    const isScenarioUser = this.currentEditScenario.user_character_id === char.id;
+                    return UIComponents.ScenarioCharacterTile(char, isActive, isSpeaker, isScenarioUser);
+                }).join('');
+                
+                container.innerHTML = DOM.unsafe(html);
+            },
+
+            toggleScenarioCharacter(charId) {
+                if (!this.currentEditScenario) return;
+                const idx = this.currentEditScenario.active_character_ids.indexOf(charId);
+                if (idx > -1) {
+                    this.currentEditScenario.active_character_ids.splice(idx, 1);
+                    if (this.currentEditScenario.opening_character_id === charId) {
+                        this.currentEditScenario.opening_character_id = null;
+                    }
+                } else {
+                    this.currentEditScenario.active_character_ids.push(charId);
+                }
+                
+                DBService.getStory(this.currentEditScenarioStoryId).then(story => {
+                    if (story) this.renderScenarioCast(story.characters);
+                });
+            },
+
+            setScenarioSpeaker(charId) {
+                if (!this.currentEditScenario) return;
+                if (!this.currentEditScenario.active_character_ids.includes(charId)) return;
+                this.currentEditScenario.opening_character_id = charId;
+                
+                DBService.getStory(this.currentEditScenarioStoryId).then(story => {
+                    if (story) this.renderScenarioCast(story.characters);
+                });
+            },
+            
+            setScenarioUser(charId) {
+                if (!this.currentEditScenario) return;
+                this.currentEditScenario.user_character_id = charId;
+                if (!this.currentEditScenario.active_character_ids.includes(charId)) {
+                    this.currentEditScenario.active_character_ids.push(charId);
+                }
+                
+                DBService.getStory(this.currentEditScenarioStoryId).then(story => {
+                    if (story) this.renderScenarioCast(story.characters);
+                });
+            },
+
+            // --- SCENARIO STATIC KNOWLEDGE ---
+            addScenarioStaticEntry() {
+                if (!this.currentEditScenario) return;
+                const newEntry = { id: UTILITY.uuid(), title: "New Lore", content: "", is_immutable: true };
+                this.currentEditScenario.static_entries.push(newEntry);
+                this.selectedScenarioStaticId = newEntry.id;
+                this.renderScenarioStaticEntries();
+                this.renderScenarioStaticDetails();
+            },
+            
+            selectScenarioStaticEntry(id) {
+                this.selectedScenarioStaticId = id;
+                this.renderScenarioStaticEntries();
+                this.renderScenarioStaticDetails();
+            },
+
+            updateScenarioStaticEntry(field, value) {
+                if (!this.currentEditScenario || !this.selectedScenarioStaticId) return;
+                const entry = this.currentEditScenario.static_entries.find(e => e.id === this.selectedScenarioStaticId);
+                if (entry) {
+                    entry[field] = value;
+                }
+            },
+
+            deleteScenarioStaticEntry(id) {
+                if (!this.currentEditScenario) return;
+                this.currentEditScenario.static_entries = this.currentEditScenario.static_entries.filter(e => e.id !== id);
+                if (this.selectedScenarioStaticId === id) this.selectedScenarioStaticId = null;
+                this.renderScenarioStaticEntries();
+                this.renderScenarioStaticDetails();
+            },
+
+            renderScenarioStaticEntries() {
+                const container = document.getElementById('scenario-static-entries-list');
+                if (!container || !this.currentEditScenario) return;
+
+                const renderItem = (e) => `
+                    <div data-action="select-scenario-static" data-id="${e.id}" class="group relative flex justify-between items-center p-2 rounded cursor-pointer transition-colors ${this.selectedScenarioStaticId === e.id ? 'bg-indigo-600' : 'hover:bg-indigo-900/50'}">
+                        <span class="text-sm font-semibold truncate ${this.selectedScenarioStaticId === e.id ? 'text-white' : 'text-gray-300'}">${e.title || 'Untitled'}</span>
+                        <button data-action="delete-scenario-static" data-id="${e.id}" class="text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                    </div>`;
+                
+                container.innerHTML = DOM.unsafe(this.currentEditScenario.static_entries.map(renderItem).join(''));
+            },
+
+            renderScenarioStaticDetails() {
+                const container = document.getElementById('scenario-static-entry-details');
+                if (!container || !this.currentEditScenario) return;
+
+                if (!this.selectedScenarioStaticId) {
+                    container.innerHTML = '<div class="text-gray-400 flex items-center justify-center h-full">Select a static entry.</div>';
+                    return;
+                }
+
+                const entry = this.currentEditScenario.static_entries.find(e => e.id === this.selectedScenarioStaticId);
+                if (!entry) return;
+
+                container.innerHTML = DOM.unsafe(`
+                    <div class="flex flex-col gap-2 mb-4 h-full">
+                        <input type="text" value="${entry.title}" oninput="LibraryController.updateScenarioStaticEntry('title', this.value)" onblur="LibraryController.renderScenarioStaticEntries()" class="text-xl font-bold bg-black/30 p-2 rounded focus:ring-1 focus:ring-indigo-500 border-none w-full text-white">
+                        <textarea oninput="LibraryController.updateScenarioStaticEntry('content', this.value)" class="w-full flex-grow bg-black/30 border border-gray-600 p-3 rounded text-gray-200 resize-none focus:ring-1 focus:ring-indigo-500 font-mono text-sm leading-relaxed" placeholder="Lore content...">${entry.content}</textarea>
+                    </div>
+                `);
+            },
+
+            // --- SCENARIO DYNAMIC KNOWLEDGE ---
+            addScenarioDynamicEntry() {
+                if (!this.currentEditScenario) return;
+                const newEntry = { id: UTILITY.uuid(), title: "New Dynamic Entry", triggers: "", content_fields: [""] };
+                this.currentEditScenario.dynamic_entries.push(newEntry);
+                this.selectedScenarioDynamicId = newEntry.id;
+                this.renderScenarioDynamicEntries();
+                this.renderScenarioDynamicDetails();
+            },
+            
+            selectScenarioDynamicEntry(id) {
+                this.selectedScenarioDynamicId = id;
+                this.renderScenarioDynamicEntries();
+                this.renderScenarioDynamicDetails();
+            },
+
+            updateScenarioDynamicEntry(field, value) {
+                if (!this.currentEditScenario || !this.selectedScenarioDynamicId) return;
+                const entry = this.currentEditScenario.dynamic_entries.find(e => e.id === this.selectedScenarioDynamicId);
+                if (entry) {
+                    entry[field] = value;
+                }
+            },
+
+            updateScenarioDynamicContentField(entryId, index, value) {
+                if (!this.currentEditScenario) return;
+                const entry = this.currentEditScenario.dynamic_entries.find(e => e.id === entryId);
+                if (entry && entry.content_fields[index] !== undefined) {
+                    entry.content_fields[index] = value;
+                }
+            },
+            
+            addScenarioDynamicContentField(entryId) {
+                if (!this.currentEditScenario) return;
+                const entry = this.currentEditScenario.dynamic_entries.find(e => e.id === entryId);
+                if (entry) {
+                    if (!entry.content_fields) entry.content_fields = [];
+                    entry.content_fields.push("");
+                    this.renderScenarioDynamicDetails();
+                }
+            },
+
+            deleteScenarioDynamicEntry(id) {
+                if (!this.currentEditScenario) return;
+                this.currentEditScenario.dynamic_entries = this.currentEditScenario.dynamic_entries.filter(e => e.id !== id);
+                if (this.selectedScenarioDynamicId === id) this.selectedScenarioDynamicId = null;
+                this.renderScenarioDynamicEntries();
+                this.renderScenarioDynamicDetails();
+            },
+
+            renderScenarioDynamicEntries() {
+                const container = document.getElementById('scenario-dynamic-entries-list');
+                if (!container || !this.currentEditScenario) return;
+
+                const renderItem = (e) => `
+                    <div data-action="select-scenario-dynamic" data-id="${e.id}" class="group relative flex justify-between items-center p-2 rounded cursor-pointer transition-colors ${this.selectedScenarioDynamicId === e.id ? 'bg-teal-600' : 'hover:bg-teal-900/50'}">
+                        <div class="flex flex-col truncate w-4/5">
+                            <span class="text-sm font-semibold truncate ${this.selectedScenarioDynamicId === e.id ? 'text-white' : 'text-gray-300'}">${e.title || 'Untitled'}</span>
+                            <span class="text-[10px] text-gray-400 truncate">${e.triggers || 'No triggers'}</span>
+                        </div>
+                        <button data-action="delete-scenario-dynamic" data-id="${e.id}" class="text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                    </div>`;
+                
+                container.innerHTML = DOM.unsafe(this.currentEditScenario.dynamic_entries.map(renderItem).join(''));
+            },
+
+            renderScenarioDynamicDetails() {
+                const container = document.getElementById('scenario-dynamic-entry-details');
+                if (!container || !this.currentEditScenario) return;
+
+                if (!this.selectedScenarioDynamicId) {
+                    container.innerHTML = '<div class="text-gray-400 flex items-center justify-center h-full">Select a dynamic entry.</div>';
+                    return;
+                }
+
+                const entry = this.currentEditScenario.dynamic_entries.find(e => e.id === this.selectedScenarioDynamicId);
+                if (!entry) return;
+
+                const contentFieldsHTML = (entry.content_fields || [""]).map((content, index) =>
+                    `
+                    <div class="${index > 0 ? 'border-t border-gray-700 pt-2 mt-2' : ''}">
+                        <label class="font-bold mb-2 flex justify-between items-center text-gray-400 text-xs">
+                            <span>Step ${index + 1}</span>
+                        </label>
+                        <textarea oninput="LibraryController.updateScenarioDynamicContentField('${entry.id}', ${index}, this.value)" class="w-full h-24 bg-black/40 border-gray-600 border p-2 resize-y rounded-md text-sm text-gray-200 focus:ring-1 focus:ring-teal-500 font-mono">${content}</textarea>
+                    </div>
+                    `
+                ).join('');
+
+                container.innerHTML = DOM.unsafe(`
+                    <div class="flex flex-col h-full">
+                        <label class="font-bold text-sm text-gray-400 mb-1">Title</label>
+                        <input type="text" value="${entry.title || ''}" oninput="LibraryController.updateScenarioDynamicEntry('title', this.value)" onblur="LibraryController.renderScenarioDynamicEntries()" class="text-xl font-bold bg-black/30 p-2 w-full mb-4 rounded focus:ring-1 focus:ring-teal-500 border-none text-white">
+                        
+                        <label class="font-bold mb-1 text-sm text-gray-400">Triggers (Keywords, AND, XOR, % Chance)</label>
+                        <input type="text" value="${entry.triggers || ''}" oninput="LibraryController.updateScenarioDynamicEntry('triggers', this.value)" onblur="LibraryController.renderScenarioDynamicEntries()" placeholder="e.g. house, cat AND dog, 25%" class="bg-black/30 p-2 w-full mb-4 rounded focus:ring-1 focus:ring-teal-500 border border-gray-600 text-white font-mono">
+                        
+                        <div class="relative flex-grow flex flex-col mt-2">
+                            <label class="font-bold mb-2 text-sm text-gray-400">Content Sequence</label>
+                            <div class="space-y-2 overflow-y-auto pr-1 flex-grow">
+                                ${contentFieldsHTML}
+                            </div>
+                            <div class="mt-2 flex justify-end">
+                                <button onclick="LibraryController.addScenarioDynamicContentField('${entry.id}')" class="bg-gray-700 hover:bg-teal-600 text-white text-xs font-bold py-1.5 px-3 rounded transition-colors shadow">
+                                    + Add Step
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `);
+            },
+
+            async saveScenario() {
+                const storyId = document.getElementById('edit-scenario-story-id').value;
+                const scenarioId = document.getElementById('edit-scenario-id').value;
+                const name = document.getElementById('edit-scenario-name').value.trim();
+                const message = document.getElementById('edit-scenario-message').value.trim();
+
+                if (!name || !message) {
+                    alert("Name and Message cannot be empty.");
+                    return;
+                }
+
+                const story = await DBService.getStory(storyId);
+                if (!story) return;
+
+                const scenario = story.scenarios.find(sc => sc.id === scenarioId);
+                if (!scenario) return;
+
+                // Sync UI fields into the deep clone
+                this.currentEditScenario.name = name;
+                this.currentEditScenario.message = message;
+
+                // Mutate the original scenario
+                Object.assign(scenario, this.currentEditScenario);
+                delete scenario.scenario_knowledge; // Ensure legacy is cleaned
+
+                story.last_modified = new Date().toISOString();
+
+                await DBService.saveStory(story);
+
+                const library = StateManager.getLibrary();
+                const storyInLibrary = library.stories.find(s => s.id === storyId);
+                if (storyInLibrary) {
+                    storyInLibrary.scenarios = story.scenarios;
+                    storyInLibrary.last_modified = story.last_modified;
+                }
+
+                AppController.closeModal('edit-scenario-modal');
+                UIManager.openStoryDetails(storyId);
             },
 
             /**
@@ -18614,9 +19686,18 @@ Write only the descriptive paragraphs.`;
              */
             retryGenStory() {
                 this.RUNTIME_GEN.draftStory = null;
+                this.RUNTIME_GEN.busy = false;
                 document.getElementById('gen-story-approval-view').classList.add('hidden');
                 document.getElementById('gen-story-approval-view').classList.remove('flex');
+                document.getElementById('gen-story-progress-view').classList.add('hidden');
+                document.getElementById('gen-story-progress-view').classList.remove('flex');
                 document.getElementById('gen-story-input-view').classList.remove('hidden');
+                // Re-enable the Phase 1 draft button and restore its label.
+                const phase1Btn = document.querySelector('[data-action="gen-story-phase-1"]');
+                if (phase1Btn) {
+                    phase1Btn.disabled = false;
+                    phase1Btn.innerHTML = 'Draft Concept';
+                }
             },
 
             /**
@@ -18624,6 +19705,11 @@ Write only the descriptive paragraphs.`;
              * This is the "Phase 2" of the Story Architect flow.
              */
             async confirmGenStory() {
+                // Re-entrancy guard: ignore double-clicks while a generation pass is in flight.
+                if (this.RUNTIME_GEN && this.RUNTIME_GEN.busy) return;
+                if (!this.RUNTIME_GEN) this.RUNTIME_GEN = {};
+                this.RUNTIME_GEN.busy = true;
+
                 // Read Edited Values
                 const title = document.getElementById('gen-approval-title-input').value;
                 const summary = document.getElementById('gen-approval-summary-input').value;
@@ -18719,8 +19805,11 @@ Write only the descriptive paragraphs.`;
 
                         story.narratives.push({ id: newNarrative.id, name: newNarrative.name, last_modified: newNarrative.last_modified });
 
-                        await DBService.saveStory(story);
-                        await DBService.saveNarrative(newNarrative);
+                        const storySaved = await DBService.saveStory(story);
+                        const narrativeSaved = await DBService.saveNarrative(newNarrative);
+                        if (!storySaved || !narrativeSaved) {
+                            throw new Error("Failed to persist scenario to local database (disk full or quota exceeded?).");
+                        }
 
                         // Handle Image Imports (The Pipeline generates Blob URLs, but we need to persist them)
                         // The Pipeline `runCastingPhase` assigns `image_url` as Blob URL or internal ID.
@@ -18884,8 +19973,11 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
 
                     draft.narratives.push({ id: newNarrative.id, name: newNarrative.name, last_modified: newNarrative.last_modified });
 
-                    await DBService.saveStory(draft);
-                    await DBService.saveNarrative(newNarrative);
+                    const storySaved = await DBService.saveStory(draft);
+                    const narrativeSaved = await DBService.saveNarrative(newNarrative);
+                    if (!storySaved || !narrativeSaved) {
+                        throw new Error("Failed to persist generated story to local database (disk full or quota exceeded?).");
+                    }
 
                     StateManager.getLibrary().stories.push(draft);
                     await LibraryController.updateSearchIndex(draft);
@@ -20001,6 +21093,74 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
             // --- Chat Interaction ---
 
             /**
+             * Handles generating a specific directive from the user to a character.
+             * @param {string|boolean} actionVal - 'user', 'ai', or 'regen'.
+             * @param {boolean} isRegen - If true, regenerates the last message instead of creating a new one.
+             */
+            async handleDirectCharacter(actionVal, isRegen = false) {
+                if (!StateManager.getLibrary().active_story_id) return;
+                
+                const input = document.getElementById('chat-input');
+                const directiveText = input.value.trim();
+                if (!directiveText) {
+                    UIManager.showNotification("Please enter a directive in the input field first.", "warning");
+                    return;
+                }
+
+                input.value = '';
+                
+                const state = ReactiveStore.state;
+                let targetId = null;
+                let targetMessageIndex = null;
+
+                if (isRegen || actionVal === 'regen') {
+                    for (let i = state.chat_history.length - 1; i >= 0; i--) {
+                        const msg = state.chat_history[i];
+                        if (msg && msg.type === 'chat' && !msg.isHidden) {
+                            targetMessageIndex = i;
+                            targetId = msg.character_id;
+                            break;
+                        }
+                    }
+
+                    if (targetMessageIndex === null || !targetId) {
+                        UIManager.showNotification("No valid message to regenerate.", "error");
+                        return;
+                    }
+                } else if (actionVal === 'user' || actionVal === true) {
+                    const userChar = state.characters.find(c => c.is_user);
+                    if (!userChar) {
+                        UIManager.showNotification("No user character found in this scenario.", "error");
+                        return;
+                    }
+                    targetId = userChar.id;
+                } else {
+                    const selectorVal = document.getElementById('ai-character-selector').value;
+                    if (selectorVal === 'any' || selectorVal === 'event_master') {
+                        targetId = await this.determineNextSpeaker(false);
+                    } else {
+                        targetId = selectorVal;
+                    }
+                }
+
+                if (!targetId) return;
+
+                const directiveInstruction = `[DIRECTIVE]: The Director has issued the following instruction for your next action. You MUST act this out exactly:\n"${directiveText}"`;
+
+                if (this.RUNTIME.activeRequestAbortController) {
+                    this.stopGeneration();
+                }
+                if (UIManager.RUNTIME.streamingInterval) {
+                    clearInterval(UIManager.RUNTIME.streamingInterval);
+                    UIManager.RUNTIME.streamingInterval = null;
+                }
+
+                this._clearResponseOptions();
+
+                await this.triggerAIResponse(targetId, directiveInstruction, true, targetMessageIndex, null);
+            },
+
+            /**
              * Handles the primary action button (Send/Write).
              * Delegates to triggerAIResponse (if empty) or sendMessage (if text present).
              */
@@ -20674,7 +21834,11 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                     if (error.name === 'AbortError') {
                         console.log('[Swarm] Generation stopped by user.');
                     } else {
-                        this.addSystemMessageToHistory(`Swarm Error: ${error.message}`);
+                        if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                            UIManager.showToast(`Swarm Error: ${error.message}`, true);
+                        } else {
+                            console.error(`Swarm Error: ${error.message}`);
+                        }
                     }
                 } finally {
                     UIManager.setButtonToSendMode();
@@ -20703,6 +21867,15 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
 
                 const messageContent = input.value.trim();
                 if (!messageContent) return;
+
+                // --- Input History Tracking ---
+                if (UIManager.RUNTIME.inputHistory.length === 0 || UIManager.RUNTIME.inputHistory[UIManager.RUNTIME.inputHistory.length - 1] !== messageContent) {
+                    UIManager.RUNTIME.inputHistory.push(messageContent);
+                    if (UIManager.RUNTIME.inputHistory.length > 3) {
+                        UIManager.RUNTIME.inputHistory.shift();
+                    }
+                }
+                UIManager.RUNTIME.inputHistoryIndex = UIManager.RUNTIME.inputHistory.length;
 
                 // 1. Add user message immediately
                 this.addMessageToHistory(userChar.id, messageContent);
@@ -21050,7 +22223,9 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                         if (targetIdx === -1) targetIdx = null;
 
                         // UI IMPROVEMENT: Instead of detached typing indicator, update existing bubble to "thinking" state
+                        let originalContent = null;
                         if (targetIdx !== null) {
+                            originalContent = lastAiMsg.content;
                             const msgEl = document.getElementById(`message-content-${targetIdx}`);
                             if (msgEl) {
                                 msgEl.innerHTML = `<span class="animate-pulse text-gray-500">${primarySpeaker.name} is thinking...</span>`;
@@ -21084,7 +22259,15 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                     } catch (error) {
                         UIManager.hideTypingIndicator();
                         if (error.name !== 'AbortError') {
-                            this.addSystemMessageToHistory(`Swarm Regen Error: ${error.message}`);
+                            if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                                UIManager.showToast(`Swarm Regen Error: ${error.message}`, true);
+                            } else {
+                                console.error(`Swarm Regen Error: ${error.message}`);
+                            }
+                        }
+                        if (targetIdx !== null && originalContent !== null) {
+                            state.chat_history[targetIdx].content = originalContent;
+                            UIManager.renderChatHistory(state.chat_history);
                         }
                     } finally {
                         UIManager.setButtonToSendMode();
@@ -21722,11 +22905,13 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                     UIManager.hideLoadingSpinner();
                 }
 
+                let originalContent = null;
                 // 3. Setup UI for Generation
                 if (targetMessageIndex !== null) {
                     // REGEN MODE: Don't show new typing bubble.
                     // Instead, clear the existing message to indicate processing.
                     const char = ReactiveStore.getCharacter(targetId);
+                    originalContent = state.chat_history[targetMessageIndex].content;
                     const msgEl = document.getElementById(`message-content-${targetMessageIndex}`);
                     if (msgEl) {
                         msgEl.innerHTML = `<span class="animate-pulse text-gray-500">${char ? char.name : 'Character'} is thinking...</span>`;
@@ -21871,9 +23056,20 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                         }
                     }
                 } catch (error) {
-                    if (error.name === 'AbortError') console.log("Stopped.");
-                    else this.addSystemMessageToHistory(`AI Error: ${error.message}`);
-                    UIManager.hideTypingIndicator();
+                    if (error.name === 'AbortError') {
+                        console.log("Stopped.");
+                    } else {
+                        if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                            UIManager.showToast(`AI Error: ${error.message}`, true);
+                        } else {
+                            console.error(`AI Error: ${error.message}`);
+                        }
+                    }
+                    if (targetMessageIndex !== null && originalContent !== null) {
+                        state.chat_history[targetMessageIndex].content = originalContent;
+                        UIManager.renderChatHistory(state.chat_history);
+                    }
+                    UIManager.hideTypingIndicator(true);
                 } finally {
                     UIManager.setButtonToSendMode();
                     this.RUNTIME.activeRequestAbortController = null;
@@ -21978,7 +23174,8 @@ Rules:
 1. Provide a brief one-sentence reasoning for your choice.
 2. End your response with the exact tag: [FINAL SELECTION]: Name
 3. Name must match exactly one of the names in the lists above.
-4. Do NOT select "${userCharName}".`;
+4. Do NOT select "${userCharName}".
+5. Prefer a character who did not just speak in the most recent turn (unless the context strongly demands a back-to-back response from the same character).`;
 
                     console.log("[Scriptwriter Prompt]:", prompt);
 
@@ -22174,7 +23371,8 @@ Rules:
 1. Provide a brief **one-sentence** reasoning for your casting choices prior to selecting the PRIMARY SPEAKER. Be concise as this must fit within a 200 characters entry field.
 2. Character names must match exactly from the lists above.
 3. Do NOT select "${userCharName}".
-4. You must include the following tags at the end of your response:
+4. Prefer a primary speaker who did not just speak in the most recent turn (unless the context strongly demands a back-to-back response).
+5. You must include the following tags at the end of your response:
 [CANDIDATES]: Name1, Name2, Name3
 [PRIMARY SPEAKER]: Name`;
 
@@ -25414,8 +26612,13 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
 
                 // Scenario Actions (Load, Rename, Delete)
                 ActionHandler.register('load-scenario', (ds) => LibraryController.createNarrativeFromScenario(ds.storyId, ds.scenarioId));
+                ActionHandler.register('edit-scenario', (ds) => LibraryController.editScenario(ds.storyId, ds.scenarioId));
                 ActionHandler.register('rename-scenario', (ds) => LibraryController.renameScenario(ds.storyId, ds.scenarioId));
                 ActionHandler.register('delete-scenario', (ds) => LibraryController.deleteScenario(ds.storyId, ds.scenarioId));
+                ActionHandler.register('select-scenario-static', (ds) => LibraryController.selectScenarioStaticEntry(ds.id));
+                ActionHandler.register('delete-scenario-static', (ds) => LibraryController.deleteScenarioStaticEntry(ds.id));
+                ActionHandler.register('select-scenario-dynamic', (ds) => LibraryController.selectScenarioDynamicEntry(ds.id));
+                ActionHandler.register('delete-scenario-dynamic', (ds) => LibraryController.deleteScenarioDynamicEntry(ds.id));
 
                 // Narrative Actions
                 ActionHandler.register('load-narrative', (ds) => LibraryController.loadNarrative(ds.storyId, ds.narrativeId));
@@ -25497,6 +26700,15 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                             top: chatWindow.scrollHeight,
                             behavior: 'smooth'
                         });
+                    }
+                });
+
+                // Direct Character Context Menu
+                ActionHandler.register('direct-character', (ds, val) => {
+                    if (typeof NarrativeController !== 'undefined') {
+                        const contextMenu = document.getElementById('generate-context-menu');
+                        const isRegen = contextMenu && contextMenu.dataset.source === 'regen';
+                        NarrativeController.handleDirectCharacter(val, isRegen);
                     }
                 });
             }
@@ -25838,6 +27050,37 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
 
                     // Enter-to-Send & Desktop Auto-Close
                     chatInput.addEventListener('keydown', (e) => {
+                        // History Navigation Logic
+                        if (e.key === 'ArrowUp') {
+                            const isAtTop = chatInput.value.substring(0, chatInput.selectionStart).indexOf('\n') === -1;
+                            if (isAtTop) {
+                                const history = UIManager.RUNTIME.inputHistory;
+                                if (history && history.length > 0) {
+                                    e.preventDefault();
+                                    if (UIManager.RUNTIME.inputHistoryIndex > 0) {
+                                        UIManager.RUNTIME.inputHistoryIndex--;
+                                        chatInput.value = history[UIManager.RUNTIME.inputHistoryIndex];
+                                    }
+                                    return;
+                                }
+                            }
+                        } else if (e.key === 'ArrowDown') {
+                            const isAtBottom = chatInput.value.substring(chatInput.selectionStart).indexOf('\n') === -1;
+                            if (isAtBottom) {
+                                const history = UIManager.RUNTIME.inputHistory;
+                                if (history && UIManager.RUNTIME.inputHistoryIndex !== undefined && UIManager.RUNTIME.inputHistoryIndex < history.length) {
+                                    e.preventDefault();
+                                    UIManager.RUNTIME.inputHistoryIndex++;
+                                    if (UIManager.RUNTIME.inputHistoryIndex === history.length) {
+                                        chatInput.value = '';
+                                    } else {
+                                        chatInput.value = history[UIManager.RUNTIME.inputHistoryIndex];
+                                    }
+                                    return;
+                                }
+                            }
+                        }
+
                         // Desktop Auto-Close (Reliable, triggers before beforeinput, preventing duplicates)
                         if (StateManager.data.globalSettings.autoCloseBrackets) {
                             const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', '*': '*' };

@@ -1,11 +1,12 @@
 {
   "name": "ellipsis-lm",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "EllipsisLM — AI-powered roleplay, self-hosted desktop edition.",
   "author": "EllipsisLM",
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
+    "test": "node test.js",
     "dist": "electron-builder --win --publish never",
     "dist:mac": "electron-builder --mac --publish never"
   },

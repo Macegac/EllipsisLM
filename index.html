@@ -650,6 +650,53 @@
             }
         }
 
+        .onboarding-step {
+            display: none;
+            animation: onboardingCardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .onboarding-step.active {
+            display: block;
+        }
+
+        .model-option-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .model-option-card:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .model-option-card.selected {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: #6366f1;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+        }
+
+        .model-option-card-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0.75rem;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .model-option-card.selected .model-option-card-icon {
+            background: #6366f1;
+            color: white;
+        }
+
         /* ==========================================================================
            [SEC:CSS:CHAT]
            5. CHAT WINDOW STYLING
@@ -1827,7 +1874,7 @@
 
             <!-- Chat Input & Controls -->
             <div id="chat-input-container" class="relative flex flex-shrink-0 space-x-2 sm:space-x-4"
-                style="padding: 1rem; border-top: 1px solid; border-top-color: color-mix(in srgb, var(--chat-text-color) 50%, transparent);">
+                style="border-top: 1px solid; border-top-color: color-mix(in srgb, var(--chat-text-color) 50%, transparent);">
 
                 <!-- Resizer Handle -->
                 <div id="chat-resizer"
@@ -1892,17 +1939,33 @@
             </div>
 
             <!-- Context Menu for Direct Character -->
-            <div id="generate-context-menu" class="hidden absolute z-50 bg-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-xl py-1 overflow-hidden" style="min-width: 200px;">
-                <button data-action="direct-character" data-action-val="user" class="direct-new-btn w-full text-left px-4 py-2 hover:bg-indigo-600/50 text-white text-sm transition-colors flex items-center">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+            <div id="generate-context-menu"
+                class="hidden absolute z-50 bg-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-xl py-1 overflow-hidden"
+                style="min-width: 200px;">
+                <button data-action="direct-character" data-action-val="user"
+                    class="direct-new-btn w-full text-left px-4 py-2 hover:bg-indigo-600/50 text-white text-sm transition-colors flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                    </svg>
                     Direct my Character
                 </button>
-                <button data-action="direct-character" data-action-val="ai" class="direct-new-btn w-full text-left px-4 py-2 hover:bg-indigo-600/50 text-white text-sm transition-colors flex items-center">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <button data-action="direct-character" data-action-val="ai"
+                    class="direct-new-btn w-full text-left px-4 py-2 hover:bg-indigo-600/50 text-white text-sm transition-colors flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z">
+                        </path>
+                    </svg>
                     Direct Other Character
                 </button>
-                <button data-action="direct-character" data-action-val="regen" class="direct-regen-btn hidden w-full text-left px-4 py-2 hover:bg-emerald-600/50 text-white text-sm transition-colors flex items-center">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <button data-action="direct-character" data-action-val="regen"
+                    class="direct-regen-btn hidden w-full text-left px-4 py-2 hover:bg-emerald-600/50 text-white text-sm transition-colors flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                        </path>
+                    </svg>
                     Regen with Directive
                 </button>
             </div>
@@ -1916,7 +1979,7 @@
     <div id="story-library-modal" class="fixed inset-0 z-50 items-center justify-center hidden">
         <div class="modal-overlay absolute inset-0" data-action="close-modal" data-id="story-library-modal"></div>
         <div class="bg-gray-900/95 backdrop-blur-lg relative flex flex-col w-full h-full"
-            style="border-top: 2px solid transparent; border-image: linear-gradient(to right, #6366f1, #a855f7, #6366f1) 1;">
+            style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); border-top: 2px solid transparent; border-image: linear-gradient(to right, #6366f1, #a855f7, #6366f1) 1;">
             <div class="px-5 py-3 border-b border-gray-700/80 flex justify-between items-center"
                 style="background: linear-gradient(to bottom, rgba(17,24,39,0.8), rgba(17,24,39,0.4));">
                 <div class="flex items-center gap-3">
@@ -2162,7 +2225,7 @@
     <div id="story-details-modal" class="fixed inset-0 z-50 items-center justify-center hidden">
         <div class="modal-overlay absolute inset-0" data-action="close-modal" data-id="story-details-modal"></div>
         <div class="bg-gray-800/80 backdrop-blur-md rounded-lg shadow-xl relative flex flex-col"
-            style="width: 100%; max-width: 1200px; height: 100%;">
+            style="width: 100%; max-width: 1200px; height: 100%; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
             <div id="story-details-content-mobile" class="flex-grow flex flex-col min-h-0"></div>
         </div>
     </div>
@@ -2556,19 +2619,26 @@
             </div>
             <!-- Tabs -->
             <div class="flex border-b border-gray-700 bg-gray-900/80 px-2 overflow-x-auto no-scrollbar flex-shrink-0">
-                <button id="scenario-tab-btn-setup" onclick="LibraryController.switchScenarioTab('setup')" class="px-4 py-3 font-semibold border-b-2 border-indigo-500 text-white whitespace-nowrap transition-colors">Setup</button>
-                <button id="scenario-tab-btn-cast" onclick="LibraryController.switchScenarioTab('cast')" class="px-4 py-3 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap transition-colors">Cast</button>
-                <button id="scenario-tab-btn-static" onclick="LibraryController.switchScenarioTab('static')" class="px-4 py-3 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap transition-colors">Static Lore</button>
-                <button id="scenario-tab-btn-dynamic" onclick="LibraryController.switchScenarioTab('dynamic')" class="px-4 py-3 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap transition-colors">Dynamic Lore</button>
+                <button id="scenario-tab-btn-setup" onclick="LibraryController.switchScenarioTab('setup')"
+                    class="px-4 py-3 font-semibold border-b-2 border-indigo-500 text-white whitespace-nowrap transition-colors">Setup</button>
+                <button id="scenario-tab-btn-cast" onclick="LibraryController.switchScenarioTab('cast')"
+                    class="px-4 py-3 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap transition-colors">Cast</button>
+                <button id="scenario-tab-btn-static" onclick="LibraryController.switchScenarioTab('static')"
+                    class="px-4 py-3 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap transition-colors">Static
+                    Lore</button>
+                <button id="scenario-tab-btn-dynamic" onclick="LibraryController.switchScenarioTab('dynamic')"
+                    class="px-4 py-3 font-semibold border-b-2 border-transparent text-gray-400 hover:text-white whitespace-nowrap transition-colors">Dynamic
+                    Lore</button>
             </div>
-            
+
             <!-- Tab Contents -->
             <div class="p-4 md:p-6 overflow-y-auto flex-grow flex flex-col relative bg-gray-800">
-                
+
                 <!-- Setup Tab -->
                 <div id="scenario-tab-setup" class="space-y-5 flex flex-col h-full animate-fade-in">
                     <p class="text-xs text-gray-400 italic bg-gray-900/50 p-3 rounded-lg border border-gray-700">
-                        You may make further modifications within a narrative based on this Scenario and save that as a new Scenario.
+                        You may make further modifications within a narrative based on this Scenario and save that as a
+                        new Scenario.
                     </p>
                     <input type="hidden" id="edit-scenario-story-id">
                     <input type="hidden" id="edit-scenario-id">
@@ -2594,21 +2664,29 @@
                 <!-- Cast Tab -->
                 <div id="scenario-tab-cast" class="hidden h-full flex flex-col animate-fade-in">
                     <p class="text-xs text-gray-400 mb-4 bg-gray-900/50 p-3 rounded-lg border border-gray-700">
-                        Click a character card's <strong>Include</strong> toggle to include them in this scenario. Click the <strong>Set Speaker</strong> button to define who delivers the opening message.
+                        Click a character card's <strong>Include</strong> toggle to include them in this scenario. Click
+                        the <strong>Set Speaker</strong> button to define who delivers the opening message.
                     </p>
-                    <div id="edit-scenario-characters" class="grid grid-cols-2 lg:grid-cols-4 gap-4 overflow-y-auto pr-2 pb-2"></div>
+                    <div id="edit-scenario-characters"
+                        class="grid grid-cols-2 lg:grid-cols-4 gap-4 overflow-y-auto pr-2 pb-2"></div>
                 </div>
 
                 <!-- Static Lore Tab -->
                 <div id="scenario-tab-static" class="hidden h-full flex flex-col md:flex-row gap-4 animate-fade-in">
                     <div class="w-full md:w-1/3 flex flex-col h-1/3 md:h-full">
-                        <button onclick="LibraryController.addScenarioStaticEntry()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded mb-2 shadow transition-colors text-sm flex items-center justify-center gap-2 flex-shrink-0">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <button onclick="LibraryController.addScenarioStaticEntry()"
+                            class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-4 rounded mb-2 shadow transition-colors text-sm flex items-center justify-center gap-2 flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4"></path>
+                            </svg>
                             New Entry
                         </button>
-                        <div id="scenario-static-entries-list" class="bg-black/30 rounded p-2 overflow-y-auto flex-grow border border-gray-700"></div>
+                        <div id="scenario-static-entries-list"
+                            class="bg-black/30 rounded p-2 overflow-y-auto flex-grow border border-gray-700"></div>
                     </div>
-                    <div id="scenario-static-entry-details" class="w-full md:w-2/3 bg-black/30 rounded p-4 overflow-y-auto flex-1 md:flex-none md:h-full border border-gray-700">
+                    <div id="scenario-static-entry-details"
+                        class="w-full md:w-2/3 bg-black/30 rounded p-4 overflow-y-auto flex-1 md:flex-none md:h-full border border-gray-700">
                         <div class="text-gray-400 flex items-center justify-center h-full">Select a static entry.</div>
                     </div>
                 </div>
@@ -2616,13 +2694,19 @@
                 <!-- Dynamic Lore Tab -->
                 <div id="scenario-tab-dynamic" class="hidden h-full flex flex-col md:flex-row gap-4 animate-fade-in">
                     <div class="w-full md:w-1/3 flex flex-col h-1/3 md:h-full">
-                        <button onclick="LibraryController.addScenarioDynamicEntry()" class="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded mb-2 shadow transition-colors text-sm flex items-center justify-center gap-2 flex-shrink-0">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <button onclick="LibraryController.addScenarioDynamicEntry()"
+                            class="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-2 px-4 rounded mb-2 shadow transition-colors text-sm flex items-center justify-center gap-2 flex-shrink-0">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4v16m8-8H4"></path>
+                            </svg>
                             New Rule
                         </button>
-                        <div id="scenario-dynamic-entries-list" class="bg-black/30 rounded p-2 overflow-y-auto flex-grow border border-gray-700"></div>
+                        <div id="scenario-dynamic-entries-list"
+                            class="bg-black/30 rounded p-2 overflow-y-auto flex-grow border border-gray-700"></div>
                     </div>
-                    <div id="scenario-dynamic-entry-details" class="w-full md:w-2/3 bg-black/30 rounded p-4 overflow-y-auto flex-1 md:flex-none md:h-full border border-gray-700">
+                    <div id="scenario-dynamic-entry-details"
+                        class="w-full md:w-2/3 bg-black/30 rounded p-4 overflow-y-auto flex-1 md:flex-none md:h-full border border-gray-700">
                         <div class="text-gray-400 flex items-center justify-center h-full">Select a dynamic entry.</div>
                     </div>
                 </div>
@@ -2704,7 +2788,7 @@
     </div>
 
     <!-- AI Backend Browser: Search and select models from OpenRouter -->
-    <div id="openrouter-model-modal" class="fixed inset-0 z-[80] items-center justify-center hidden">
+    <div id="openrouter-model-modal" class="fixed inset-0 z-[100] items-center justify-center hidden">
         <div class="modal-overlay absolute inset-0 bg-black/60" data-action="close-modal"
             data-id="openrouter-model-modal"></div>
         <div
@@ -3450,12 +3534,17 @@
             <div class="space-y-6">
                 <!-- Visual Indicator Banner -->
                 <div class="bg-indigo-900/40 border border-indigo-500/50 rounded-lg p-3 flex items-start gap-3">
-                    <svg class="w-6 h-6 text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    <svg class="w-6 h-6 text-indigo-400 shrink-0 mt-0.5" fill="none" stroke="currentColor"
+                        viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+                        </path>
                     </svg>
                     <div>
                         <h4 class="text-sm font-bold text-indigo-200 uppercase tracking-wider">Global App Defaults</h4>
-                        <p class="text-xs text-indigo-300/80 mt-1">These settings and prompt templates act as the foundational baseline. They apply automatically to all stories unless overridden locally in a story's specific Prompts tab.</p>
+                        <p class="text-xs text-indigo-300/80 mt-1">These settings and prompt templates act as the
+                            foundational baseline. They apply automatically to all stories unless overridden locally in
+                            a story's specific Prompts tab.</p>
                     </div>
                 </div>
 
@@ -3465,74 +3554,100 @@
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <!-- Director Mode -->
-                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                        <div
+                            class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
                             <div>
-                                <span class="text-gray-200 font-medium block">Director Mode <span class="ml-1 text-[10px] bg-indigo-600/60 text-indigo-300 px-1.5 py-0.5 rounded uppercase font-bold">Experimental</span></span>
-                                <span class="text-xs text-gray-500">Each character deliberates privately. A Director then resolves all intents into a single scene.</span>
+                                <span class="text-gray-200 font-medium block">Director Mode <span
+                                        class="ml-1 text-[10px] bg-indigo-600/60 text-indigo-300 px-1.5 py-0.5 rounded uppercase font-bold">Experimental</span></span>
+                                <span class="text-xs text-gray-500">Each character deliberates privately. A Director
+                                    then resolves all intents into a single scene.</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer ml-4 shrink-0">
                                 <input type="checkbox" id="global-default-swarm-mode-toggle" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div
+                                    class="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
+                                </div>
                             </label>
                         </div>
 
                         <!-- AI Analysis Toggle -->
-                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                        <div
+                            class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
                             <div>
                                 <span class="text-gray-200 font-medium block">Enable AI Analysis</span>
-                                <span class="text-xs text-gray-500">Auto-detects emotions and location changes. Disabling saves tokens.</span>
+                                <span class="text-xs text-gray-500">Auto-detects emotions and location changes.
+                                    Disabling saves tokens.</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="global-default-enable-analysis-toggle" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div
+                                    class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
+                                </div>
                             </label>
                         </div>
 
                         <!-- Auto-Knowledge Toggle -->
-                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                        <div
+                            class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
                             <div>
                                 <span class="text-gray-200 font-medium block">Auto-Knowledge Agent</span>
-                                <span class="text-xs text-gray-500">Automatically creates and updates static knowledge.</span>
+                                <span class="text-xs text-gray-500">Automatically creates and updates static
+                                    knowledge.</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="global-default-auto-knowledge" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div
+                                    class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
+                                </div>
                             </label>
                         </div>
 
                         <!-- Stats Tracking Toggle -->
-                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                        <div
+                            class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
                             <div>
                                 <span class="text-gray-200 font-medium block">Character Stats</span>
-                                <span class="text-xs text-gray-500">AI tracks and updates RPG-style stats for each character.</span>
+                                <span class="text-xs text-gray-500">AI tracks and updates RPG-style stats for each
+                                    character.</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="global-default-enable-stats-toggle" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div
+                                    class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
+                                </div>
                             </label>
                         </div>
 
                         <!-- Living Persona Toggle -->
-                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                        <div
+                            class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
                             <div>
                                 <span class="text-gray-200 font-medium block">Living Persona</span>
-                                <span class="text-xs text-gray-500">AI periodically evolves a character's personality based on history.</span>
+                                <span class="text-xs text-gray-500">AI periodically evolves a character's personality
+                                    based on history.</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" id="global-default-living-persona" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <div
+                                    class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
+                                </div>
                             </label>
                         </div>
 
                         <!-- Response Options Toggle -->
-                        <div class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
+                        <div
+                            class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
                             <div>
                                 <span class="text-gray-200 font-medium block">Response Options (CYOA)</span>
-                                <span class="text-xs text-gray-500">Generate 4 suggested actions after AI follows.</span>
+                                <span class="text-xs text-gray-500">Generate 4 suggested actions after AI
+                                    follows.</span>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="global-default-enable-response-options-toggle" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                <input type="checkbox" id="global-default-enable-response-options-toggle"
+                                    class="sr-only peer">
+                                <div
+                                    class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
+                                </div>
                             </label>
                         </div>
                     </div>
@@ -3543,34 +3658,42 @@
                     <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider px-1">Generation</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div class="bg-gray-900/30 p-4 rounded-lg border border-gray-700/50">
-                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Response Length</label>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Response
+                                Length</label>
                             <div class="relative">
-                                <select id="global-default-response-length-selector" class="w-full appearance-none rounded-lg p-3 bg-gray-800 border border-gray-600 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors">
+                                <select id="global-default-response-length-selector"
+                                    class="w-full appearance-none rounded-lg p-3 bg-gray-800 border border-gray-600 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors">
                                     <option value="normal">Default (Unconstrained)</option>
                                     <option value="short">Short (1-2 Sentences)</option>
                                     <option value="medium">Medium (3-6 Sentences)</option>
                                     <option value="long">Long (2-4 Paragraphs)</option>
                                     <option value="novel">Novel (Creative Writing)</option>
                                 </select>
-                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                <div
+                                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7"></path>
                                     </svg>
                                 </div>
                             </div>
                         </div>
 
                         <div class="bg-gray-900/30 p-4 rounded-lg border border-gray-700/50">
-                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Response Style</label>
+                            <label class="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Response
+                                Style</label>
                             <div class="relative">
-                                <select id="global-default-response-style-selector" class="w-full appearance-none rounded-lg p-3 bg-gray-800 border border-gray-600 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors">
+                                <select id="global-default-response-style-selector"
+                                    class="w-full appearance-none rounded-lg p-3 bg-gray-800 border border-gray-600 text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors">
                                     <option value="normal">Normal</option>
                                     <option value="prose">Force Prose (Quotes)</option>
                                     <option value="roleplay">Force Roleplay (Asterisks)</option>
                                 </select>
-                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
+                                <div
+                                    class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-400">
                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M19 9l-7 7-7-7"></path>
                                     </svg>
                                 </div>
                             </div>
@@ -3585,19 +3708,25 @@
                         <!-- Sliders -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="bg-gray-900/30 p-4 rounded-lg border border-gray-700/50">
-                                <label for="global-default-event-master-prob-slider" class="text-gray-300 text-sm font-medium mb-2 flex justify-between items-center">
+                                <label for="global-default-event-master-prob-slider"
+                                    class="text-gray-300 text-sm font-medium mb-2 flex justify-between items-center">
                                     <span>Event Master Chance</span>
-                                    <span id="global-default-event-master-prob-value" class="text-indigo-400 font-bold whitespace-nowrap">0%</span>
+                                    <span id="global-default-event-master-prob-value"
+                                        class="text-indigo-400 font-bold whitespace-nowrap">0%</span>
                                 </label>
-                                <input type="range" id="global-default-event-master-prob-slider" class="w-full" min="0" max="100" step="1">
+                                <input type="range" id="global-default-event-master-prob-slider" class="w-full" min="0"
+                                    max="100" step="1">
                                 <p class="text-xs text-gray-500 mt-2">Probability of injecting plot twists.</p>
                             </div>
                             <div class="bg-gray-900/30 p-4 rounded-lg border border-gray-700/50">
-                                <label for="global-default-visual-master-prob-slider" class="text-gray-300 text-sm font-medium mb-2 flex justify-between items-center">
+                                <label for="global-default-visual-master-prob-slider"
+                                    class="text-gray-300 text-sm font-medium mb-2 flex justify-between items-center">
                                     <span>Visual Master Chance</span>
-                                    <span id="global-default-visual-master-prob-value" class="text-indigo-400 font-bold whitespace-nowrap">50%</span>
+                                    <span id="global-default-visual-master-prob-value"
+                                        class="text-indigo-400 font-bold whitespace-nowrap">50%</span>
                                 </label>
-                                <input type="range" id="global-default-visual-master-prob-slider" class="w-full" min="0" max="100" step="1">
+                                <input type="range" id="global-default-visual-master-prob-slider" class="w-full" min="0"
+                                    max="100" step="1">
                                 <p class="text-xs text-gray-500 mt-2">Probability of generating scene visuals.</p>
                             </div>
                         </div>
@@ -3605,16 +3734,22 @@
                         <!-- Global Prompt Overrides Editor -->
                         <div class="bg-gray-900/30 border border-gray-700/50 rounded-lg p-4">
                             <div class="flex flex-wrap justify-between items-center mb-3 gap-2">
-                                <label for="global-prompt-template-selector" class="block text-gray-300 text-sm font-medium">Edit Default Prompts</label>
-                                <button id="global-prompt-reset-btn" class="bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 text-xs px-3 py-1.5 rounded-lg transition-colors border border-red-900/50 font-medium">
+                                <label for="global-prompt-template-selector"
+                                    class="block text-gray-300 text-sm font-medium">Edit Default Prompts</label>
+                                <button id="global-prompt-reset-btn"
+                                    class="bg-red-900/30 hover:bg-red-900/60 text-red-400 hover:text-red-300 text-xs px-3 py-1.5 rounded-lg transition-colors border border-red-900/50 font-medium">
                                     Reset to Hardcoded Default
                                 </button>
                             </div>
-                            <select id="global-prompt-template-selector" class="w-full bg-black/40 border border-gray-600 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 mb-3">
+                            <select id="global-prompt-template-selector"
+                                class="w-full bg-black/40 border border-gray-600 rounded-lg p-2 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 mb-3">
                                 <!-- Options populated dynamically via AppController.bindSettingsListeners() -->
                             </select>
-                            <p id="global-prompt-template-hint" class="text-gray-400 text-sm mb-3">Select a template to view or edit its global default.</p>
-                            <textarea id="global-prompt-template-editor" class="w-full bg-black/20 border border-gray-600 rounded-lg p-3 text-sm text-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-y font-mono" rows="12"></textarea>
+                            <p id="global-prompt-template-hint" class="text-gray-400 text-sm mb-3">Select a template to
+                                view or edit its global default.</p>
+                            <textarea id="global-prompt-template-editor"
+                                class="w-full bg-black/20 border border-gray-600 rounded-lg p-3 text-sm text-gray-300 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-y font-mono"
+                                rows="12"></textarea>
                         </div>
                     </div>
                 </div>
@@ -4586,6 +4721,22 @@
                 this.actions[name] = fn;
             },
 
+            /**
+             * Manually triggers a registered action.
+             * @param {string} actionName - The name of the action.
+             * @param {Object} [dataset={}] - Mock dataset.
+             * @param {*} [val=null] - Mock value.
+             * @param {Event} [event=null] - Mock event.
+             */
+            handle(actionName, dataset = {}, val = null, event = null) {
+                const handler = this.actions[actionName];
+                if (handler) {
+                    handler(dataset, val, event);
+                } else {
+                    console.warn(`ActionHandler: No handler for "${actionName}"`);
+                }
+            },
+
             // Initialize the global listener
             /**
              * Initializes the global click and change listeners.
@@ -4645,7 +4796,7 @@
                     const primaryBtn = e.target.closest('#primary-action-btn');
                     const regenBtn = e.target.closest('#regen-btn');
                     const btn = primaryBtn || regenBtn;
-                    
+
                     if (btn) {
                         e.preventDefault();
                         const contextMenu = document.getElementById('generate-context-menu');
@@ -6280,7 +6431,7 @@
 
                 if (scenario.dynamic_entries) story.dynamic_entries = JSON.parse(JSON.stringify(scenario.dynamic_entries));
                 if (scenario.prompts) Object.assign(story, scenario.prompts);
-                
+
                 if (scenario.user_character_id) {
                     story.characters.forEach(c => {
                         c.is_user = (c.id === scenario.user_character_id);
@@ -6784,6 +6935,49 @@
         const APIService = {
             webllmEngine: null,
             webllmInitProgress: "",
+
+            async testConnection(provider, config) {
+                try {
+                    if (provider === 'gemini') {
+                        const apiKey = config.geminiApiKey;
+                        if (!apiKey) throw new Error("API Key is required.");
+                        const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+                        const res = await fetch(url);
+                        if (!res.ok) {
+                            let errorMsg = "Invalid API Key or Model unavailable.";
+                            try {
+                                const errData = await res.json();
+                                if (errData.error && errData.error.message) {
+                                    errorMsg = `Gemini Error: ${errData.error.message}`;
+                                }
+                            } catch (e) { }
+                            throw new Error(errorMsg);
+                        }
+                        return true;
+                    } else if (provider === 'koboldcpp') {
+                        const url = config.koboldcpp_url || 'http://localhost:5001';
+                        const res = await fetch(`${url}/api/v1/model`);
+                        if (!res.ok) throw new Error("Local server not responding.");
+                        return true;
+                    } else if (provider === 'openrouter') {
+                        const apiKey = config.openRouterKey;
+                        if (!apiKey) throw new Error("API Key is required.");
+                        const res = await fetch('https://openrouter.ai/api/v1/models', {
+                            method: 'GET',
+                            headers: {
+                                'Authorization': `Bearer ${apiKey}`,
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        if (!res.ok) throw new Error("Invalid OpenRouter API Key.");
+                        return true;
+                    }
+                    return false;
+                } catch (e) {
+                    console.error("Connection test failed:", e);
+                    throw e;
+                }
+            },
 
             async initWebLLM() {
                 const state = StateManager.getState();
@@ -8254,21 +8448,21 @@
             getDefaultSystemPrompts() {
                 const hardcoded = this.getHardcodedSystemPrompts();
                 const globals = (typeof StateManager !== 'undefined' && StateManager.data && StateManager.data.globalSettings) ? StateManager.data.globalSettings : {};
-                
+
                 const result = { ...hardcoded };
-                
+
                 // Historically system_prompt was stored as default_system_prompt
                 if (globals.default_system_prompt) {
                     result.system_prompt = globals.default_system_prompt;
                 }
-                
+
                 // Override with globals
                 for (const key in hardcoded) {
                     if (globals[key] !== undefined && globals[key] !== null && globals[key] !== '') {
                         result[key] = globals[key];
                     }
                 }
-                
+
                 return result;
             },
             /**
@@ -11598,7 +11792,7 @@ Write only the character's message.`;
 
                 let roleBorderClass = isActive ? 'border-gray-500 hover:border-gray-400' : 'border-gray-600';
                 let roleBadge = '';
-                
+
                 if (isScenarioUser) {
                     roleBorderClass = 'border-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.3)]';
                     roleBadge = DOM.unsafe('<div class="absolute top-2 left-2 bg-indigo-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider z-20 shadow">USER</div>');
@@ -11635,9 +11829,9 @@ Write only the character's message.`;
                 
                 <div class="absolute top-2 right-2 flex flex-col gap-2 items-end z-20">
                     <div class="bg-black/60 backdrop-blur-sm rounded-full p-1 border ${isActive ? 'border-indigo-500' : 'border-gray-500'}">
-                        ${isActive ? 
-                            DOM.unsafe('<svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>') : 
-                            DOM.unsafe('<svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>')}
+                        ${isActive ?
+                        DOM.unsafe('<svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>') :
+                        DOM.unsafe('<svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>')}
                     </div>
                     
                     <div class="flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -15654,6 +15848,8 @@ Write only the character's message.`;
         const AppController = {
             RUNTIME: {
                 activeSettingsTab: 'appearance',
+                onboardingStep: 1,
+                onboardingProvider: null
             },
 
             CONSTANTS: {
@@ -15668,6 +15864,188 @@ Write only the character's message.`;
                     // TTS Keys
                     'ttsEnabled', 'ttsVoice', 'ttsAutoPlayback'
                 ]
+            },
+
+            // --- Onboarding Logic ---
+            goToOnboardingStep(step) {
+                document.querySelectorAll('.onboarding-step').forEach(el => el.classList.remove('active'));
+                const target = document.getElementById(`onboarding-step-${step}`);
+                if (target) target.classList.add('active');
+                this.RUNTIME.onboardingStep = step;
+            },
+
+            selectOnboardingModel(provider) {
+                this.RUNTIME.onboardingProvider = provider;
+
+                // UI feedback
+                document.querySelectorAll('.model-option-card').forEach(el => el.classList.remove('selected'));
+                let cardId = 'onboarding-model-local';
+                if (provider === 'gemini') cardId = 'onboarding-model-cloud';
+                else if (provider === 'openrouter') cardId = 'onboarding-model-openrouter';
+
+                const targetCard = document.getElementById(cardId);
+                if (targetCard) targetCard.classList.add('selected');
+
+                // Toggle config sections
+                const geminiCfg = document.getElementById('onboarding-config-gemini');
+                const openrouterCfg = document.getElementById('onboarding-config-openrouter');
+                const localCfg = document.getElementById('onboarding-config-local');
+                if (geminiCfg) geminiCfg.classList.toggle('hidden', provider !== 'gemini');
+                if (openrouterCfg) openrouterCfg.classList.toggle('hidden', provider !== 'openrouter');
+                if (localCfg) localCfg.classList.toggle('hidden', provider !== 'koboldcpp');
+
+                // Reset continue button
+                const continueBtn = document.getElementById('onboarding-continue-btn');
+                if (continueBtn) {
+                    continueBtn.disabled = true;
+                    continueBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+            },
+
+            async verifyOnboardingModel(btn) {
+                const provider = this.RUNTIME.onboardingProvider;
+                if (!btn) btn = event.target; // Fallback
+                const originalText = btn.textContent;
+                btn.textContent = "Checking...";
+                btn.disabled = true;
+
+                try {
+                    let success = false;
+                    if (provider === 'gemini') {
+                        const key = document.getElementById('onboarding-gemini-key').value;
+                        if (!key) throw new Error("Please enter an API key.");
+                        success = await APIService.testConnection('gemini', { geminiApiKey: key });
+                        if (success) {
+                            StateManager.data.globalSettings.geminiApiKey = key;
+                            StateManager.data.globalSettings.apiProvider = 'gemini';
+                            StateManager.saveGlobalSettings();
+                        }
+                    } else if (provider === 'openrouter') {
+                        const key = document.getElementById('onboarding-openrouter-key').value;
+                        if (!key) throw new Error("Please enter an API key.");
+                        success = await APIService.testConnection('openrouter', { openRouterKey: key });
+                        if (success) {
+                            StateManager.data.globalSettings.openRouterKey = key;
+                            StateManager.data.globalSettings.apiProvider = 'openrouter';
+                            // Set a sensible default model for OpenRouter (Free/Stable)
+                            StateManager.data.globalSettings.openRouterModel = 'openrouter/free';
+                            StateManager.saveGlobalSettings();
+                        }
+                    } else if (provider === 'koboldcpp') {
+                        // Test both default ports
+                        try {
+                            success = await APIService.testConnection('koboldcpp', { koboldcpp_url: 'http://localhost:5001' });
+                            StateManager.data.globalSettings.apiProvider = 'koboldcpp';
+                            StateManager.data.globalSettings.koboldcpp_url = 'http://localhost:5001';
+                        } catch (e) {
+                            try {
+                                success = await APIService.testConnection('koboldcpp', { koboldcpp_url: 'http://localhost:1234' });
+                                StateManager.data.globalSettings.apiProvider = 'lmstudio';
+                                StateManager.data.globalSettings.lmstudio_url = 'http://localhost:1234';
+                            } catch (e2) {
+                                throw new Error("Could not find a running local server on port 5001 or 1234.");
+                            }
+                        }
+                        if (success) StateManager.saveGlobalSettings();
+                    }
+
+                    if (success) {
+                        btn.textContent = "Verified!";
+                        btn.classList.remove('bg-indigo-600', 'bg-gray-700');
+                        btn.classList.add('bg-green-600');
+
+                        // Show model selection container
+                        if (provider === 'gemini') {
+                            await this.populateGeminiModels('onboarding-gemini-model-selector');
+                            document.getElementById('onboarding-gemini-model-container')?.classList.remove('hidden');
+                        } else if (provider === 'openrouter') {
+                            document.getElementById('onboarding-openrouter-model-container')?.classList.remove('hidden');
+                            this.populateOnboardingOpenRouterModels('text');
+                        }
+
+                        const continueBtn = document.getElementById('onboarding-continue-btn');
+                        if (continueBtn) {
+                            continueBtn.disabled = false;
+                            continueBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                        }
+                    }
+                } catch (e) {
+                    alert(e.message);
+                    btn.textContent = "Failed - Try Again";
+                    btn.classList.add('bg-red-600');
+                } finally {
+                    btn.disabled = false;
+                    setTimeout(() => {
+                        if (btn && btn.textContent !== "Verified!") {
+                            btn.textContent = originalText;
+                            btn.classList.remove('bg-red-600');
+                        }
+                    }, 3000);
+                }
+            },
+
+            confirmOnboardingModel() {
+                const provider = this.RUNTIME.onboardingProvider;
+                if (provider === 'gemini') {
+                    const model = document.getElementById('onboarding-gemini-model-selector').value;
+                    StateManager.data.globalSettings.geminiModel = model;
+                } else if (provider === 'openrouter') {
+                    const model = document.getElementById('onboarding-openrouter-model').value;
+                    StateManager.data.globalSettings.openRouterModel = model;
+                }
+                StateManager.saveGlobalSettings();
+                this.goToOnboardingStep(3);
+            },
+
+            selectOnboardingImageProvider(provider) {
+                this.RUNTIME.onboardingImageProvider = provider;
+                document.querySelectorAll('#onboarding-step-3 .model-option-card').forEach(el => el.classList.remove('selected'));
+
+                let cardId = 'onboarding-img-skip';
+                if (provider === 'openrouter') cardId = 'onboarding-img-openrouter';
+                else if (provider === 'koboldcpp') cardId = 'onboarding-img-local';
+
+                document.getElementById(cardId)?.classList.add('selected');
+
+                document.getElementById('onboarding-img-config-openrouter')?.classList.toggle('hidden', provider !== 'openrouter');
+                document.getElementById('onboarding-img-config-local')?.classList.toggle('hidden', provider !== 'koboldcpp');
+
+                if (provider === 'openrouter') {
+                    this.populateOnboardingOpenRouterModels('image');
+                }
+            },
+
+            confirmOnboardingImage() {
+                const provider = this.RUNTIME.onboardingImageProvider || 'none';
+                StateManager.data.globalSettings.imageGenBackend = provider === 'none' ? 'koboldcpp' : provider;
+
+                if (provider === 'openrouter') {
+                    StateManager.data.globalSettings.imageGenOpenRouterKey = StateManager.data.globalSettings.openRouterKey;
+                    StateManager.data.globalSettings.imageGenOpenRouterModel = document.getElementById('onboarding-img-openrouter-model').value;
+                } else if (provider === 'koboldcpp') {
+                    StateManager.data.globalSettings.koboldImageGenUrl = document.getElementById('onboarding-img-local-url').value;
+                }
+
+                StateManager.saveGlobalSettings();
+                this.goToOnboardingStep(4);
+            },
+
+            confirmOnboardingStep4(action) {
+                // Execute via ActionHandler to leverage existing logic and persistence
+                switch (action) {
+                    case 'blank':
+                        ActionHandler.handle('onboarding-create-blank');
+                        break;
+                    case 'architect':
+                        ActionHandler.handle('onboarding-ai-generate');
+                        break;
+                    case 'import':
+                        ActionHandler.handle('onboarding-import-png');
+                        break;
+                    case 'demo':
+                        ActionHandler.handle('onboarding-explore-demo');
+                        break;
+                }
             },
 
             async initLocalWebLLM() {
@@ -15912,8 +16290,8 @@ Write only the character's message.`;
             /**
              * Fetches available Gemini models and populates the selector.
              */
-            async populateGeminiModels() {
-                const selector = document.getElementById('gemini-model-selector');
+            async populateGeminiModels(selectorId = 'gemini-model-selector') {
+                const selector = document.getElementById(selectorId);
                 const state = StateManager.getState();
                 const globalSettings = StateManager.data.globalSettings;
 
@@ -15924,11 +16302,11 @@ Write only the character's message.`;
 
                 // If no key, show placeholder
                 if (!apiKey) {
-                    selector.innerHTML = '<option value="gemini-1.5-flash">Default (Gemini 1.5 Flash)</option>';
+                    selector.innerHTML = '<option value="gemini-flash-latest">Default (Gemini 1.5 Flash)</option>';
                     return;
                 }
 
-                const currentSelection = globalSettings.geminiModel || state.geminiModel || 'gemini-1.5-flash';
+                const currentSelection = globalSettings.geminiModel || state.geminiModel || 'gemini-1.5-flash-latest';
 
                 // Add loading indicator
                 selector.innerHTML = '<option>Fetching available models...</option>';
@@ -15952,7 +16330,7 @@ Write only the character's message.`;
                         });
                     } else {
                         // Fallback if list fails but key exists
-                        selector.innerHTML = '<option value="gemini-1.5-flash">Gemini 1.5 Flash (Fallback)</option><option value="gemini-1.5-pro">Gemini 1.5 Pro</option>';
+                        selector.innerHTML = '<option value="gemini-flash-latest">Gemini 1.5 Flash (Fallback)</option><option value="gemini-1.5-pro">Gemini 1.5 Pro</option>';
                     }
 
                     // Restore selection
@@ -15962,7 +16340,57 @@ Write only the character's message.`;
 
                 } catch (e) {
                     console.error("Error populating models", e);
-                    selector.innerHTML = '<option value="gemini-1.5-flash">Error loading list (Using Flash)</option>';
+                    selector.innerHTML = '<option value="gemini-flash-latest">Error loading list (Using Flash)</option>';
+                }
+            },
+
+            /**
+             * Fetches and populates OpenRouter model datalists for onboarding.
+             */
+            async populateOnboardingOpenRouterModels(mode = 'text') {
+                const datalistId = mode === 'text' ? 'onboarding-openrouter-models-list' : 'onboarding-img-openrouter-models-list';
+                const datalist = document.getElementById(datalistId);
+                if (!datalist) return;
+
+                // If already populated, skip (unless we want to refresh)
+                if (datalist.options.length > 5) return;
+
+                try {
+                    const models = await APIService.fetchOpenRouterModels();
+                    if (!models || models.length === 0) return;
+
+                    // Filter based on mode
+                    const filtered = mode === 'image' ?
+                        models.filter(m => {
+                            const id = m.id.toLowerCase();
+                            return m.modalities?.includes('image') ||
+                                m.architecture?.output_modalities?.includes('image') ||
+                                id.includes('flux') || id.includes('diffusion') || id.includes('dall-e');
+                        }) :
+                        models.filter(m => {
+                            const mod = m.architecture?.modality;
+                            return mod !== 'text->image';
+                        });
+
+                    datalist.innerHTML = '';
+
+                    // Ensure the default free model is always at the top if it exists
+                    const defaultFree = 'openrouter/free';
+                    if (!filtered.find(m => m.id === defaultFree)) {
+                        const opt = document.createElement('option');
+                        opt.value = defaultFree;
+                        opt.textContent = "OpenRouter Free (Auto)";
+                        datalist.appendChild(opt);
+                    }
+
+                    filtered.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m.id;
+                        opt.textContent = m.name || m.id;
+                        datalist.appendChild(opt);
+                    });
+                } catch (e) {
+                    console.error("Failed to populate onboarding OpenRouter models", e);
                 }
             },
 
@@ -16368,7 +16796,7 @@ Write only the character's message.`;
                 bindGlobalToggle('global-default-enable-stats-toggle', 'default_enableStats');
                 bindGlobalToggle('global-default-living-persona', 'default_enableLivingPersona');
                 bindGlobalToggle('global-default-enable-response-options-toggle', 'default_enableResponseOptions');
-                
+
                 bindGlobalSelect('global-default-response-length-selector', 'default_responseLength');
                 bindGlobalSelect('global-default-response-style-selector', 'default_responseStyle');
 
@@ -17039,8 +17467,6 @@ Write only the character's message.`;
 
             // --- OpenRouter Model Browser ---
 
-            // --- OpenRouter Model Browser ---
-
             /**
              * Opens the OpenRouter model browser modal and fetches available models.
              * @param {string} [mode='text'] - 'text' or 'image'.
@@ -17239,6 +17665,13 @@ Write only the character's message.`;
                         input.value = modelId;
                         input.dispatchEvent(new Event('input')); // Sync with Global/State
                     }
+
+                    // Onboarding Sync
+                    const onboardingInput = document.getElementById('onboarding-img-openrouter-model');
+                    if (onboardingInput) {
+                        onboardingInput.value = modelId;
+                    }
+
                     ReactiveStore.state.imageGenOpenRouterModel = modelId;
                 } else {
                     // Text Mode Selection (Default)
@@ -17247,6 +17680,13 @@ Write only the character's message.`;
                         input.value = modelId;
                         input.dispatchEvent(new Event('input'));
                     }
+
+                    // Onboarding Sync
+                    const onboardingInput = document.getElementById('onboarding-openrouter-model');
+                    if (onboardingInput) {
+                        onboardingInput.value = modelId;
+                    }
+
                     ReactiveStore.state.openRouterModel = modelId;
                 }
 
@@ -17966,10 +18406,10 @@ Write only the descriptive paragraphs.`;
                         btn.classList.add('border-transparent', 'text-gray-400');
                     }
                 });
-                
+
                 const activeTabEl = document.getElementById(`scenario-tab-${tabId}`);
                 if (activeTabEl) activeTabEl.classList.remove('hidden');
-                
+
                 const activeBtn = document.getElementById(`scenario-tab-btn-${tabId}`);
                 if (activeBtn) {
                     activeBtn.classList.remove('border-transparent', 'text-gray-400');
@@ -18034,14 +18474,14 @@ Write only the descriptive paragraphs.`;
             renderScenarioCast(allCharacters) {
                 const container = document.getElementById('edit-scenario-characters');
                 if (!container) return;
-                
+
                 const html = allCharacters.map(char => {
                     const isActive = this.currentEditScenario.active_character_ids.includes(char.id);
                     const isSpeaker = this.currentEditScenario.opening_character_id === char.id;
                     const isScenarioUser = this.currentEditScenario.user_character_id === char.id;
                     return UIComponents.ScenarioCharacterTile(char, isActive, isSpeaker, isScenarioUser);
                 }).join('');
-                
+
                 container.innerHTML = DOM.unsafe(html);
             },
 
@@ -18056,7 +18496,7 @@ Write only the descriptive paragraphs.`;
                 } else {
                     this.currentEditScenario.active_character_ids.push(charId);
                 }
-                
+
                 DBService.getStory(this.currentEditScenarioStoryId).then(story => {
                     if (story) this.renderScenarioCast(story.characters);
                 });
@@ -18066,19 +18506,19 @@ Write only the descriptive paragraphs.`;
                 if (!this.currentEditScenario) return;
                 if (!this.currentEditScenario.active_character_ids.includes(charId)) return;
                 this.currentEditScenario.opening_character_id = charId;
-                
+
                 DBService.getStory(this.currentEditScenarioStoryId).then(story => {
                     if (story) this.renderScenarioCast(story.characters);
                 });
             },
-            
+
             setScenarioUser(charId) {
                 if (!this.currentEditScenario) return;
                 this.currentEditScenario.user_character_id = charId;
                 if (!this.currentEditScenario.active_character_ids.includes(charId)) {
                     this.currentEditScenario.active_character_ids.push(charId);
                 }
-                
+
                 DBService.getStory(this.currentEditScenarioStoryId).then(story => {
                     if (story) this.renderScenarioCast(story.characters);
                 });
@@ -18093,7 +18533,7 @@ Write only the descriptive paragraphs.`;
                 this.renderScenarioStaticEntries();
                 this.renderScenarioStaticDetails();
             },
-            
+
             selectScenarioStaticEntry(id) {
                 this.selectedScenarioStaticId = id;
                 this.renderScenarioStaticEntries();
@@ -18125,7 +18565,7 @@ Write only the descriptive paragraphs.`;
                         <span class="text-sm font-semibold truncate ${this.selectedScenarioStaticId === e.id ? 'text-white' : 'text-gray-300'}">${e.title || 'Untitled'}</span>
                         <button data-action="delete-scenario-static" data-id="${e.id}" class="text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                     </div>`;
-                
+
                 container.innerHTML = DOM.unsafe(this.currentEditScenario.static_entries.map(renderItem).join(''));
             },
 
@@ -18158,7 +18598,7 @@ Write only the descriptive paragraphs.`;
                 this.renderScenarioDynamicEntries();
                 this.renderScenarioDynamicDetails();
             },
-            
+
             selectScenarioDynamicEntry(id) {
                 this.selectedScenarioDynamicId = id;
                 this.renderScenarioDynamicEntries();
@@ -18180,7 +18620,7 @@ Write only the descriptive paragraphs.`;
                     entry.content_fields[index] = value;
                 }
             },
-            
+
             addScenarioDynamicContentField(entryId) {
                 if (!this.currentEditScenario) return;
                 const entry = this.currentEditScenario.dynamic_entries.find(e => e.id === entryId);
@@ -18211,7 +18651,7 @@ Write only the descriptive paragraphs.`;
                         </div>
                         <button data-action="delete-scenario-dynamic" data-id="${e.id}" class="text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity p-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
                     </div>`;
-                
+
                 container.innerHTML = DOM.unsafe(this.currentEditScenario.dynamic_entries.map(renderItem).join(''));
             },
 
@@ -21099,7 +21539,7 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
              */
             async handleDirectCharacter(actionVal, isRegen = false) {
                 if (!StateManager.getLibrary().active_story_id) return;
-                
+
                 const input = document.getElementById('chat-input');
                 const directiveText = input.value.trim();
                 if (!directiveText) {
@@ -21108,7 +21548,7 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
                 }
 
                 input.value = '';
-                
+
                 const state = ReactiveStore.state;
                 let targetId = null;
                 let targetMessageIndex = null;
@@ -26574,14 +27014,17 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
 
                 // Onboarding Actions
                 ActionHandler.register('onboarding-create-blank', () => {
+                    localStorage.setItem('onboarding_dismissed', 'true');
                     AppController.closeModal('onboarding-modal');
                     LibraryController.createNewStory();
                 });
                 ActionHandler.register('onboarding-ai-generate', () => {
+                    localStorage.setItem('onboarding_dismissed', 'true');
                     AppController.closeModal('onboarding-modal');
                     AppController.openModal('gen-story-modal');
                 });
                 ActionHandler.register('onboarding-import-png', () => {
+                    localStorage.setItem('onboarding_dismissed', 'true');
                     AppController.closeModal('onboarding-modal');
                     document.getElementById('onboarding-file-input').click();
                 });
@@ -26589,8 +27032,23 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     localStorage.setItem('onboarding_dismissed', 'true');
                     AppController.closeModal('onboarding-modal');
                     const library = StateManager.getLibrary();
-                    if (library.active_story_id) {
-                        UIManager.openStoryDetails(library.active_story_id);
+
+                    // Priority 1: Current active story
+                    // Priority 2: Story with "Shattered Crown" in title (the demo)
+                    // Priority 3: First story in library
+                    let storyId = library.active_story_id;
+                    if (!storyId && library.stories.length > 0) {
+                        const demoStory = library.stories.find(s => s.name?.includes("Shattered Crown"));
+                        storyId = demoStory ? demoStory.id : library.stories[0].id;
+                    }
+
+                    if (storyId) {
+                        // Ensure library state reflects this story
+                        library.active_story_id = storyId;
+                        UIManager.openStoryDetails(storyId);
+                    } else {
+                        // Fallback: Just open the library modal
+                        AppController.openModal('story-library-modal');
                     }
                 });
 
@@ -27328,100 +27786,337 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
     <!-- Onboarding Welcome Modal: Shown on first launch to guide new users -->
     <div id="onboarding-modal" class="hidden fixed inset-0 z-[90] flex items-center justify-center onboarding-backdrop">
         <div class="onboarding-container">
-            <!-- Logo -->
-            <div class="onboarding-logo">
-                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                        d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
-                    </path>
-                </svg>
+            <!-- Step 1: Welcome -->
+            <div id="onboarding-step-1" class="onboarding-step active text-center">
+                <div class="onboarding-logo mx-auto">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253">
+                        </path>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold text-white mt-4">Welcome to EllipsisLM</h2>
+                <p class="text-sm text-gray-400 mt-2 mb-6 leading-relaxed">
+                    A private, highly immersive storytelling engine. To begin, we need to connect a "Brain" (AI Model)
+                    to power your characters and world generation.
+                </p>
+                <button onclick="AppController.goToOnboardingStep(2)"
+                    class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex justify-center items-center gap-2">
+                    Start Setup
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 7l5 5-5 5M6 7l5 5-5 5"></path>
+                    </svg>
+                </button>
             </div>
 
-            <!-- Header -->
-            <div class="text-center mb-1.5">
-                <h2 class="text-xl font-bold text-white">Welcome to EllipsisLM</h2>
-                <p class="text-sm text-gray-400 mt-1">Your private AI roleplay engine</p>
-            </div>
+            <!-- Step 2: Model Setup -->
+            <div id="onboarding-step-2" class="onboarding-step">
+                <div class="mb-5">
+                    <h3 class="text-lg font-bold text-white mb-1">Choose your Brain</h3>
+                    <p class="text-xs text-gray-400">Select how you want to power the AI.</p>
+                </div>
 
-            <p class="text-center text-xs text-gray-500 mb-5 leading-relaxed">
-                Create deep, multi-character stories with world maps, dynamic lore, and background AI agents — all
-                running locally on your device.
-            </p>
+                <div class="flex flex-col gap-3 mb-6">
+                    <!-- Option: Cloud (Gemini) -->
+                    <div class="model-option-card" id="onboarding-model-cloud"
+                        onclick="AppController.selectOnboardingModel('gemini')">
+                        <div class="flex items-start gap-3">
+                            <div class="model-option-card-icon">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-sm font-bold text-white">Cloud (Easy - Gemini)</h4>
+                                <p class="text-[11px] text-gray-400 leading-tight">Recommended. Fast and smart. Uses
+                                    Google's Gemini API.</p>
+                            </div>
+                        </div>
+                    </div>
 
-            <!-- Action Cards -->
-            <div class="flex flex-col gap-2.5">
-                <!-- Create Blank Story -->
-                <div class="onboarding-card" data-action="onboarding-create-blank">
-                    <div class="onboarding-card-icon icon-create">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-                            </path>
-                        </svg>
+                    <!-- Option: Cloud (OpenRouter) -->
+                    <div class="model-option-card" id="onboarding-model-openrouter"
+                        onclick="AppController.selectOnboardingModel('openrouter')">
+                        <div class="flex items-start gap-3">
+                            <div class="model-option-card-icon">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-sm font-bold text-white">Cloud (Flexible - OpenRouter)</h4>
+                                <p class="text-[11px] text-gray-400 leading-tight">Access 100+ models (Claude, Llama,
+                                    GPT) via one key.</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="onboarding-card-text">
-                        <h3>Create a Blank Story</h3>
-                        <p>Start from scratch with a custom world</p>
-                    </div>
-                    <div class="onboarding-card-arrow">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7">
-                            </path>
-                        </svg>
+
+                    <!-- Option: Local (Kobold/LM Studio) -->
+                    <div class="model-option-card" id="onboarding-model-local"
+                        onclick="AppController.selectOnboardingModel('koboldcpp')">
+                        <div class="flex items-start gap-3">
+                            <div class="model-option-card-icon">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-sm font-bold text-white">Local (Private)</h4>
+                                <p class="text-[11px] text-gray-400 leading-tight">Free and 100% private. Runs on your
+                                    computer. Requires hardware.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- AI Story Architect -->
-                <div class="onboarding-card" data-action="onboarding-ai-generate">
-                    <div class="onboarding-card-icon icon-generate">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                        </svg>
+                <!-- Config: Gemini -->
+                <div id="onboarding-config-gemini" class="hidden animate-fade-in space-y-3">
+                    <div class="p-3 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
+                        <label class="block text-[11px] font-bold text-indigo-300 uppercase mb-1.5">Gemini API
+                            Key</label>
+                        <div class="flex gap-2">
+                            <input type="password" id="onboarding-gemini-key"
+                                class="flex-1 bg-black/40 border border-gray-600 rounded-md p-2 text-sm focus:border-indigo-500"
+                                placeholder="Paste your key here">
+                            <button onclick="AppController.verifyOnboardingModel(this)"
+                                class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded-md text-xs font-bold">Verify</button>
+                        </div>
+                        <a href="https://aistudio.google.com/app/apikey" target="_blank"
+                            class="text-[10px] text-indigo-400 hover:underline mt-2 inline-block">Get a free key from
+                            Google AI Studio</a>
                     </div>
-                    <div class="onboarding-card-text">
-                        <h3>AI Story Architect</h3>
-                        <p>Describe a concept — AI builds the world, characters, and lore</p>
-                    </div>
-                    <div class="onboarding-card-arrow">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7">
-                            </path>
-                        </svg>
+                    <!-- Gemini Model Selection (Hidden until verified) -->
+                    <div id="onboarding-gemini-model-container"
+                        class="hidden animate-fade-in p-3 bg-indigo-900/10 border border-indigo-500/20 rounded-lg">
+                        <label class="block text-[11px] font-bold text-indigo-300 uppercase mb-1.5">Select Initial
+                            Model</label>
+                        <select id="onboarding-gemini-model-selector"
+                            class="w-full bg-black/40 border border-gray-600 rounded-md p-2 text-sm focus:border-indigo-500">
+                            <option value="gemini-flash-latest">Gemini Flash (Fast/Cheap)</option>
+                            <option value="gemini-pro-latest">Gemini Pro (High Intelligence)</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- Import Character PNG -->
-                <div class="onboarding-card" data-action="onboarding-import-png">
-                    <div class="onboarding-card-icon icon-import">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                        </svg>
+                <!-- Config: OpenRouter -->
+                <div id="onboarding-config-openrouter" class="hidden animate-fade-in space-y-3">
+                    <div class="p-3 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
+                        <label class="block text-[11px] font-bold text-indigo-300 uppercase mb-1.5">OpenRouter API
+                            Key</label>
+                        <div class="flex gap-2">
+                            <input type="password" id="onboarding-openrouter-key"
+                                class="flex-1 bg-black/40 border border-gray-600 rounded-md p-2 text-sm focus:border-indigo-500"
+                                placeholder="Paste your key here">
+                            <button onclick="AppController.verifyOnboardingModel(this)"
+                                class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 rounded-md text-xs font-bold">Verify</button>
+                        </div>
+                        <div class="flex justify-between mt-2">
+                            <a href="https://openrouter.ai/keys" target="_blank"
+                                class="text-[10px] text-indigo-400 hover:underline inline-block">Get a key from
+                                OpenRouter</a>
+                            <a href="https://openrouter.ai/" target="_blank"
+                                class="text-[10px] text-indigo-400 hover:underline inline-block">Sign Up</a>
+                        </div>
                     </div>
-                    <div class="onboarding-card-text">
-                        <h3>Import Character Card</h3>
-                        <p>Load a V2 PNG character card from another app</p>
+                    <!-- OpenRouter Model Selection (Hidden until verified) -->
+                    <div id="onboarding-openrouter-model-container"
+                        class="hidden animate-fade-in p-3 bg-indigo-900/10 border border-indigo-500/20 rounded-lg">
+                        <label class="block text-[11px] font-bold text-indigo-300 uppercase mb-1.5">Search & Select
+                            Model</label>
+                        <input type="text" id="onboarding-openrouter-model" list="onboarding-openrouter-models-list"
+                            class="w-full bg-black/40 border border-gray-600 rounded-md p-2 text-sm focus:border-indigo-500"
+                            value="openrouter/free" placeholder="Type to search models...">
+                        <datalist id="onboarding-openrouter-models-list"></datalist>
+                        <p class="text-[10px] text-indigo-400 mt-1 italic">Default: OpenRouter Free</p>
                     </div>
-                    <div class="onboarding-card-arrow">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7">
-                            </path>
-                        </svg>
+                </div>
+
+                <div id="onboarding-config-local" class="hidden animate-fade-in">
+                    <div class="p-3 bg-gray-800/50 border border-gray-700 rounded-lg">
+                        <p class="text-xs text-gray-300 mb-3">Ensure your local server (KoboldCPP or LM Studio) is
+                            running on port 5001 or 1234.</p>
+                        <button onclick="AppController.verifyOnboardingModel(this)"
+                            class="w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 rounded-md text-xs">Scan
+                            for Local Server</button>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center mt-8 pt-4 border-t border-gray-800">
+                    <button onclick="AppController.goToOnboardingStep(1)"
+                        class="text-xs text-gray-500 hover:text-white transition-colors">Back</button>
+                    <div class="flex gap-2">
+                        <button onclick="AppController.goToOnboardingStep(3)"
+                            class="text-xs text-gray-500 hover:text-white transition-colors mr-3">Skip for now</button>
+                        <button id="onboarding-continue-btn" onclick="AppController.confirmOnboardingModel()" disabled
+                            class="opacity-50 cursor-not-allowed bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg text-sm">Continue</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Hidden file input for PNG import -->
-            <input type="file" id="onboarding-file-input" accept=".png,.json,.zip" class="hidden"
-                data-action="handle-file-upload">
+            <!-- Step 3: Image Generation Setup -->
+            <div id="onboarding-step-3" class="onboarding-step animate-onboarding-card-in">
+                <h2
+                    class="text-2xl font-bold mb-2 bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent">
+                    AI Painter Setup</h2>
+                <p class="text-gray-400 text-sm mb-6 leading-relaxed">EllipsisLM can automatically generate character
+                    portraits and location art. How would you like to set up your AI painter?</p>
 
-            <!-- Divider -->
-            <div class="onboarding-divider"><span>or</span></div>
+                <div class="flex flex-col gap-3 mb-6">
+                    <!-- Option: Skip -->
+                    <div id="onboarding-img-skip" onclick="AppController.selectOnboardingImageProvider('none')"
+                        class="model-option-card selected">
+                        <div class="flex items-center gap-3">
+                            <div class="model-option-card-icon">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white">Skip for now</h4>
+                                <p class="text-[11px] text-gray-400">You can set this up later in settings.</p>
+                            </div>
+                        </div>
+                    </div>
 
-            <!-- Demo Story Link -->
-            <div class="onboarding-demo-link" data-action="onboarding-explore-demo">
-                ✦ Explore the demo story — <em>The Shattered Crown</em>
+                    <!-- Option: Cloud (OpenRouter) -->
+                    <div id="onboarding-img-openrouter"
+                        onclick="AppController.selectOnboardingImageProvider('openrouter')" class="model-option-card">
+                        <div class="flex items-center gap-3">
+                            <div class="model-option-card-icon">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white">Cloud (OpenRouter)</h4>
+                                <p class="text-[11px] text-gray-400">Uses your OpenRouter key for image models.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Option: Local (SD) -->
+                    <div id="onboarding-img-local" onclick="AppController.selectOnboardingImageProvider('koboldcpp')"
+                        class="model-option-card">
+                        <div class="flex items-center gap-3">
+                            <div class="model-option-card-icon">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h14a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                    </path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-bold text-white">Local (Stable Diffusion)</h4>
+                                <p class="text-[11px] text-gray-400">Free, private generation via your local GPU.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Config: OpenRouter Image -->
+                <div id="onboarding-img-config-openrouter"
+                    class="hidden animate-fade-in p-3 bg-indigo-900/10 border border-indigo-500/20 rounded-lg mb-6">
+                    <label class="block text-[11px] font-bold text-indigo-300 uppercase mb-1.5">Search & Select Image
+                        Model</label>
+                    <input type="text" id="onboarding-img-openrouter-model" list="onboarding-img-openrouter-models-list"
+                        class="w-full bg-black/40 border border-gray-600 rounded-md p-2 text-sm focus:border-indigo-500"
+                        value="black-forest-labs/flux-schnell" placeholder="Type to search image models...">
+                    <datalist id="onboarding-img-openrouter-models-list"></datalist>
+                    <p class="text-[10px] text-indigo-400 mt-1 italic">Default: Flux Schnell</p>
+                </div>
+
+                <!-- Config: Local Image -->
+                <div id="onboarding-img-config-local"
+                    class="hidden animate-fade-in p-3 bg-gray-800/50 border border-gray-700 rounded-lg mb-6">
+                    <label class="block text-[11px] font-bold text-gray-300 uppercase mb-1.5">SD Endpoint URL</label>
+                    <input type="text" id="onboarding-img-local-url"
+                        class="w-full bg-black/40 border border-gray-600 rounded-md p-2 text-sm focus:border-indigo-500"
+                        value="http://localhost:5001">
+                </div>
+
+                <div class="flex justify-between items-center mt-auto pt-4 border-t border-gray-800">
+                    <button onclick="AppController.goToOnboardingStep(2)"
+                        class="text-xs text-gray-500 hover:text-white transition-colors">Back</button>
+                    <button onclick="AppController.confirmOnboardingImage()"
+                        class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-lg text-sm transition-all transform hover:scale-105 active:scale-95 shadow-xl">Continue</button>
+                </div>
+            </div>
+
+            <!-- Step 4: Story Selection -->
+            <div id="onboarding-step-4" class="onboarding-step">
+                <div class="mb-5 text-center">
+                    <h3 class="text-lg font-bold text-white mb-1">You're Ready!</h3>
+                    <p class="text-xs text-gray-400">How would you like to start your first story?</p>
+                </div>
+
+                <div class="flex flex-col gap-2.5">
+                    <div class="onboarding-card" onclick="AppController.confirmOnboardingStep4('blank')">
+                        <div class="onboarding-card-icon icon-create">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                </path>
+                            </svg>
+                        </div>
+                        <div class="onboarding-card-text">
+                            <h3>Create a Blank Story</h3>
+                            <p>Start from scratch with a custom world</p>
+                        </div>
+                        <div class="onboarding-card-arrow"><svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7">
+                                </path>
+                            </svg></div>
+                    </div>
+
+                    <div class="onboarding-card" onclick="AppController.confirmOnboardingStep4('architect')">
+                        <div class="onboarding-card-icon icon-generate">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <div class="onboarding-card-text">
+                            <h3>AI Story Architect</h3>
+                            <p>Describe a concept — AI builds the world and characters</p>
+                        </div>
+                        <div class="onboarding-card-arrow"><svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7">
+                                </path>
+                            </svg></div>
+                    </div>
+
+                    <div class="onboarding-card" onclick="AppController.confirmOnboardingStep4('import')">
+                        <div class="onboarding-card-icon icon-import">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                            </svg>
+                        </div>
+                        <div class="onboarding-card-text">
+                            <h3>Import Character Card</h3>
+                            <p>Load a PNG card or JSON story</p>
+                        </div>
+                        <div class="onboarding-card-arrow"><svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7">
+                                </path>
+                            </svg></div>
+                    </div>
+                </div>
+
+                <div class="onboarding-divider"><span>or</span></div>
+                <div class="onboarding-demo-link" onclick="AppController.confirmOnboardingStep4('demo')">✦ Explore the
+                    demo story — <em>The Shattered Crown</em></div>
             </div>
         </div>
     </div>

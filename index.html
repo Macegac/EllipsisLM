@@ -166,11 +166,6 @@
             padding: 0;
             /* Force hidden-x to prevent any sub-pixel rounding scroll */
             overflow-x: hidden;
-            /* iOS keyboard dismiss fix: pin the document so Safari can't
-               leave it scrolled up after the virtual keyboard closes. */
-            position: fixed;
-            left: 0;
-            top: 0;
         }
 
         /* Mobile specific image and scroll fixes */
@@ -28146,24 +28141,6 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
             setupEventListeners() {
                 this.updateLayout();
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
-
-                // ── iOS Keyboard Dismiss Fix ──────────────────────────────
-                // iOS Safari shifts the document upward when the virtual
-                // keyboard (or the bottom toolbar) appears. When it is
-                // dismissed, Safari does NOT scroll the document back
-                // down, leaving a blank gap at the bottom. The
-                // visualViewport 'resize' event fires on keyboard
-                // open/close; we use it to snap the scroll offset back to
-                // zero so the app always fills the screen.
-                if (window.visualViewport) {
-                    const resetViewport = () => {
-                        window.scrollTo(0, 0);
-                        document.documentElement.scrollTop = 0;
-                        document.body.scrollTop = 0;
-                    };
-                    window.visualViewport.addEventListener('resize', resetViewport);
-                    window.visualViewport.addEventListener('scroll', resetViewport);
-                }
 
                 // Update: Use LibraryController for title renaming
                 const titleInputHandler = (e) => {

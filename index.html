@@ -234,12 +234,12 @@
 
         #app-container {
             padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
+            padding-bottom: 0;
             transition: backdrop-filter 0.3s ease;
         }
 
         #chat-input-container {
-            padding: 1rem;
+            padding: 1rem 1rem 0 1rem;
         }
 
         /* --- Vertical Layout (Mobile) --- */
@@ -288,8 +288,7 @@
 
         body.layout-vertical #chat-input-container {
             border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 1rem;
-            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+            padding: 1rem 1rem 0 1rem;
             background: rgba(17, 24, 39, 0.5);
             -webkit-backdrop-filter: blur(10px);
             backdrop-filter: blur(10px);
@@ -1645,7 +1644,7 @@
             border-top: 1px solid rgba(255, 255, 255, 0.15);
             position: relative;
             z-index: 20;
-            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+            padding-bottom: 0;
         }
 
         /* Visual settings sliders */
@@ -2092,7 +2091,7 @@
     <div id="story-library-modal" class="fixed inset-0 z-50 items-center justify-center hidden">
         <div class="modal-overlay absolute inset-0" data-action="close-modal" data-id="story-library-modal"></div>
         <div class="bg-gray-900/95 backdrop-blur-lg relative flex flex-col w-full h-full"
-            style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); border-top: 2px solid transparent; border-image: linear-gradient(to right, #6366f1, #a855f7, #6366f1) 1;">
+            style="padding-top: env(safe-area-inset-top); padding-bottom: 0; border-top: 2px solid transparent; border-image: linear-gradient(to right, #6366f1, #a855f7, #6366f1) 1;">
             <div class="px-5 py-3 border-b border-gray-700/80 flex justify-between items-center"
                 style="background: linear-gradient(to bottom, rgba(17,24,39,0.8), rgba(17,24,39,0.4));">
                 <div class="flex items-center gap-3">
@@ -2338,7 +2337,7 @@
     <div id="story-details-modal" class="fixed inset-0 z-50 items-center justify-center hidden">
         <div class="modal-overlay absolute inset-0" data-action="close-modal" data-id="story-details-modal"></div>
         <div class="bg-gray-800/80 backdrop-blur-md rounded-lg shadow-xl relative flex flex-col"
-            style="width: 100%; max-width: 1200px; height: 100%; padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
+            style="width: 100%; max-width: 1200px; height: 100%; padding-top: env(safe-area-inset-top); padding-bottom: 0;">
             <div id="story-details-content-mobile" class="flex-grow flex flex-col min-h-0"></div>
         </div>
     </div>

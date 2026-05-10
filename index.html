@@ -239,7 +239,7 @@
         }
 
         #chat-input-container {
-            padding: 1rem 1rem 0 1rem;
+            padding: 0;
         }
 
         /* --- Vertical Layout (Mobile) --- */
@@ -288,7 +288,7 @@
 
         body.layout-vertical #chat-input-container {
             border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 1rem 1rem 0 1rem;
+            padding: 0.5rem 0.5rem 0 0.5rem;
             background: rgba(17, 24, 39, 0.5);
             -webkit-backdrop-filter: blur(10px);
             backdrop-filter: blur(10px);
@@ -467,7 +467,7 @@
             justify-content: center;
             gap: 0.35rem;
             padding: 0.3rem 0.5rem;
-            border-radius: 9999px;
+            border-radius: 0.5rem;
             background: rgba(15, 15, 25, 0.75);
             backdrop-filter: blur(12px);
             border: 1px solid rgba(99, 102, 241, 0.25);
@@ -1979,7 +1979,7 @@
                 <!-- Text Input Area: Auto-expanding textarea with "Continue" trigger -->
                 <div class="flex-grow relative">
                     <textarea id="chat-input"
-                        class="w-full h-full bg-black/30 border border-gray-800 rounded-lg p-2 resize-none"
+                        class="w-full h-full bg-black/30 border-0 rounded-t-md p-2 resize-none"
                         placeholder="Enter your message..." rows="4"
                         style="color: var(--chat-text-color); font-family: var(--chat-font-family);"></textarea>
 
@@ -1998,11 +1998,11 @@
                 <!-- Controls: Character selection and primary action buttons -->
                 <div class="flex flex-col space-y-2" style="width: 6rem;">
                     <select id="ai-character-selector" aria-label="Select Character"
-                        class="bg-black/30 border border-gray-600 rounded-lg p-2 w-full mb-2 text-xs truncate"></select>
+                        class="bg-black/30 border border-gray-600 rounded-md p-2 w-full mb-2 text-xs truncate"></select>
                     <div class="flex items-center justify-center space-x-1">
                         <!-- Primary Action: Send message or trigger AI response -->
                         <button id="primary-action-btn"
-                            class="bg-gray-700/40 hover:bg-gray-600/80 text-white font-bold p-2 rounded-lg transition-colors flex-grow"
+                            class="bg-gray-700/40 hover:bg-gray-600/80 text-white font-bold p-2 rounded-md transition-colors flex-grow"
                             title="Send (Empty = AI Reply)">
                             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -2019,7 +2019,7 @@
 
                         <!-- Regenerate: Reputations the last AI message -->
                         <button id="regen-btn"
-                            class="bg-gray-700/40 hover:bg-gray-600/80 text-white font-bold p-2 rounded-lg transition-colors flex-grow"
+                            class="bg-gray-700/40 hover:bg-gray-600/80 text-white font-bold p-2 rounded-md transition-colors flex-grow"
                             title="Regenerate">
                             <svg class="w-6 h-6 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

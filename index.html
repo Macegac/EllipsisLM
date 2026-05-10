@@ -238,6 +238,10 @@
             transition: backdrop-filter 0.3s ease;
         }
 
+        #chat-input-container {
+            padding: 1rem;
+        }
+
         /* --- Vertical Layout (Mobile) --- */
         body.layout-vertical #desktop-header {
             display: none;
@@ -28141,6 +28145,50 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
             setupEventListeners() {
                 this.updateLayout();
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
+
+                // ====================================================================
+                // iOS Keyboard Dismiss Fix
+                // iOS Safari shifts the page up (via window.scrollY) when the virtual
+                // keyboard opens. On dismiss it does NOT reset the scroll, leaving a
+                // blank gap at the bottom. We use the visualViewport API to detect
+                // the keyboard closing and snap the layout back into place.
+                // ====================================================================
+                if (window.visualViewport) {
+                    let lastViewportHeight = window.visualViewport.height;
+
+                    const resetIOSScroll = () => {
+                        const currentHeight = window.visualViewport.height;
+                        const heightGrew = currentHeight - lastViewportHeight;
+                        lastViewportHeight = currentHeight;
+
+                        // Keyboard closed: viewport height increased significantly
+                        // (keyboard is typically 200+ px). Reset the window scroll.
+                        if (heightGrew > 100) {
+                            window.scrollTo(0, 0);
+                            // Also force the body to re-fill the viewport
+                            document.documentElement.style.height = '100%';
+                            document.body.style.height = '100%';
+                            requestAnimationFrame(() => {
+                                document.documentElement.style.height = '';
+                                document.body.style.height = '';
+                            });
+                        }
+                    };
+
+                    window.visualViewport.addEventListener('resize', resetIOSScroll);
+                }
+
+                // Fallback: On any input blur, reset scroll after a brief delay
+                // to catch cases the visualViewport event misses.
+                document.addEventListener('focusout', (e) => {
+                    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+                        setTimeout(() => {
+                            if (window.scrollY > 0) {
+                                window.scrollTo(0, 0);
+                            }
+                        }, 150);
+                    }
+                });
 
                 // Update: Use LibraryController for title renaming
                 const titleInputHandler = (e) => {

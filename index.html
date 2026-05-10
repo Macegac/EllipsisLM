@@ -166,6 +166,11 @@
             padding: 0;
             /* Force hidden-x to prevent any sub-pixel rounding scroll */
             overflow-x: hidden;
+            /* iOS keyboard dismiss fix: pin the document so Safari can't
+               leave it scrolled up after the virtual keyboard closes. */
+            position: fixed;
+            left: 0;
+            top: 0;
         }
 
         /* Mobile specific image and scroll fixes */
@@ -450,6 +455,107 @@
 
         input:checked+.toggle-bg:after {
             left: calc(100% - 2px - 1.25rem);
+        }
+
+        /* ==========================================================================
+           [SEC:CSS:MUSIC_INDICATOR]
+           Background Music Floating Indicator
+           ========================================================================== */
+
+        .music-indicator {
+            position: fixed;
+            bottom: 5.5rem;
+            right: 1.25rem;
+            z-index: 60;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 9999px;
+            background: rgba(15, 15, 25, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(99, 102, 241, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s ease, opacity 0.3s ease, box-shadow 0.2s ease;
+            user-select: none;
+        }
+
+        .music-indicator:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.2);
+        }
+
+        .music-indicator.generating {
+            animation: music-pulse 1.8s ease-in-out infinite;
+        }
+
+        @keyframes music-pulse {
+            0%, 100% { box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(99, 102, 241, 0.1); }
+            50% { box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5), 0 0 25px rgba(139, 92, 246, 0.35); }
+        }
+
+        .music-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 14px;
+        }
+
+        .music-bars .bar {
+            width: 3px;
+            border-radius: 1px;
+            background: linear-gradient(to top, #818cf8, #a78bfa);
+            animation: music-bar-bounce 0.8s ease-in-out infinite;
+        }
+
+        .music-bars .bar:nth-child(1) { height: 40%; animation-delay: 0s; }
+        .music-bars .bar:nth-child(2) { height: 70%; animation-delay: 0.15s; }
+        .music-bars .bar:nth-child(3) { height: 50%; animation-delay: 0.3s; }
+        .music-bars .bar:nth-child(4) { height: 90%; animation-delay: 0.1s; }
+
+        @keyframes music-bar-bounce {
+            0%, 100% { transform: scaleY(0.3); }
+            50% { transform: scaleY(1); }
+        }
+
+        .music-indicator.paused .music-bars .bar {
+            animation-play-state: paused;
+            transform: scaleY(0.3);
+        }
+
+        .music-indicator .music-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: rgba(199, 210, 254, 0.8);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .music-indicator .music-vol-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: rgba(199, 210, 254, 0.6);
+            cursor: pointer;
+            transition: background 0.15s ease;
+            padding: 0;
+        }
+
+        .music-indicator .music-vol-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            color: rgba(199, 210, 254, 1);
+        }
+
+        body.layout-vertical .music-indicator {
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+            right: 0.75rem;
         }
 
         /* ==========================================================================
@@ -1865,6 +1971,24 @@
 
             <!-- Response Options Container -->
             <div id="response-options-container" class="relative z-20 hidden"></div>
+
+            <!-- Background Music Indicator -->
+            <div id="music-indicator" class="music-indicator" data-action="toggle-music" title="Click to pause/resume">
+                <div class="music-bars">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+                <span class="music-label">Music</span>
+                <button class="music-vol-btn" data-action="cycle-music-volume" title="Cycle Volume">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                </button>
+            </div>
 
             <!-- Chat Input & Controls -->
             <div id="chat-input-container" class="relative flex flex-shrink-0 space-x-2 sm:space-x-4"
@@ -4292,6 +4416,55 @@
                                 </select>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="music-settings" class="mt-6 border-t border-gray-700 pt-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium flex items-center gap-2">
+                        <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3">
+                            </path>
+                        </svg>
+                        Background Music
+                    </h3>
+                    <span class="text-xs text-indigo-400 bg-indigo-900/30 px-2 py-1 rounded">Gemini / Lyria AI</span>
+                </div>
+                <div class="bg-black/20 p-4 rounded-lg border border-gray-700 space-y-4">
+                    <div>
+                        <label class="text-sm font-semibold text-gray-400 block mb-1">Music Mode</label>
+                        <select id="music-mode-select"
+                            class="w-full bg-black/30 border border-gray-600 rounded p-2 text-sm text-gray-200 focus:border-indigo-500 focus:outline-none">
+                            <option value="off">Off</option>
+                            <option value="on">On</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">AI-generated instrumental music that adapts to the
+                            current scene. Requires a Gemini API key.</p>
+                    </div>
+                    <div>
+                        <label for="music-volume-slider"
+                            class="text-sm flex items-center justify-between text-gray-400 mb-1">
+                            <span>Volume</span>
+                            <span id="music-volume-value"
+                                class="text-xs text-indigo-300 font-mono bg-black/30 px-2 py-0.5 rounded">30%</span>
+                        </label>
+                        <input type="range" id="music-volume-slider" class="w-full" min="0" max="100" step="5"
+                            value="30">
+                    </div>
+                    <div>
+                        <label for="music-interval-slider"
+                            class="text-sm flex items-center justify-between text-gray-400 mb-1">
+                            <span>Regenerate Every</span>
+                            <span id="music-interval-value"
+                                class="text-xs text-indigo-300 font-mono bg-black/30 px-2 py-0.5 rounded">10
+                                msgs</span>
+                        </label>
+                        <input type="range" id="music-interval-slider" class="w-full" min="5" max="30" step="1"
+                            value="10">
+                        <p class="text-xs text-gray-500 mt-1">How often the music regenerates to match scene changes.
+                        </p>
                     </div>
                 </div>
             </div>
@@ -7793,6 +7966,404 @@
         };
 
         /**
+         * MusicService Module
+         * Handles AI-generated background music using Gemini's Lyria 3 API.
+         * Two-phase pipeline: Scene analysis (text LLM) → Music generation (Lyria).
+         * Playback via Web Audio API with looping and crossfade support.
+         */
+        const MusicService = {
+            CONSTANTS: {
+                MODEL: 'lyria-3-clip-preview',
+                DEFAULT_VOLUME: 0.3,
+                CROSSFADE_DURATION: 2500,
+                PROMPT_SYSTEM: `You are a film score director. Analyze the following roleplay scene context and generate a precise, concise instrumental music generation prompt for an AI music generator. Focus on: genre, tempo (BPM), key instrumentation, mood, and atmosphere. The music MUST be INSTRUMENTAL ONLY — absolutely no vocals, no lyrics, no singing. The prompt must explicitly state "instrumental only, no vocals". Output ONLY the music prompt as a single paragraph and nothing else.
+
+Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer pads with distant reverbed piano, tension and unease, cinematic horror atmosphere, no vocals"`
+            },
+
+            RUNTIME: {
+                audioContext: null,
+                currentSource: null,
+                gainNode: null,
+                currentAudioBuffer: null,
+                isPlaying: false,
+                isPaused: false,
+                isGenerating: false,
+                lastMusicPrompt: '',
+                lastGeneratedAtCounter: 0,
+                abortController: null
+            },
+
+            /**
+             * Checks if background music should be triggered based on message counter.
+             * Called from NarrativeController.startStreamingResponse (post-processing).
+             * Non-blocking fire-and-forget.
+             */
+            checkTrigger() {
+                const globalSettings = StateManager.data.globalSettings;
+                if (globalSettings.musicMode !== 'on') return;
+
+                // Require Gemini API key
+                const apiKey = globalSettings.geminiApiKey;
+                if (!apiKey) return;
+
+                if (this.RUNTIME.isGenerating) return;
+
+                const state = ReactiveStore.state;
+                const counter = state.messageCounter || 0;
+                const interval = parseInt(globalSettings.musicInterval) || 10;
+
+                // First trigger: generate immediately on first qualifying message if nothing is playing
+                if (!this.RUNTIME.currentAudioBuffer && counter >= 2) {
+                    this.generate();
+                    return;
+                }
+
+                // Subsequent triggers: regenerate at interval
+                if (counter > 0 && counter % interval === 0 && counter !== this.RUNTIME.lastGeneratedAtCounter) {
+                    this.generate();
+                }
+            },
+
+            /**
+             * Main orchestrator. Generates a scene-aware music prompt, calls Lyria, and plays the result.
+             */
+            async generate() {
+                if (this.RUNTIME.isGenerating) return;
+                this.RUNTIME.isGenerating = true;
+                this.RUNTIME.abortController = new AbortController();
+                this.updateIndicator('generating');
+
+                try {
+                    const state = ReactiveStore.state;
+                    this.RUNTIME.lastGeneratedAtCounter = state.messageCounter || 0;
+
+                    // Phase 1: Scene Analysis → Music Prompt
+                    console.log('🎵 MusicService: Analyzing scene for music prompt...');
+                    const scenePrompt = PromptBuilder.buildMusicPrompt();
+                    const musicPrompt = await APIService.callAI(scenePrompt, false, this.RUNTIME.abortController.signal);
+
+                    if (!musicPrompt || musicPrompt.trim().length === 0) {
+                        console.warn('MusicService: Empty music prompt from scene analysis.');
+                        return;
+                    }
+
+                    // Deduplicate: Skip if the prompt is essentially the same
+                    if (musicPrompt.trim() === this.RUNTIME.lastMusicPrompt) {
+                        console.log('🎵 MusicService: Scene unchanged, skipping regeneration.');
+                        return;
+                    }
+                    this.RUNTIME.lastMusicPrompt = musicPrompt.trim();
+
+                    // Phase 2: Lyria Music Generation
+                    console.log('🎵 MusicService: Generating music via Lyria...', musicPrompt.substring(0, 100));
+                    const audioBuffer = await this.callLyria(musicPrompt);
+
+                    if (!audioBuffer) {
+                        console.warn('MusicService: No audio data received from Lyria.');
+                        return;
+                    }
+
+                    // Phase 3: Playback
+                    if (this.RUNTIME.currentSource) {
+                        await this.crossfadeTo(audioBuffer);
+                    } else {
+                        await this.play(audioBuffer);
+                    }
+
+                    console.log('🎵 MusicService: Now playing background music.');
+
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        console.error('MusicService: Generation failed:', e);
+                    }
+                } finally {
+                    this.RUNTIME.isGenerating = false;
+                    this.RUNTIME.abortController = null;
+                    if (this.RUNTIME.isPlaying) {
+                        this.updateIndicator('playing');
+                    } else {
+                        this.updateIndicator('hidden');
+                    }
+                }
+            },
+
+            /**
+             * Calls the Lyria API to generate a 30-second MP3 clip.
+             * @param {string} musicPrompt - The music generation prompt.
+             * @returns {Promise<AudioBuffer|null>} Decoded audio buffer.
+             */
+            async callLyria(musicPrompt) {
+                const globalSettings = StateManager.data.globalSettings;
+                const apiKey = globalSettings.geminiApiKey;
+                if (!apiKey) throw new Error('MusicService: Gemini API key not set.');
+
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.CONSTANTS.MODEL}:generateContent?key=${apiKey}`;
+
+                const payload = {
+                    contents: [{
+                        parts: [{ text: musicPrompt }]
+                    }]
+                };
+
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: this.RUNTIME.abortController?.signal
+                });
+
+                if (!res.ok) {
+                    let errorMsg = `Status ${res.status}`;
+                    try {
+                        const errData = await res.json();
+                        errorMsg += `: ${errData.error?.message || JSON.stringify(errData.error)}`;
+                    } catch (e) {
+                        errorMsg += `: ${await res.text()}`;
+                    }
+                    throw new Error(`Lyria API Error: ${errorMsg}`);
+                }
+
+                const data = await res.json();
+                const parts = data.candidates?.[0]?.content?.parts || [];
+
+                // Order-agnostic: iterate parts looking for inlineData with audio
+                let audioBase64 = null;
+                for (const part of parts) {
+                    if (part.inlineData && part.inlineData.mimeType && part.inlineData.mimeType.startsWith('audio/')) {
+                        audioBase64 = part.inlineData.data;
+                        break;
+                    }
+                }
+
+                if (!audioBase64) {
+                    console.warn('MusicService: No audio inlineData in Lyria response.', data);
+                    return null;
+                }
+
+                // Decode Base64 → ArrayBuffer
+                const binaryString = window.atob(audioBase64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                // Initialize AudioContext
+                if (!this.RUNTIME.audioContext) {
+                    this.RUNTIME.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                // Decode MP3 → AudioBuffer
+                const audioBuffer = await this.RUNTIME.audioContext.decodeAudioData(bytes.buffer.slice(0));
+                return audioBuffer;
+            },
+
+            /**
+             * Plays an AudioBuffer on loop.
+             * @param {AudioBuffer} audioBuffer
+             */
+            async play(audioBuffer) {
+                if (!this.RUNTIME.audioContext) {
+                    this.RUNTIME.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                // Resume if suspended (mobile auto-suspend policy)
+                if (this.RUNTIME.audioContext.state === 'suspended') {
+                    await this.RUNTIME.audioContext.resume();
+                }
+
+                const source = this.RUNTIME.audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.loop = true;
+
+                const gainNode = this.RUNTIME.audioContext.createGain();
+                const globalSettings = StateManager.data.globalSettings;
+                const volume = (parseInt(globalSettings.musicVolume) || 30) / 100;
+                gainNode.gain.value = volume;
+
+                source.connect(gainNode);
+                gainNode.connect(this.RUNTIME.audioContext.destination);
+
+                source.start(0);
+
+                this.RUNTIME.currentSource = source;
+                this.RUNTIME.gainNode = gainNode;
+                this.RUNTIME.currentAudioBuffer = audioBuffer;
+                this.RUNTIME.isPlaying = true;
+                this.RUNTIME.isPaused = false;
+                this.updateIndicator('playing');
+            },
+
+            /**
+             * Crossfades from the current track to a new one.
+             * @param {AudioBuffer} newBuffer
+             */
+            async crossfadeTo(newBuffer) {
+                const ctx = this.RUNTIME.audioContext;
+                if (!ctx) return this.play(newBuffer);
+
+                if (ctx.state === 'suspended') await ctx.resume();
+
+                const fadeDuration = this.CONSTANTS.CROSSFADE_DURATION / 1000;
+                const now = ctx.currentTime;
+
+                // Fade out current
+                const oldGain = this.RUNTIME.gainNode;
+                if (oldGain) {
+                    oldGain.gain.setValueAtTime(oldGain.gain.value, now);
+                    oldGain.gain.linearRampToValueAtTime(0, now + fadeDuration);
+                }
+
+                // Create new source
+                const newSource = ctx.createBufferSource();
+                newSource.buffer = newBuffer;
+                newSource.loop = true;
+
+                const newGain = ctx.createGain();
+                const globalSettings = StateManager.data.globalSettings;
+                const targetVolume = (parseInt(globalSettings.musicVolume) || 30) / 100;
+                newGain.gain.setValueAtTime(0, now);
+                newGain.gain.linearRampToValueAtTime(targetVolume, now + fadeDuration);
+
+                newSource.connect(newGain);
+                newGain.connect(ctx.destination);
+                newSource.start(0);
+
+                // Clean up old source after fade
+                const oldSource = this.RUNTIME.currentSource;
+                setTimeout(() => {
+                    try {
+                        if (oldSource) oldSource.stop();
+                    } catch (e) { /* already stopped */ }
+                    if (oldGain) {
+                        try { oldGain.disconnect(); } catch (e) { }
+                    }
+                }, this.CONSTANTS.CROSSFADE_DURATION + 100);
+
+                this.RUNTIME.currentSource = newSource;
+                this.RUNTIME.gainNode = newGain;
+                this.RUNTIME.currentAudioBuffer = newBuffer;
+                this.RUNTIME.isPlaying = true;
+                this.RUNTIME.isPaused = false;
+            },
+
+            /**
+             * Toggles pause/resume.
+             */
+            togglePlayback() {
+                if (!this.RUNTIME.audioContext || !this.RUNTIME.currentSource) return;
+
+                if (this.RUNTIME.isPaused) {
+                    this.RUNTIME.audioContext.resume();
+                    this.RUNTIME.isPaused = false;
+                    this.RUNTIME.isPlaying = true;
+                    this.updateIndicator('playing');
+                } else {
+                    this.RUNTIME.audioContext.suspend();
+                    this.RUNTIME.isPaused = true;
+                    this.RUNTIME.isPlaying = false;
+                    this.updateIndicator('paused');
+                }
+            },
+
+            /**
+             * Cycles through volume levels: 30% → 60% → 100% → 15% → 30%
+             */
+            cycleVolume() {
+                const globalSettings = StateManager.data.globalSettings;
+                const steps = [15, 30, 60, 100];
+                let current = parseInt(globalSettings.musicVolume) || 30;
+                let idx = steps.indexOf(current);
+                idx = (idx + 1) % steps.length;
+                const newVol = steps[idx];
+
+                globalSettings.musicVolume = newVol;
+                StateManager.saveGlobalSettings();
+                this.setVolume(newVol / 100);
+
+                // Update label
+                const label = document.querySelector('#music-indicator .music-label');
+                if (label) label.textContent = `${newVol}%`;
+                // Reset label after 1.5s
+                setTimeout(() => {
+                    if (label) label.textContent = 'Music';
+                }, 1500);
+
+                // Update settings slider if visible
+                const slider = document.getElementById('music-volume-slider');
+                const val = document.getElementById('music-volume-value');
+                if (slider) slider.value = newVol;
+                if (val) val.textContent = `${newVol}%`;
+            },
+
+            /**
+             * Sets the gain node volume.
+             * @param {number} vol - Volume 0.0 to 1.0
+             */
+            setVolume(vol) {
+                if (this.RUNTIME.gainNode) {
+                    this.RUNTIME.gainNode.gain.setValueAtTime(
+                        Math.max(0, Math.min(1, vol)),
+                        this.RUNTIME.audioContext?.currentTime || 0
+                    );
+                }
+            },
+
+            /**
+             * Stops all playback and resets state.
+             */
+            stop() {
+                if (this.RUNTIME.abortController) {
+                    try { this.RUNTIME.abortController.abort(); } catch (e) { }
+                }
+                if (this.RUNTIME.currentSource) {
+                    try { this.RUNTIME.currentSource.stop(); } catch (e) { }
+                    this.RUNTIME.currentSource = null;
+                }
+                if (this.RUNTIME.gainNode) {
+                    try { this.RUNTIME.gainNode.disconnect(); } catch (e) { }
+                    this.RUNTIME.gainNode = null;
+                }
+                this.RUNTIME.currentAudioBuffer = null;
+                this.RUNTIME.isPlaying = false;
+                this.RUNTIME.isPaused = false;
+                this.RUNTIME.isGenerating = false;
+                this.RUNTIME.lastMusicPrompt = '';
+                this.RUNTIME.lastGeneratedAtCounter = 0;
+                this.updateIndicator('hidden');
+            },
+
+            /**
+             * Updates the floating music indicator UI.
+             * @param {'hidden'|'generating'|'playing'|'paused'} mode
+             */
+            updateIndicator(mode) {
+                const el = document.getElementById('music-indicator');
+                if (!el) return;
+
+                el.classList.remove('generating', 'paused');
+
+                switch (mode) {
+                    case 'hidden':
+                        el.style.display = 'none';
+                        break;
+                    case 'generating':
+                        el.style.display = 'flex';
+                        el.classList.add('generating');
+                        break;
+                    case 'playing':
+                        el.style.display = 'flex';
+                        break;
+                    case 'paused':
+                        el.style.display = 'flex';
+                        el.classList.add('paused');
+                        break;
+                }
+            }
+        };
+
+        /**
          * ModalManager Module
          * Controls the visibility and lifecycle of UI modals.
          * Handles opening, closing, and cleanup (e.g., clearing intervals).
@@ -8372,7 +8943,10 @@
                     lmstudio_url: 'http://localhost:1234',
                     webllmModel: 'Llama-3.1-8B-Instruct-q4f32_1-MLC',
                     userPersonas: [],
-                    savedOpenRouterModels: []
+                    savedOpenRouterModels: [],
+                    musicMode: 'off',
+                    musicVolume: 30,
+                    musicInterval: 10
                 };
             },
             /**
@@ -9315,6 +9889,61 @@ You must respond with a raw JSON object containing a "characters" array with exa
             
             Output ONLY the instruction and then stop.
             Example Output: "A sudden thunderstorm knocks out the power."`;
+            },
+
+            /**
+             * Builds the scene analysis prompt for the MusicService.
+             * This prompt is sent to the user's configured text LLM, NOT to Lyria directly.
+             * The LLM analyzes the scene and outputs a tight music generation prompt.
+             * @returns {string} - The constructed prompt.
+             */
+            buildMusicPrompt() {
+                const state = StateManager.getState();
+                const systemPrompt = (typeof MusicService !== 'undefined') ? MusicService.CONSTANTS.PROMPT_SYSTEM : '';
+
+                // Story tags / genre
+                const tags = (state.tags || []).join(', ') || 'unspecified genre';
+
+                // Current location
+                let locationContext = '';
+                if (state.worldMap && state.worldMap.grid && state.worldMap.currentLocation) {
+                    const loc = state.worldMap.grid.find(l =>
+                        l.coords.x === state.worldMap.currentLocation.x &&
+                        l.coords.y === state.worldMap.currentLocation.y
+                    );
+                    if (loc) {
+                        locationContext = `\nCurrent Location: ${loc.name}${loc.description ? ' — ' + loc.description : ''}`;
+                    }
+                }
+
+                // Active characters
+                const activeChars = (state.characters || [])
+                    .filter(c => c.is_active && !c.is_user)
+                    .map(c => c.name)
+                    .join(', ');
+
+                // Recent chat (last 10 messages, condensed)
+                const recentHistory = (state.chat_history || [])
+                    .slice(-10)
+                    .filter(m => m && m.type === 'chat' && !m.isHidden)
+                    .map(m => {
+                        const char = (state.characters || []).find(c => c.id === m.character_id);
+                        // Truncate long messages to conserve tokens
+                        const content = m.content.length > 200 ? m.content.substring(0, 200) + '...' : m.content;
+                        return `${char ? char.name : 'Unknown'}: ${content}`;
+                    })
+                    .join('\n');
+
+                return `${systemPrompt}
+
+### Scene Context
+Genre/Tags: ${tags}${locationContext}
+Active Characters: ${activeChars || 'None specified'}
+
+### Recent Chat History
+${recentHistory || '(No history yet — generate atmospheric intro music for this genre.)'}
+
+Generate the instrumental music prompt now.`;
             },
 
             buildTimelineExtractorPrompt(transcript) {
@@ -15856,7 +16485,9 @@ Write only the character's message.`;
                     'imageGenWidth', 'imageGenHeight',
                     'koboldImageGenCfg', 'koboldImageGenSampler', 'koboldImageGenScheduler', 'koboldImageGenSteps',
                     // TTS Keys
-                    'ttsEnabled', 'ttsVoice', 'ttsAutoPlayback'
+                    'ttsEnabled', 'ttsVoice', 'ttsAutoPlayback',
+                    // Music Keys
+                    'musicMode', 'musicVolume', 'musicInterval'
                 ]
             },
 
@@ -16428,6 +17059,24 @@ Write only the character's message.`;
                     }
                     ttsModeSelect.value = globalSettings.ttsMode;
                 }
+
+                // Background Music Settings Load
+                const musicModeSelect = document.getElementById('music-mode-select');
+                if (musicModeSelect) {
+                    musicModeSelect.value = globalSettings.musicMode || 'off';
+                }
+                const musicVolSlider = document.getElementById('music-volume-slider');
+                const musicVolValue = document.getElementById('music-volume-value');
+                if (musicVolSlider) {
+                    musicVolSlider.value = globalSettings.musicVolume || 30;
+                    if (musicVolValue) musicVolValue.textContent = `${globalSettings.musicVolume || 30}%`;
+                }
+                const musicIntSlider = document.getElementById('music-interval-slider');
+                const musicIntValue = document.getElementById('music-interval-value');
+                if (musicIntSlider) {
+                    musicIntSlider.value = globalSettings.musicInterval || 10;
+                    if (musicIntValue) musicIntValue.textContent = `${globalSettings.musicInterval || 10} msgs`;
+                }
             },
 
             /**
@@ -16593,6 +17242,41 @@ Write only the character's message.`;
                     });
                 }
                 if (document.getElementById('tts-voice-selector')) setListener('tts-voice-selector', 'ttsVoice');
+
+                // --- Bindings: Background Music ---
+                if (document.getElementById('music-mode-select')) {
+                    const musicSelect = document.getElementById('music-mode-select');
+                    musicSelect.addEventListener('change', (e) => {
+                        const val = e.target.value;
+                        globalSettings.musicMode = val;
+                        StateManager.saveGlobalSettings();
+                        // Stop music if turning off
+                        if (val === 'off' && typeof MusicService !== 'undefined') {
+                            MusicService.stop();
+                        }
+                    });
+                }
+                if (document.getElementById('music-volume-slider')) {
+                    const slider = document.getElementById('music-volume-slider');
+                    const valDisplay = document.getElementById('music-volume-value');
+                    slider.addEventListener('input', (e) => {
+                        const vol = parseInt(e.target.value);
+                        globalSettings.musicVolume = vol;
+                        if (valDisplay) valDisplay.textContent = `${vol}%`;
+                        if (typeof MusicService !== 'undefined') MusicService.setVolume(vol / 100);
+                        StateManager.saveGlobalSettings();
+                    });
+                }
+                if (document.getElementById('music-interval-slider')) {
+                    const slider = document.getElementById('music-interval-slider');
+                    const valDisplay = document.getElementById('music-interval-value');
+                    slider.addEventListener('input', (e) => {
+                        const val = parseInt(e.target.value);
+                        globalSettings.musicInterval = val;
+                        if (valDisplay) valDisplay.textContent = `${val} msgs`;
+                        StateManager.saveGlobalSettings();
+                    });
+                }
 
                 // --- Bindings: Appearance Tab ---
                 // Background Image Handlers (Delegating to LibraryController if available)
@@ -22457,6 +23141,11 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                     NarrativeController.checkAutoStaticKnowledge();
                 }
 
+                // Background Music Agent (Non-blocking, fire-and-forget)
+                if (targetMessageIndex === null && typeof MusicService !== 'undefined') {
+                    MusicService.checkTrigger();
+                }
+
                 // Check for Dynamic Entries (Revealed Lore)
                 if (typeof NarrativeController !== 'undefined') {
                     const structureChanged = NarrativeController.checkDynamicEntryTriggers();
@@ -27155,6 +27844,14 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     }
                 });
 
+                // Background Music Controls
+                ActionHandler.register('toggle-music', () => {
+                    if (typeof MusicService !== 'undefined') MusicService.togglePlayback();
+                });
+                ActionHandler.register('cycle-music-volume', () => {
+                    if (typeof MusicService !== 'undefined') MusicService.cycleVolume();
+                });
+
                 // Direct Character Context Menu
                 ActionHandler.register('direct-character', (ds, val) => {
                     if (typeof NarrativeController !== 'undefined') {
@@ -27449,6 +28146,24 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
             setupEventListeners() {
                 this.updateLayout();
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
+
+                // ── iOS Keyboard Dismiss Fix ──────────────────────────────
+                // iOS Safari shifts the document upward when the virtual
+                // keyboard (or the bottom toolbar) appears. When it is
+                // dismissed, Safari does NOT scroll the document back
+                // down, leaving a blank gap at the bottom. The
+                // visualViewport 'resize' event fires on keyboard
+                // open/close; we use it to snap the scroll offset back to
+                // zero so the app always fills the screen.
+                if (window.visualViewport) {
+                    const resetViewport = () => {
+                        window.scrollTo(0, 0);
+                        document.documentElement.scrollTop = 0;
+                        document.body.scrollTop = 0;
+                    };
+                    window.visualViewport.addEventListener('resize', resetViewport);
+                    window.visualViewport.addEventListener('scroll', resetViewport);
+                }
 
                 // Update: Use LibraryController for title renaming
                 const titleInputHandler = (e) => {

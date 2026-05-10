@@ -158,12 +158,19 @@
 
         html,
         body {
-            height: 100%;
-            height: 100dvh;
+            /* Use --app-height (set by JS from visualViewport) so the layout
+               always matches the *actual* visible area, even when the iOS
+               keyboard opens/closes and Safari adjusts the viewport. */
+            height: var(--app-height, 100dvh);
             width: 100%;
             overflow: hidden;
             margin: 0;
             padding: 0;
+            /* Prevent iOS Safari from scrolling the body when the keyboard
+               appears. This is the root cause of the "blank gap" on dismiss. */
+            position: fixed;
+            top: 0;
+            left: 0;
             /* Force hidden-x to prevent any sub-pixel rounding scroll */
             overflow-x: hidden;
         }
@@ -289,7 +296,7 @@
         body.layout-vertical #chat-input-container {
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             padding: 1rem;
-            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+            padding-bottom: max(1rem, env(safe-area-inset-bottom));
             background: rgba(17, 24, 39, 0.5);
             -webkit-backdrop-filter: blur(10px);
             backdrop-filter: blur(10px);
@@ -28147,46 +28154,31 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
 
                 // ====================================================================
-                // iOS Keyboard Dismiss Fix
-                // iOS Safari shifts the page up (via window.scrollY) when the virtual
-                // keyboard opens. On dismiss it does NOT reset the scroll, leaving a
-                // blank gap at the bottom. We use the visualViewport API to detect
-                // the keyboard closing and snap the layout back into place.
+                // iOS Keyboard & Viewport Fix
+                // iOS Safari shifts the page or resizes the viewport when the
+                // virtual keyboard opens/closes. We lock the body with
+                // position:fixed (in CSS) and continuously sync --app-height
+                // to the actual visualViewport height so the layout always
+                // fills exactly the visible area — no blank gaps.
                 // ====================================================================
+                const syncAppHeight = () => {
+                    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+                    document.documentElement.style.setProperty('--app-height', `${vh}px`);
+                    // Belt-and-suspenders: kill any rogue body scroll iOS may have induced
+                    if (window.scrollY !== 0) window.scrollTo(0, 0);
+                };
+                syncAppHeight();
+
                 if (window.visualViewport) {
-                    let lastViewportHeight = window.visualViewport.height;
-
-                    const resetIOSScroll = () => {
-                        const currentHeight = window.visualViewport.height;
-                        const heightGrew = currentHeight - lastViewportHeight;
-                        lastViewportHeight = currentHeight;
-
-                        // Keyboard closed: viewport height increased significantly
-                        // (keyboard is typically 200+ px). Reset the window scroll.
-                        if (heightGrew > 100) {
-                            window.scrollTo(0, 0);
-                            // Also force the body to re-fill the viewport
-                            document.documentElement.style.height = '100%';
-                            document.body.style.height = '100%';
-                            requestAnimationFrame(() => {
-                                document.documentElement.style.height = '';
-                                document.body.style.height = '';
-                            });
-                        }
-                    };
-
-                    window.visualViewport.addEventListener('resize', resetIOSScroll);
+                    window.visualViewport.addEventListener('resize', syncAppHeight);
+                    window.visualViewport.addEventListener('scroll', syncAppHeight);
                 }
+                window.addEventListener('resize', syncAppHeight);
 
-                // Fallback: On any input blur, reset scroll after a brief delay
-                // to catch cases the visualViewport event misses.
+                // Fallback: On any input blur, force a sync after a brief delay
                 document.addEventListener('focusout', (e) => {
                     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
-                        setTimeout(() => {
-                            if (window.scrollY > 0) {
-                                window.scrollTo(0, 0);
-                            }
-                        }, 150);
+                        setTimeout(syncAppHeight, 150);
                     }
                 });
 

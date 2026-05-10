@@ -158,19 +158,12 @@
 
         html,
         body {
-            /* Use --app-height (set by JS from visualViewport) so the layout
-               always matches the *actual* visible area, even when the iOS
-               keyboard opens/closes and Safari adjusts the viewport. */
-            height: var(--app-height, 100dvh);
+            height: 100%;
+            height: 100dvh;
             width: 100%;
             overflow: hidden;
             margin: 0;
             padding: 0;
-            /* Prevent iOS Safari from scrolling the body when the keyboard
-               appears. This is the root cause of the "blank gap" on dismiss. */
-            position: fixed;
-            top: 0;
-            left: 0;
             /* Force hidden-x to prevent any sub-pixel rounding scroll */
             overflow-x: hidden;
         }
@@ -296,7 +289,7 @@
         body.layout-vertical #chat-input-container {
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             padding: 1rem;
-            padding-bottom: max(1rem, env(safe-area-inset-bottom));
+            padding-bottom: calc(1rem + env(safe-area-inset-bottom));
             background: rgba(17, 24, 39, 0.5);
             -webkit-backdrop-filter: blur(10px);
             backdrop-filter: blur(10px);
@@ -469,14 +462,12 @@
            ========================================================================== */
 
         .music-indicator {
-            position: fixed;
-            bottom: 5.5rem;
-            right: 1.25rem;
             z-index: 60;
             display: none;
             align-items: center;
-            gap: 0.5rem;
-            padding: 0.4rem 0.75rem;
+            justify-content: center;
+            gap: 0.35rem;
+            padding: 0.3rem 0.5rem;
             border-radius: 9999px;
             background: rgba(15, 15, 25, 0.75);
             backdrop-filter: blur(12px);
@@ -485,6 +476,8 @@
             cursor: pointer;
             transition: transform 0.2s ease, opacity 0.3s ease, box-shadow 0.2s ease;
             user-select: none;
+            width: 100%;
+            font-size: 0.65rem;
         }
 
         .music-indicator:hover {
@@ -559,10 +552,6 @@
             color: rgba(199, 210, 254, 1);
         }
 
-        body.layout-vertical .music-indicator {
-            bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
-            right: 0.75rem;
-        }
 
         /* ==========================================================================
            [SEC:CSS:ONBOARDING]
@@ -1978,23 +1967,6 @@
             <!-- Response Options Container -->
             <div id="response-options-container" class="relative z-20 hidden"></div>
 
-            <!-- Background Music Indicator -->
-            <div id="music-indicator" class="music-indicator" data-action="toggle-music" title="Click to pause/resume">
-                <div class="music-bars">
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                    <div class="bar"></div>
-                </div>
-                <span class="music-label">Music</span>
-                <button class="music-vol-btn" data-action="cycle-music-volume" title="Cycle Volume">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                    </svg>
-                </button>
-            </div>
 
             <!-- Chat Input & Controls -->
             <div id="chat-input-container" class="relative flex flex-shrink-0 space-x-2 sm:space-x-4"
@@ -2056,6 +2028,23 @@
                                 <path d="M3 3v5h5"></path>
                                 <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
                                 <path d="M21 21v-5h-5"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    <!-- Background Music Indicator (inline, under action buttons) -->
+                    <div id="music-indicator" class="music-indicator" data-action="toggle-music" title="Click to pause/resume">
+                        <div class="music-bars">
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                        </div>
+                        <span class="music-label">Music</span>
+                        <button class="music-vol-btn" data-action="cycle-music-volume" title="Cycle Volume">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
                             </svg>
                         </button>
                     </div>
@@ -28154,33 +28143,40 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
 
                 // ====================================================================
-                // iOS Keyboard & Viewport Fix
-                // iOS Safari shifts the page or resizes the viewport when the
-                // virtual keyboard opens/closes. We lock the body with
-                // position:fixed (in CSS) and continuously sync --app-height
-                // to the actual visualViewport height so the layout always
-                // fills exactly the visible area — no blank gaps.
+                // iOS Keyboard Dismiss Fix
+                // iOS Safari shifts the page up when the virtual keyboard opens.
+                // On dismiss, it often fails to scroll back, leaving a blank gap.
+                // We aggressively reset window.scrollTo(0,0) whenever an input
+                // loses focus (keyboard closing) and on any viewport resize that
+                // occurs while no input is focused.
                 // ====================================================================
-                const syncAppHeight = () => {
-                    const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-                    document.documentElement.style.setProperty('--app-height', `${vh}px`);
-                    // Belt-and-suspenders: kill any rogue body scroll iOS may have induced
-                    if (window.scrollY !== 0) window.scrollTo(0, 0);
+                const resetScrollIfNeeded = () => {
+                    // Only reset when no input is actively focused (keyboard is closing/closed)
+                    const active = document.activeElement;
+                    const isInputFocused = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
+                    if (!isInputFocused && window.scrollY !== 0) {
+                        window.scrollTo(0, 0);
+                    }
                 };
-                syncAppHeight();
 
-                if (window.visualViewport) {
-                    window.visualViewport.addEventListener('resize', syncAppHeight);
-                    window.visualViewport.addEventListener('scroll', syncAppHeight);
-                }
-                window.addEventListener('resize', syncAppHeight);
-
-                // Fallback: On any input blur, force a sync after a brief delay
+                // On focusout: the keyboard is closing. Reset scroll after iOS
+                // finishes its animation (~300ms). Fire multiple times to catch
+                // the two-stage dismiss (keyboard then accessory bar).
                 document.addEventListener('focusout', (e) => {
                     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
-                        setTimeout(syncAppHeight, 150);
+                        setTimeout(resetScrollIfNeeded, 50);
+                        setTimeout(resetScrollIfNeeded, 200);
+                        setTimeout(resetScrollIfNeeded, 400);
+                        setTimeout(resetScrollIfNeeded, 800);
                     }
                 });
+
+                // Also reset on any viewport resize when no input is focused
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', () => {
+                        setTimeout(resetScrollIfNeeded, 50);
+                    });
+                }
 
                 // Update: Use LibraryController for title renaming
                 const titleInputHandler = (e) => {

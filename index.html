@@ -30,7 +30,7 @@
         content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://esm.run https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*; connect-src 'self' https://* http://localhost:* http://127.0.0.1:*;">
     <meta charset="UTF-8">
     <!-- Updated Viewport for Notch Support -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
     <!-- PWA and iOS Home Screen Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -158,15 +158,13 @@
 
         html,
         body {
-            /* Use JS-managed --app-height to bypass potentially stale 100dvh
-               on iOS after keyboard dismiss. Falls back to 100dvh if JS
-               hasn't set the variable yet. */
             height: 100%;
-            height: var(--app-height, 100dvh);
+            height: 100dvh;
             width: 100%;
             overflow: hidden;
             margin: 0;
             padding: 0;
+            /* Force hidden-x to prevent any sub-pixel rounding scroll */
             overflow-x: hidden;
         }
 
@@ -28192,82 +28190,18 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
 
                 // ====================================================================
-                // iOS Keyboard Dismiss Fix — JS-Managed Viewport Height
-                //
-                // iOS 26+ often fails to restore the viewport after keyboard
-                // dismiss, leaving a ~24px gap. The CSS unit 100dvh can become
-                // stale because WebKit doesn't recalculate it properly.
-                //
-                // Fix: We capture window.innerHeight (a live JS property that
-                // reads the actual viewport) and write it to a CSS custom
-                // property --app-height. After keyboard dismiss, we restore
-                // this value explicitly instead of relying on 100dvh.
-                //
-                // We also toggle the viewport meta tag content to force
-                // Safari to fully re-evaluate its viewport dimensions.
+                // iOS Keyboard Dismiss — Minimal Safety Net
+                // scrollTo(0,0) on focusout as a best-effort reset.
                 // ====================================================================
-
-                // Track the "true" full viewport height (captured when no keyboard)
-                let _trueViewportHeight = window.innerHeight;
-
-                const updateAppHeight = (heightOverride) => {
-                    const h = heightOverride || window.innerHeight;
-                    document.documentElement.style.setProperty('--app-height', h + 'px');
-                };
-
-                // Set initial height
-                updateAppHeight();
-
-                // On genuine resize (orientation change, etc.), update the base height
-                window.addEventListener('resize', () => {
-                    const active = document.activeElement;
-                    const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
-                    if (!isInput) {
-                        _trueViewportHeight = window.innerHeight;
-                    }
-                    updateAppHeight();
-                });
-
-                const resetIOSViewport = () => {
-                    const active = document.activeElement;
-                    const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
-                    if (isInput) return;
-
-                    // Force Safari to recalculate viewport by toggling the meta tag
-                    const meta = document.querySelector('meta[name="viewport"]');
-                    if (meta) {
-                        const original = meta.getAttribute('content');
-                        meta.setAttribute('content', 'width=device-width, initial-scale=0.9999');
-                        void document.documentElement.offsetHeight;
-                        meta.setAttribute('content', original);
-                    }
-
-                    // Restore the true full viewport height
-                    // Use the larger of: current innerHeight vs captured true height
-                    // (innerHeight might be correct now, or our captured value might be)
-                    const best = Math.max(window.innerHeight, _trueViewportHeight);
-                    _trueViewportHeight = best;
-                    updateAppHeight(best);
-
-                    // Belt-and-suspenders scroll reset
-                    window.scrollTo(0, 0);
-                    document.documentElement.scrollTop = 0;
-                    document.body.scrollTop = 0;
-                };
-
                 document.addEventListener('focusout', (e) => {
                     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
-                        setTimeout(resetIOSViewport, 80);
-                        setTimeout(resetIOSViewport, 400);
-                        setTimeout(resetIOSViewport, 800);
+                        setTimeout(() => {
+                            window.scrollTo(0, 0);
+                            document.body.scrollTop = 0;
+                            document.documentElement.scrollTop = 0;
+                        }, 100);
                     }
                 });
-
-                if (window.visualViewport) {
-                    window.visualViewport.addEventListener('resize', () => {
-                        updateAppHeight();
-                    });
-                }
 
                 // Update: Use LibraryController for title renaming
                 const titleInputHandler = (e) => {

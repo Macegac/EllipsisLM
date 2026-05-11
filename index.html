@@ -158,13 +158,15 @@
 
         html,
         body {
+            /* Use JS-managed --app-height to bypass potentially stale 100dvh
+               on iOS after keyboard dismiss. Falls back to 100dvh if JS
+               hasn't set the variable yet. */
             height: 100%;
-            height: 100dvh;
+            height: var(--app-height, 100dvh);
             width: 100%;
             overflow: hidden;
             margin: 0;
             padding: 0;
-            /* Force hidden-x to prevent any sub-pixel rounding scroll */
             overflow-x: hidden;
         }
 
@@ -28190,68 +28192,80 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
 
                 // ====================================================================
-                // iOS Keyboard Dismiss Fix
+                // iOS Keyboard Dismiss Fix — JS-Managed Viewport Height
                 //
-                // iOS 26+ shifts the webview up when the keyboard opens. On
-                // dismiss, it often fails to scroll the webview back down,
-                // leaving a ~24px blank gap at the bottom.
+                // iOS 26+ often fails to restore the viewport after keyboard
+                // dismiss, leaving a ~24px gap. The CSS unit 100dvh can become
+                // stale because WebKit doesn't recalculate it properly.
                 //
-                // Root cause: with overflow:hidden on html/body, scrollTo(0,0)
-                // is a no-op — the browser thinks there's nothing to scroll,
-                // even though the native webview IS scrolled. The fix is to
-                // temporarily REMOVE overflow:hidden so scrollTo can actually
-                // reach the webview-level scroll position, then re-lock it.
+                // Fix: We capture window.innerHeight (a live JS property that
+                // reads the actual viewport) and write it to a CSS custom
+                // property --app-height. After keyboard dismiss, we restore
+                // this value explicitly instead of relying on 100dvh.
                 //
-                // Additionally, we dispatch a synthetic resize event to trigger
-                // Safari's internal viewport recalculation and toggle the
-                // viewport meta tag to force WebKit to re-evaluate safe areas.
+                // We also toggle the viewport meta tag content to force
+                // Safari to fully re-evaluate its viewport dimensions.
                 // ====================================================================
+
+                // Track the "true" full viewport height (captured when no keyboard)
+                let _trueViewportHeight = window.innerHeight;
+
+                const updateAppHeight = (heightOverride) => {
+                    const h = heightOverride || window.innerHeight;
+                    document.documentElement.style.setProperty('--app-height', h + 'px');
+                };
+
+                // Set initial height
+                updateAppHeight();
+
+                // On genuine resize (orientation change, etc.), update the base height
+                window.addEventListener('resize', () => {
+                    const active = document.activeElement;
+                    const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
+                    if (!isInput) {
+                        _trueViewportHeight = window.innerHeight;
+                    }
+                    updateAppHeight();
+                });
+
                 const resetIOSViewport = () => {
                     const active = document.activeElement;
-                    const isInputFocused = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
-                    if (isInputFocused) return;
+                    const isInput = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
+                    if (isInput) return;
 
-                    const html = document.documentElement;
-                    const body = document.body;
+                    // Force Safari to recalculate viewport by toggling the meta tag
+                    const meta = document.querySelector('meta[name="viewport"]');
+                    if (meta) {
+                        const original = meta.getAttribute('content');
+                        meta.setAttribute('content', 'width=device-width, initial-scale=0.9999');
+                        void document.documentElement.offsetHeight;
+                        meta.setAttribute('content', original);
+                    }
 
-                    // Step 1: Temporarily unlock overflow so scrollTo is not a no-op
-                    html.style.overflow = 'auto';
-                    body.style.overflow = 'auto';
+                    // Restore the true full viewport height
+                    // Use the larger of: current innerHeight vs captured true height
+                    // (innerHeight might be correct now, or our captured value might be)
+                    const best = Math.max(window.innerHeight, _trueViewportHeight);
+                    _trueViewportHeight = best;
+                    updateAppHeight(best);
 
-                    // Step 2: Reset all scroll positions while overflow is unlocked
-                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-                    html.scrollTop = 0;
-                    body.scrollTop = 0;
-
-                    // Step 3: Force synchronous layout recalculation
-                    void body.offsetHeight;
-
-                    // Step 4: Re-lock overflow to prevent future scrolling
-                    html.style.overflow = 'hidden';
-                    body.style.overflow = 'hidden';
-
-                    // Step 5: Dispatch synthetic resize to trigger Safari's
-                    // internal viewport recalculation
-                    window.dispatchEvent(new Event('resize'));
+                    // Belt-and-suspenders scroll reset
+                    window.scrollTo(0, 0);
+                    document.documentElement.scrollTop = 0;
+                    document.body.scrollTop = 0;
                 };
 
                 document.addEventListener('focusout', (e) => {
                     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
-                        // Immediate attempt
-                        setTimeout(resetIOSViewport, 50);
-                        // Post keyboard-animation (~300ms slide-down)
-                        setTimeout(resetIOSViewport, 350);
-                        // Late catch for accessory bar removal
-                        setTimeout(resetIOSViewport, 700);
+                        setTimeout(resetIOSViewport, 80);
+                        setTimeout(resetIOSViewport, 400);
+                        setTimeout(resetIOSViewport, 800);
                     }
                 });
 
-                // Also catch viewport resize events (orientation change, keyboard)
                 if (window.visualViewport) {
-                    let vvTimer = null;
                     window.visualViewport.addEventListener('resize', () => {
-                        clearTimeout(vvTimer);
-                        vvTimer = setTimeout(resetIOSViewport, 100);
+                        updateAppHeight();
                     });
                 }
 

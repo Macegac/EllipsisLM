@@ -30,7 +30,7 @@
         content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://esm.run https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*; connect-src 'self' https://* http://localhost:* http://127.0.0.1:*;">
     <meta charset="UTF-8">
     <!-- Updated Viewport for Notch Support -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 
     <!-- PWA and iOS Home Screen Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -158,7 +158,6 @@
 
         html,
         body {
-            height: 100%;
             height: 100dvh;
             width: 100%;
             overflow: hidden;
@@ -28190,91 +28189,100 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
 
                 // ====================================================================
-                // iOS Keyboard Dismiss Fix (Strategy 6: Synchronous Reflow Flush)
-                // 
-                // iOS 26+ shifts the page up when the virtual keyboard opens.
-                // On dismiss, WebKit's batched layout optimization fails to
-                // properly recalculate the viewport, leaving a ~24px blank gap
-                // at the bottom (the ghost of the keyboard accessory bar).
+                // iOS Keyboard Dismiss Fix (Multi-Strategy)
                 //
-                // Strategy: Force a synchronous DOM reflow by momentarily hiding
-                // the app container from the render tree, reading offsetHeight
-                // (which forces WebKit to synchronously recalculate layout),
-                // then restoring it. This clears stale safe-area insets within
-                // a single frame — invisible to the user but effective at
-                // resetting the rogue offset.
+                // iOS 26+ shifts the visual viewport when the keyboard opens but
+                // often fails to restore it on dismiss, leaving a ~24px blank gap
+                // at the bottom (ghost of the keyboard accessory bar).
+                //
+                // Strategy A: The viewport meta tag now includes
+                //   interactive-widget=resizes-content, which tells WebKit to
+                //   resize the LAYOUT viewport (not just the visual viewport)
+                //   when the keyboard appears/disappears.
+                //
+                // Strategy B: On keyboard dismiss, we explicitly set
+                //   document.body.style.height to window.innerHeight to force
+                //   the layout engine to use the real available height, then
+                //   clear it to restore the CSS 100dvh rule.
+                //
+                // Strategy C: Synchronous DOM reflow flush — momentarily hide
+                //   the body and app-container from the render tree, read
+                //   offsetHeight to force a synchronous layout recalculation,
+                //   then restore. This clears stale safe-area insets.
+                //
+                // Strategy D: Aggressive scroll position reset as a safety net.
                 // ====================================================================
 
                 /**
-                 * Forces WebKit to flush its render queue by briefly removing the
-                 * app container from the render tree and forcing a synchronous
-                 * layout recalculation. This clears stale inset values that iOS 26
-                 * fails to update after keyboard dismissal.
+                 * Forces WebKit to flush its render queue by briefly removing
+                 * elements from the render tree and forcing a synchronous
+                 * layout recalculation via offsetHeight reads.
                  */
                 const forceReflowFlush = () => {
-                    const appContainer = document.getElementById('app-container');
-                    if (!appContainer) return;
-
-                    // Hide from render tree
-                    appContainer.style.display = 'none';
-                    // Force synchronous layout calculation — this is the key mechanism.
-                    // Reading offsetHeight blocks the main thread momentarily, forcing
-                    // WebKit to recalculate the entire layout tree from scratch.
-                    void appContainer.offsetHeight;
-                    // Restore to render tree (flex-col layout)
-                    appContainer.style.display = '';
+                    // Flush on the body itself to clear stale viewport metrics
+                    document.body.style.display = 'none';
+                    void document.body.offsetHeight;
+                    document.body.style.display = '';
                 };
 
-                const resetScrollIfNeeded = () => {
-                    // Only reset when no input is actively focused (keyboard is closing/closed)
+                /**
+                 * Comprehensive viewport reset for iOS keyboard dismissal.
+                 * Combines height synchronization, reflow flushing, and scroll resets.
+                 */
+                const resetViewportAfterKeyboard = () => {
                     const active = document.activeElement;
                     const isInputFocused = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
-                    if (!isInputFocused) {
-                        // Aggressively reset both scroll position and any visual viewport offsets
+                    if (isInputFocused) return;
+
+                    // Strategy B: Force body height to the actual visible viewport,
+                    // then clear it to let CSS 100dvh take over again.
+                    // This forces WebKit to recalculate using real values.
+                    if (window.visualViewport) {
+                        document.body.style.height = window.visualViewport.height + 'px';
+                    } else {
+                        document.body.style.height = window.innerHeight + 'px';
+                    }
+
+                    // Strategy C: Synchronous reflow flush
+                    forceReflowFlush();
+
+                    // Clear the explicit height to restore CSS 100dvh
+                    requestAnimationFrame(() => {
+                        document.body.style.height = '';
+
+                        // Strategy D: Aggressive scroll position reset
                         window.scrollTo(0, 0);
                         document.body.scrollTop = 0;
                         document.documentElement.scrollTop = 0;
-
-                        // Sync Visual Viewport (Common culprit on iOS)
-                        if (window.visualViewport && window.visualViewport.offsetTop !== 0) {
-                            window.scrollTo(0, window.visualViewport.offsetTop);
-                        }
-
-                        // Strategy 6: Synchronous Layout Reflow Flush
-                        // This is the nuclear option — forces WebKit to discard all
-                        // cached layout data and recompute from scratch
-                        forceReflowFlush();
-                    }
+                    });
                 };
 
-                // On focusout: the keyboard is closing. Wait for the iOS keyboard
-                // slide-down animation (~300ms) then fire the reflow flush inside
-                // a requestAnimationFrame to align with the next paint.
-                // Multiple timers catch both the keyboard dismiss and the delayed
+                // On focusout: the keyboard is closing. Fire multiple resets to
+                // catch both the initial keyboard dismiss and the delayed
                 // accessory bar removal (two-stage dismiss on iOS 26+).
                 document.addEventListener('focusout', (e) => {
                     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
-                        // Immediate scroll reset
-                        setTimeout(resetScrollIfNeeded, 50);
-                        // Post-keyboard-animation reflow flush
+                        // Immediate: catch fast dismissals
+                        setTimeout(resetViewportAfterKeyboard, 50);
+                        // Post-animation: keyboard slide-down completes (~300ms)
                         setTimeout(() => {
-                            requestAnimationFrame(() => {
-                                resetScrollIfNeeded();
-                            });
+                            requestAnimationFrame(resetViewportAfterKeyboard);
                         }, 300);
-                        // Catch the delayed accessory bar removal
+                        // Late: catch delayed accessory bar removal
                         setTimeout(() => {
-                            requestAnimationFrame(() => {
-                                resetScrollIfNeeded();
-                            });
+                            requestAnimationFrame(resetViewportAfterKeyboard);
                         }, 600);
                     }
                 });
 
-                // Also reset on any viewport resize when no input is focused
+                // Continuously sync on viewport resize events (catches all
+                // keyboard transitions and orientation changes)
                 if (window.visualViewport) {
                     window.visualViewport.addEventListener('resize', () => {
-                        setTimeout(resetScrollIfNeeded, 50);
+                        setTimeout(resetViewportAfterKeyboard, 50);
+                    });
+                    window.visualViewport.addEventListener('scroll', () => {
+                        setTimeout(resetViewportAfterKeyboard, 50);
                     });
                 }
 

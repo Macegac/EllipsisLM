@@ -30,7 +30,7 @@
         content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://esm.run https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*; connect-src 'self' https://* http://localhost:* http://127.0.0.1:*;">
     <meta charset="UTF-8">
     <!-- Updated Viewport for Notch Support -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
 
     <!-- PWA and iOS Home Screen Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -28190,16 +28190,37 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
 
                 // ====================================================================
-                // iOS Keyboard Dismiss — Minimal Safety Net
-                // scrollTo(0,0) on focusout as a best-effort reset.
+                // iOS Keyboard Fix (Standalone PWA)
+                //
+                // Problem 1 (keyboard OPEN): iOS scrolls the entire webview up
+                //   to reveal the focused input, but massively overshoots.
+                //   Fix: interactive-widget=resizes-content in the viewport meta
+                //   tells iOS to RESIZE the viewport instead of scrolling. The
+                //   focusin handler is a safety net that undoes any residual scroll.
+                //
+                // Problem 2 (keyboard DISMISS): iOS doesn't fully restore the
+                //   webview scroll position, leaving a ~24px gap at the bottom.
+                //   Fix: scrollTo(0,0) on focusout resets the scroll.
                 // ====================================================================
+                const _iosScrollReset = () => {
+                    window.scrollTo(0, 0);
+                    document.body.scrollTop = 0;
+                    document.documentElement.scrollTop = 0;
+                };
+
+                // Keyboard OPEN: undo the native scroll overshoot
+                document.addEventListener('focusin', (e) => {
+                    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
+                        setTimeout(_iosScrollReset, 50);
+                        setTimeout(_iosScrollReset, 300);
+                    }
+                });
+
+                // Keyboard DISMISS: clear the residual gap
                 document.addEventListener('focusout', (e) => {
                     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
-                        setTimeout(() => {
-                            window.scrollTo(0, 0);
-                            document.body.scrollTop = 0;
-                            document.documentElement.scrollTop = 0;
-                        }, 100);
+                        setTimeout(_iosScrollReset, 100);
+                        setTimeout(_iosScrollReset, 350);
                     }
                 });
 

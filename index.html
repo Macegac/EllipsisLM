@@ -158,20 +158,14 @@
 
         html,
         body {
-            /* position:fixed + inset:0 anchors the layout to the viewport edges.
-               This is the critical iOS keyboard gap fix — when iOS dismisses the
-               keyboard, it sometimes fails to scroll the webview back down,
-               leaving a ~24px gap. Fixed positioning makes this impossible
-               because the elements are physically locked to top:0/bottom:0
-               of the viewport at all times.
-               Combined with interactive-widget=resizes-content in the viewport
-               meta tag, the viewport RESIZES (rather than scrolling) when the
-               keyboard appears, so the flexbox layout adapts naturally. */
-            position: fixed;
-            inset: 0;
+            height: 100%;
+            height: 100dvh;
+            width: 100%;
             overflow: hidden;
             margin: 0;
             padding: 0;
+            /* Force hidden-x to prevent any sub-pixel rounding scroll */
+            overflow-x: hidden;
         }
 
         /* Mobile specific image and scroll fixes */
@@ -28196,34 +28190,70 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 window.addEventListener('resize', debounce(() => this.updateLayout(), 100));
 
                 // ====================================================================
-                // iOS Keyboard Dismiss — Safety Net
+                // iOS Keyboard Dismiss Fix
                 //
-                // The primary fix is CSS: html/body use position:fixed + inset:0,
-                // which physically anchors the layout to the viewport edges and
-                // prevents iOS from leaving a gap when the keyboard closes.
+                // iOS 26+ shifts the webview up when the keyboard opens. On
+                // dismiss, it often fails to scroll the webview back down,
+                // leaving a ~24px blank gap at the bottom.
                 //
-                // The viewport meta tag includes interactive-widget=resizes-content,
-                // which tells WebKit to resize the layout viewport (not just the
-                // visual viewport) when the keyboard appears/disappears.
+                // Root cause: with overflow:hidden on html/body, scrollTo(0,0)
+                // is a no-op — the browser thinks there's nothing to scroll,
+                // even though the native webview IS scrolled. The fix is to
+                // temporarily REMOVE overflow:hidden so scrollTo can actually
+                // reach the webview-level scroll position, then re-lock it.
                 //
-                // This JS listener is a lightweight safety net that resets any
-                // residual scroll offset and ensures the visual viewport is synced.
+                // Additionally, we dispatch a synthetic resize event to trigger
+                // Safari's internal viewport recalculation and toggle the
+                // viewport meta tag to force WebKit to re-evaluate safe areas.
                 // ====================================================================
+                const resetIOSViewport = () => {
+                    const active = document.activeElement;
+                    const isInputFocused = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
+                    if (isInputFocused) return;
+
+                    const html = document.documentElement;
+                    const body = document.body;
+
+                    // Step 1: Temporarily unlock overflow so scrollTo is not a no-op
+                    html.style.overflow = 'auto';
+                    body.style.overflow = 'auto';
+
+                    // Step 2: Reset all scroll positions while overflow is unlocked
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                    html.scrollTop = 0;
+                    body.scrollTop = 0;
+
+                    // Step 3: Force synchronous layout recalculation
+                    void body.offsetHeight;
+
+                    // Step 4: Re-lock overflow to prevent future scrolling
+                    html.style.overflow = 'hidden';
+                    body.style.overflow = 'hidden';
+
+                    // Step 5: Dispatch synthetic resize to trigger Safari's
+                    // internal viewport recalculation
+                    window.dispatchEvent(new Event('resize'));
+                };
+
                 document.addEventListener('focusout', (e) => {
                     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT')) {
-                        const resetScroll = () => {
-                            const active = document.activeElement;
-                            const isInputFocused = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT');
-                            if (isInputFocused) return;
-
-                            window.scrollTo(0, 0);
-                            document.body.scrollTop = 0;
-                            document.documentElement.scrollTop = 0;
-                        };
-                        setTimeout(resetScroll, 50);
-                        setTimeout(resetScroll, 300);
+                        // Immediate attempt
+                        setTimeout(resetIOSViewport, 50);
+                        // Post keyboard-animation (~300ms slide-down)
+                        setTimeout(resetIOSViewport, 350);
+                        // Late catch for accessory bar removal
+                        setTimeout(resetIOSViewport, 700);
                     }
                 });
+
+                // Also catch viewport resize events (orientation change, keyboard)
+                if (window.visualViewport) {
+                    let vvTimer = null;
+                    window.visualViewport.addEventListener('resize', () => {
+                        clearTimeout(vvTimer);
+                        vvTimer = setTimeout(resetIOSViewport, 100);
+                    });
+                }
 
                 // Update: Use LibraryController for title renaming
                 const titleInputHandler = (e) => {

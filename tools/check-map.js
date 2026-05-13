@@ -7,9 +7,14 @@
 // on every CI run.
 //
 // Usage:
-//   node tools/check-map.js          check; exit non-zero on drift
-//   node tools/check-map.js --fix    insert TODO markers above any binding
-//                                    that is missing one, then exit 0
+//   node tools/check-map.js           check index.html; exit non-zero on drift
+//   node tools/check-map.js --fix     insert TODO markers above any binding
+//                                     that is missing one, then exit 0
+//   node tools/check-map.js --stdin   check source read from stdin (used by
+//                                     the pre-commit hook to check the
+//                                     staged blob without touching the
+//                                     working tree); --fix is rejected here
+//                                     since stdin has no path to rewrite
 
 const fs = require('fs');
 const path = require('path');
@@ -123,10 +128,23 @@ function fix(source, missing) {
     let out = source;
     for (const b of [...byOffset.values()].sort((a, b) => b.absStart - a.absStart)) {
         const lineStart = out.lastIndexOf('\n', b.absStart - 1) + 1;
-        const indent = out.slice(lineStart, b.absStart).match(/^\s*/)[0];
+        const prefix = out.slice(lineStart, b.absStart);
         const marker = `[SEC:JS:TODO:${b.name}]`;
-        const insertion = `${indent}/* ${marker} -- recategorize and add to the TECHNICAL MAP at the top of the file. */${eol}`;
-        out = out.slice(0, lineStart) + insertion + out.slice(lineStart);
+        // Normal case: the binding sits on its own line, preceded only by
+        // whitespace. Use that indentation and insert above the line.
+        // Edge case: the binding shares a line with the <script> open tag
+        // or with a preceding statement (e.g. `<script>const X = 1;` or
+        // `foo();const X = 1;`). lineStart would be 0 / mid-statement and
+        // naive insertion would drop a /* ... */ comment outside the
+        // script block — visible as page text. Detect that and instead
+        // insert immediately before the binding with explicit newlines.
+        if (/^\s*$/.test(prefix)) {
+            const insertion = `${prefix}/* ${marker} -- recategorize and add to the TECHNICAL MAP at the top of the file. */${eol}`;
+            out = out.slice(0, lineStart) + insertion + out.slice(lineStart);
+        } else {
+            const insertion = `${eol}/* ${marker} -- recategorize and add to the TECHNICAL MAP at the top of the file. */${eol}`;
+            out = out.slice(0, b.absStart) + insertion + out.slice(b.absStart);
+        }
     }
     return out;
 }
@@ -137,7 +155,14 @@ module.exports = { analyze, fix, MARKER_RE, LOOKBACK_BYTES };
 if (require.main === module) {
     const SRC = path.resolve(__dirname, '..', 'index.html');
     const FIX = process.argv.includes('--fix');
-    const source = fs.readFileSync(SRC, 'utf8');
+    const STDIN = process.argv.includes('--stdin');
+    if (FIX && STDIN) {
+        console.error('check-map: --fix and --stdin are mutually exclusive (stdin has no path to write back to).');
+        process.exit(2);
+    }
+    const source = STDIN
+        ? fs.readFileSync(0, 'utf8')   // fd 0 = stdin
+        : fs.readFileSync(SRC, 'utf8');
 
     let result;
     try {
@@ -147,6 +172,17 @@ if (require.main === module) {
         process.exit(2);
     }
     const { bindings, missing } = result;
+
+    // --stdin guard: if the input parsed cleanly but contains zero top-level
+    // bindings, the upstream pipeline almost certainly fed us empty input
+    // (e.g. `git show :index.html` failed silently — sh has no pipefail).
+    // Without this, the hook would let a "0 bindings, 0 missing" result
+    // through and bypass enforcement. The real index.html has 32 bindings,
+    // so zero is a reliable corruption signal in --stdin mode.
+    if (STDIN && bindings.length === 0) {
+        console.error('check-map: --stdin received input with zero top-level bindings; refusing to certify (likely an empty pipe from git show or similar).');
+        process.exit(2);
+    }
 
     console.log(`Bindings: ${bindings.length}  |  with marker: ${bindings.length - missing.length}  |  missing: ${missing.length}`);
     if (missing.length) {

@@ -9,7 +9,11 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { analyze, fix } = require('./check-map.js');
+
+const CLI = path.join(__dirname, 'check-map.js');
 
 // ── analyze: marker scoping ─────────────────────────────────────────────
 
@@ -255,4 +259,63 @@ import defaultThing from './y.js';
     const { bindings, missing } = analyze(html);
     assert.equal(bindings.length, 0);
     assert.equal(missing.length, 0);
+});
+
+// ── fix: same-line / inline-script edge cases ───────────────────────────
+
+test('fix: same-line <script>const X = 1;</script> inserts inside the script, not before <html>', () => {
+    // Previously the lineStart calculation found no preceding newline and
+    // landed at offset 0, prepending the comment ABOVE the <html> tag —
+    // visible as page text and leaving the marker outside its <script>
+    // scope, so analyze re-runs would still see the binding as orphaned
+    // (until the marker happened to fall inside the lookback window).
+    const html = '<html><script>const X = 1;</script></html>';
+    const out = fix(html, analyze(html).missing);
+    // The marker must be inside the <script> block, before `const X`.
+    assert.match(out, /<script>[\s\S]*\[SEC:JS:TODO:X\][\s\S]*const X/);
+    // And no comment should appear outside the <script>...</script> pair.
+    const beforeScript = out.slice(0, out.indexOf('<script>'));
+    assert.ok(!/\[SEC:/.test(beforeScript), 'no SEC marker before <html><script>');
+    // The fixed source must analyze clean.
+    assert.equal(analyze(out).missing.length, 0);
+});
+
+test('fix: binding sharing a line with a prior statement still gets a marker on its own line', () => {
+    // `foo();const X = 1;` — X's lineStart is right after the script open,
+    // not the start of `const`. Insertion should land in front of `const`
+    // with a fresh line, not stomp the foo() call.
+    const html = '<html><script>\nfoo();const X = 1;\n</script></html>';
+    const out = fix(html, analyze(html).missing);
+    assert.match(out, /foo\(\);/);
+    assert.match(out, /\[SEC:JS:TODO:X\][\s\S]*const X/);
+    assert.equal(analyze(out).missing.length, 0);
+});
+
+// ── CLI: --stdin guard ──────────────────────────────────────────────────
+
+test('CLI: --stdin with empty input exits 2 (catches silent pipe failure)', () => {
+    // The pre-commit hook pipes `git show :index.html | check-map.js --stdin`.
+    // Plain sh has no pipefail, so a failed `git show` produces empty stdin
+    // and check-map would otherwise see "0 bindings, 0 missing" and exit 0,
+    // silently bypassing enforcement. Refuse zero-binding stdin to close it.
+    const res = spawnSync(process.execPath, [CLI, '--stdin'], { input: '', encoding: 'utf8' });
+    assert.equal(res.status, 2, `expected exit 2 on empty stdin, got ${res.status}`);
+    assert.match(res.stderr, /zero top-level bindings/i);
+});
+
+test('CLI: --stdin with valid covered input exits 0', () => {
+    const html = `<html><script>
+/* [SEC:JS:UTIL:FOO] */
+const foo = 1;
+</script></html>`;
+    const res = spawnSync(process.execPath, [CLI, '--stdin'], { input: html, encoding: 'utf8' });
+    assert.equal(res.status, 0);
+});
+
+test('CLI: --stdin with missing-marker input exits 1', () => {
+    const html = `<html><script>
+const foo = 1;
+</script></html>`;
+    const res = spawnSync(process.execPath, [CLI, '--stdin'], { input: html, encoding: 'utf8' });
+    assert.equal(res.status, 1);
 });

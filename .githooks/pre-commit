@@ -22,19 +22,37 @@ git diff --cached --diff-filter=ACMR --name-only | grep -q '^index\.html$' || ex
 # `git add -p` or staged only some hunks). Auto-fix would write to the
 # working tree and then `git add index.html` would sweep all the unstaged
 # hunks into the commit too. Refuse to auto-fix in that case; just check
-# the staged blob and fail with a helpful message if it's missing markers.
+# the staged blob. Branch on the exit code so the message matches the
+# actual cause: 1 = marker drift, anything else = tool/parser failure.
 if ! git diff --quiet -- index.html; then
-    if ! git show :index.html | node tools/check-map.js --stdin; then
-        echo ""
-        echo "index.html has both staged AND unstaged changes; section-map"
-        echo "auto-fix is disabled here to avoid pulling unstaged hunks"
-        echo "into the commit. Either:"
-        echo "  - stage index.html fully (git add index.html) and recommit, or"
-        echo "  - run 'node tools/check-map.js --fix' yourself, then"
-        echo "    'git add -p' the new marker line(s) and recommit."
-        exit 1
-    fi
-    exit 0
+    set +e
+    git show :index.html | node tools/check-map.js --stdin
+    rc=$?
+    set -e
+    case "$rc" in
+        0)
+            exit 0
+            ;;
+        1)
+            echo ""
+            echo "index.html has both staged AND unstaged changes, and the"
+            echo "staged blob is missing one or more [SEC:...] markers."
+            echo "Auto-fix is disabled here to avoid pulling unstaged hunks"
+            echo "into the commit. Either:"
+            echo "  - stage index.html fully (git add index.html) and recommit, or"
+            echo "  - run 'node tools/check-map.js --fix' yourself, then"
+            echo "    'git add -p' the new marker line(s) and recommit."
+            exit 1
+            ;;
+        *)
+            echo ""
+            echo "check-map.js failed (exit $rc) while inspecting the staged"
+            echo "blob of index.html. This is a tool failure (acorn parse"
+            echo "error, missing dependency, empty pipe from git show, etc.),"
+            echo "not marker drift. Investigate before retrying the commit."
+            exit 1
+            ;;
+    esac
 fi
 
 # Clean case: working tree matches the index. Safe to --fix and re-stage.

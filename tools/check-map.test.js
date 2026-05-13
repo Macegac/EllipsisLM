@@ -1,0 +1,258 @@
+// Tests for tools/check-map.js. Run via `node tools/check-map.test.js`,
+// chained from `npm test`.
+//
+// Mirrors test.js's discipline: red-then-green. The "marker bleed" case
+// here was a real bug — adjacent bindings could share one marker because
+// the lookback window wasn't bounded by the previous top-level statement.
+
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const { analyze, fix } = require('./check-map.js');
+
+// ── analyze: marker scoping ─────────────────────────────────────────────
+
+test('analyze: each binding gets its own marker when present', () => {
+    const html = `<html><script>
+/* [SEC:JS:UTIL:FOO] */
+const foo = 1;
+/* [SEC:JS:UTIL:BAR] */
+const bar = 2;
+</script></html>`;
+    const { bindings, missing } = analyze(html);
+    assert.equal(bindings.length, 2);
+    assert.equal(missing.length, 0);
+    assert.equal(bindings[0].marker, '[SEC:JS:UTIL:FOO]');
+    assert.equal(bindings[1].marker, '[SEC:JS:UTIL:BAR]');
+});
+
+test('analyze: a marker on binding A does NOT bleed to adjacent binding B', () => {
+    // The whole point of the check: a brand-new top-level binding inserted
+    // next to an existing one should be flagged, not silently inherit.
+    const html = `<html><script>
+/* [SEC:JS:UTIL:FOO] */
+const foo = 1;
+const bar = 2;
+</script></html>`;
+    const { missing } = analyze(html);
+    assert.equal(missing.length, 1);
+    assert.equal(missing[0].name, 'bar');
+});
+
+test('analyze: HTML comment marker before <script> labels the FIRST binding', () => {
+    // Maintainer's pattern: <!-- [SEC:JS:CORE] -->\n<script> labels the
+    // section. The first binding inside the script may legitimately rely
+    // on that outside-the-tag marker.
+    const html = `<html>
+<!-- [SEC:JS:CORE] -->
+<script>
+const APP_VERSION = "1.0";
+</script></html>`;
+    const { missing } = analyze(html);
+    assert.equal(missing.length, 0);
+});
+
+test('analyze: HTML comment marker before <script> does NOT label the second binding', () => {
+    // Same pattern, but a second binding is added — it must not silently
+    // inherit the section header marker. Otherwise drift sneaks in.
+    const html = `<html>
+<!-- [SEC:JS:CORE] -->
+<script>
+const APP_VERSION = "1.0";
+const SECRET_FLAG = true;
+</script></html>`;
+    const { missing } = analyze(html);
+    assert.equal(missing.length, 1);
+    assert.equal(missing[0].name, 'SECRET_FLAG');
+});
+
+test('analyze: <script src=...> external scripts are skipped', () => {
+    const html = `<html>
+<script src="vendor.js"></script>
+<script>
+/* [SEC:JS:CORE] */
+const x = 1;
+</script></html>`;
+    const { bindings } = analyze(html);
+    assert.equal(bindings.length, 1);
+    assert.equal(bindings[0].name, 'x');
+});
+
+test('analyze: function and class declarations are detected, not just var/let/const', () => {
+    const html = `<html><script>
+/* [SEC:JS:UTIL:F] */
+function f() { return 1; }
+/* [SEC:JS:UTIL:C] */
+class C { method() {} }
+</script></html>`;
+    const { bindings, missing } = analyze(html);
+    assert.equal(bindings.length, 2);
+    assert.equal(missing.length, 0);
+    assert.equal(bindings[0].name, 'f');
+    assert.equal(bindings[1].name, 'C');
+});
+
+test('analyze: top-level non-binding statements are ignored', () => {
+    // ExpressionStatements, IfStatements, etc. are not bindings — the
+    // check is about declared identifiers, not arbitrary code.
+    const html = `<html><script>
+window.foo = 1;
+if (true) { console.log('ok'); }
+/* [SEC:JS:UTIL:BAR] */
+const bar = 2;
+</script></html>`;
+    const { bindings } = analyze(html);
+    assert.equal(bindings.length, 1);
+    assert.equal(bindings[0].name, 'bar');
+});
+
+test('analyze: marker scope persists across <script> blocks (no cross-block bleed)', () => {
+    // Two adjacent script blocks. The first declares `foo` (with marker).
+    // The second declares `bar` with no marker of its own. `bar` must NOT
+    // inherit foo's marker just because the second script's top-level body
+    // starts fresh.
+    const html = `<html><script>
+/* [SEC:JS:UTIL:FOO] */
+const foo = 1;
+</script>
+<script>
+const bar = 2;
+</script></html>`;
+    const { missing } = analyze(html);
+    assert.equal(missing.length, 1);
+    assert.equal(missing[0].name, 'bar');
+});
+
+test('analyze: bindings inside an IIFE are nested, not top-level — skipped', () => {
+    // The first inline script in index.html wraps most of its logic in
+    // (function initElectronKoboldUI() { ... })(); — those nested decls
+    // are not top-level relative to the script body.
+    const html = `<html><script>
+(function init() {
+    let nested = 1;
+    function alsoNested() {}
+})();
+/* [SEC:JS:UTIL:OUTER] */
+const outer = 2;
+</script></html>`;
+    const { bindings } = analyze(html);
+    assert.equal(bindings.length, 1);
+    assert.equal(bindings[0].name, 'outer');
+});
+
+// ── fix: placeholder insertion ──────────────────────────────────────────
+
+test('fix: inserts [SEC:JS:TODO:<Name>] above each missing binding', () => {
+    const html = `<html><script>
+const foo = 1;
+const bar = 2;
+</script></html>`;
+    const { missing } = analyze(html);
+    const out = fix(html, missing);
+    // Both bindings now have a TODO marker above them.
+    assert.match(out, /\[SEC:JS:TODO:foo\][^\n]*\nconst foo/);
+    assert.match(out, /\[SEC:JS:TODO:bar\][^\n]*\nconst bar/);
+    // After fixing, analyze sees zero missing.
+    assert.equal(analyze(out).missing.length, 0);
+});
+
+test('fix: preserves indentation of the binding line', () => {
+    const html = `<html><script>
+        const foo = 1;
+</script></html>`;
+    const { missing } = analyze(html);
+    const out = fix(html, missing);
+    // Inserted comment carries the same 8-space indent as `        const foo`.
+    assert.match(out, /\n        \/\* \[SEC:JS:TODO:foo\][^\n]*\*\/\n        const foo/);
+});
+
+test('fix: applying twice is idempotent — no duplicate markers', () => {
+    const html = `<html><script>
+const foo = 1;
+</script></html>`;
+    const once = fix(html, analyze(html).missing);
+    const twice = fix(once, analyze(once).missing);
+    assert.equal(once, twice);
+});
+
+test('fix: matches the source\'s line endings (CRLF stays CRLF)', () => {
+    // index.html is CRLF; --fix used to insert plain \n lines, leaving the
+    // shipped artifact with mixed endings. Now it should match the host.
+    const html = '<html><script>\r\nconst foo = 1;\r\n</script></html>';
+    const out = fix(html, analyze(html).missing);
+    const bareLF = (out.match(/(?<!\r)\n/g) || []).length;
+    assert.equal(bareLF, 0, 'no bare LF lines should be introduced into a CRLF file');
+});
+
+test('fix: matches the source\'s line endings (LF stays LF)', () => {
+    const html = '<html><script>\nconst foo = 1;\n</script></html>';
+    const out = fix(html, analyze(html).missing);
+    const crlf = (out.match(/\r\n/g) || []).length;
+    assert.equal(crlf, 0, 'no CRLF should be introduced into an LF file');
+});
+
+// ── multi-declarator + module sourceType ────────────────────────────────
+
+test('analyze: multi-declarator records every declarator under the shared marker', () => {
+    // const A = 1, B = 2 introduces both A and B as top-level bindings.
+    // The marker above the const line covers both — they share absStart
+    // and scopeStart, so they share the same nearest preceding marker.
+    const html = `<html><script>
+/* [SEC:JS:UTIL:AB] */
+const A = 1, B = 2;
+</script></html>`;
+    const { bindings, missing } = analyze(html);
+    assert.equal(bindings.length, 2);
+    assert.deepEqual(bindings.map(b => b.name), ['A', 'B']);
+    assert.equal(missing.length, 0);
+    assert.equal(bindings[0].marker, '[SEC:JS:UTIL:AB]');
+    assert.equal(bindings[1].marker, '[SEC:JS:UTIL:AB]');
+});
+
+test('analyze: multi-declarator without a marker reports every declarator missing', () => {
+    const html = `<html><script>
+const A = 1, B = 2;
+</script></html>`;
+    const { missing } = analyze(html);
+    assert.equal(missing.length, 2);
+    assert.deepEqual(missing.map(m => m.name), ['A', 'B']);
+});
+
+test('fix: multi-declarator statement gets one marker, not one per declarator', () => {
+    const html = `<html><script>
+const A = 1, B = 2;
+</script></html>`;
+    const out = fix(html, analyze(html).missing);
+    const inserted = (out.match(/\[SEC:JS:TODO:/g) || []).length;
+    assert.equal(inserted, 1, 'one statement should yield one marker');
+    assert.equal(analyze(out).missing.length, 0);
+});
+
+test('analyze: <script type="module"> parses with module sourceType', () => {
+    // Without sourceType:'module' acorn throws on top-level `import`.
+    // The check should detect the type attribute and parse accordingly.
+    const html = `<html><script type="module">
+import { x } from './x.js';
+/* [SEC:JS:UTIL:FOO] */
+const foo = 1;
+</script></html>`;
+    const { bindings, missing } = analyze(html);
+    assert.equal(bindings.length, 1);
+    assert.equal(bindings[0].name, 'foo');
+    assert.equal(missing.length, 0);
+});
+
+test('analyze: <script type="module"> imports are not treated as bindings', () => {
+    // ImportDeclaration is a top-level statement but does not introduce a
+    // local const/let/var/function/class, so it should not require its
+    // own [SEC:...] marker. The maintainer's convention puts markers on
+    // local declarations, not on imports.
+    const html = `<html><script type="module">
+import { x, y } from './x.js';
+import defaultThing from './y.js';
+</script></html>`;
+    const { bindings, missing } = analyze(html);
+    assert.equal(bindings.length, 0);
+    assert.equal(missing.length, 0);
+});

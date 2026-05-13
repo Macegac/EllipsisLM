@@ -1,0 +1,22 @@
+#!/bin/sh
+# Section-map enforcement on commit. Any new top-level binding in
+# index.html that lacks a [SEC:...] marker gets a [SEC:JS:TODO:<Name>]
+# placeholder inserted directly above it; the placeholder is then re-
+# staged so it lands in this commit. Recategorize the TODO later
+# (JS:SRV:* / JS:UTIL:* / JS:CTRL:* / JS:STATE:* / etc.) and add the
+# new ID to the TECHNICAL MAP at the top of index.html.
+#
+# Activation: `git config core.hooksPath .githooks` (done automatically
+# by the `prepare` script in package.json the next time you run
+# `npm install`).
+
+set -e
+
+# Only run if index.html is staged for commit.
+git diff --cached --name-only | grep -q '^index\.html$' || exit 0
+
+node tools/check-map.js --fix
+
+# If --fix changed the working tree, stage the change so it goes in the
+# commit. No-op if nothing changed.
+git add index.html

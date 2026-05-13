@@ -12,6 +12,17 @@
 
 set -e
 
+# Precheck: tools/check-map.js must be loadable. If it's missing, has a
+# syntax error, or its dependencies aren't installed, node would exit 1
+# from `require` failure — indistinguishable from check-map's own drift
+# exit code 1 — and the partial-stage case statement below would print
+# the wrong message. Fail loudly here instead.
+if ! node -e "require('./tools/check-map.js')" 2>/dev/null; then
+    echo "tools/check-map.js can't be loaded (missing file, syntax error,"
+    echo "or missing dependency). Run \`npm install\` and try again."
+    exit 1
+fi
+
 # Only run if index.html has a staged add/copy/modify/rename. The
 # --diff-filter=ACMR excludes 'D' so we don't try to --fix a file that's
 # being deleted (it's gone from the working tree and readFileSync would

@@ -26,6 +26,42 @@ const acorn = require('acorn');
 const MARKER_RE = /\[SEC:[A-Za-z][A-Za-z0-9_:]*\]/g;
 const LOOKBACK_BYTES = 600; // ~15 lines of indented JSDoc/HTML comments
 
+// Parse the TECHNICAL MAP comment block at the top of index.html. Returns
+// the set of [SEC:...] IDs listed there and the byte offset where new
+// entries should be inserted (just before the closing `===` separator).
+// Returns null if no MAP block is present (e.g. small test fixtures) — in
+// which case MAP coverage is not enforced.
+function parseMapBlock(source) {
+    const blockMatch = source.match(/<!--[\s\S]*?TECHNICAL MAP[\s\S]*?-->/);
+    if (!blockMatch) return null;
+    const blockText = blockMatch[0];
+    const blockStart = blockMatch.index;
+
+    const markers = new Set();
+    let m;
+    const re = new RegExp(MARKER_RE.source, 'g');
+    while ((m = re.exec(blockText)) !== null) markers.add(m[0]);
+
+    // The closing separator is the LAST `===…===` line in the block,
+    // immediately followed by `-->`. Insert new entries on the line just
+    // before it. Capture the leading newline so we know where the entry
+    // line should start.
+    const sepMatch = blockText.match(/(\n)(\s*={5,}\s*\n\s*-->)/);
+    if (!sepMatch) return { markers, insertOffset: null };
+    const insertOffset = blockStart + sepMatch.index + sepMatch[1].length;
+
+    return { markers, insertOffset };
+}
+
+// Format a TECHNICAL MAP entry line. Mirrors the maintainer's existing
+// indentation (4-space lead, marker padded to width 24, ` - description`).
+// Falls back to a single space when the marker itself is wider than 24
+// (true of the long [SEC:JS:TODO:NarrativeController] placeholders).
+function mapEntryLine(marker, description) {
+    const pad = Math.max(1, 24 - marker.length);
+    return `    ${marker}${' '.repeat(pad)}- ${description}`;
+}
+
 // Walk every top-level binding in every inline <script> block and tag each
 // with the nearest preceding [SEC:...] marker, scoped so a single marker
 // can only be claimed by one binding (the next one after it). Returns
@@ -103,13 +139,30 @@ function analyze(source) {
         return ms.length ? ms[ms.length - 1][0] : null;
     }
 
-    const tagged = bindings.map(b => ({
-        name: b.name,
-        absStart: b.absStart,
-        line: lineOf(b.absStart),
-        marker: nearestMarkerBefore(b.absStart, b.scopeStart),
-    }));
-    return { bindings: tagged, missing: tagged.filter(b => !b.marker) };
+    // 4. MAP coverage: every binding's inline marker must also appear in
+    //    the TECHNICAL MAP at the top of the file. The maintainer's whole
+    //    argument for the inline-marker scheme is "the map at the front of
+    //    the file is what does the navigating," so an inline marker that
+    //    doesn't show up in the map defeats the purpose. If there's no
+    //    MAP block at all (small test fixtures), skip this enforcement.
+    const mapInfo = parseMapBlock(source);
+    const mapMarkers = mapInfo ? mapInfo.markers : null;
+
+    const tagged = bindings.map(b => {
+        const marker = nearestMarkerBefore(b.absStart, b.scopeStart);
+        return {
+            name: b.name,
+            absStart: b.absStart,
+            line: lineOf(b.absStart),
+            marker,
+            inMap: mapMarkers ? (marker !== null && mapMarkers.has(marker)) : true,
+        };
+    });
+    return {
+        bindings: tagged,
+        missing: tagged.filter(b => !b.marker || !b.inMap),
+        mapPresent: mapInfo !== null,
+    };
 }
 
 // Insert a TODO placeholder above each missing binding. Returns the rewritten
@@ -121,10 +174,13 @@ function fix(source, missing) {
     const crlf = (source.match(/\r\n/g) || []).length;
     const lfOnly = (source.match(/(?<!\r)\n/g) || []).length;
     const eol = crlf >= lfOnly ? '\r\n' : '\n';
+
+    // PHASE 1: insert inline markers for bindings missing them.
     // Dedupe by absStart: a multi-declarator statement (const A, B;) gets
     // one marker above the const line, not one per declarator.
+    const needInline = missing.filter(b => !b.marker);
     const byOffset = new Map();
-    for (const b of missing) if (!byOffset.has(b.absStart)) byOffset.set(b.absStart, b);
+    for (const b of needInline) if (!byOffset.has(b.absStart)) byOffset.set(b.absStart, b);
     let out = source;
     for (const b of [...byOffset.values()].sort((a, b) => b.absStart - a.absStart)) {
         const lineStart = out.lastIndexOf('\n', b.absStart - 1) + 1;
@@ -146,10 +202,33 @@ function fix(source, missing) {
             out = out.slice(0, b.absStart) + insertion + out.slice(b.absStart);
         }
     }
+
+    // PHASE 2: append TECHNICAL MAP entries for any binding whose inline
+    // marker isn't in the MAP yet. Re-analyze on the (possibly) modified
+    // source so we see the markers we just inserted in phase 1.
+    const re = analyze(out);
+    if (re.mapPresent) {
+        const mapInfo = parseMapBlock(out);
+        if (mapInfo && mapInfo.insertOffset !== null) {
+            const seen = new Set();
+            const toAdd = [];
+            for (const b of re.bindings) {
+                if (!b.marker || b.inMap) continue;
+                if (seen.has(b.marker)) continue;
+                seen.add(b.marker);
+                toAdd.push({ marker: b.marker, name: b.name });
+            }
+            if (toAdd.length > 0) {
+                const lines = toAdd.map(t => mapEntryLine(t.marker, t.name)).join(eol);
+                out = out.slice(0, mapInfo.insertOffset) + lines + eol + out.slice(mapInfo.insertOffset);
+            }
+        }
+    }
+
     return out;
 }
 
-module.exports = { analyze, fix, MARKER_RE, LOOKBACK_BYTES };
+module.exports = { analyze, fix, parseMapBlock, mapEntryLine, MARKER_RE, LOOKBACK_BYTES };
 
 // CLI entry point.
 if (require.main === module) {
@@ -184,16 +263,26 @@ if (require.main === module) {
         process.exit(2);
     }
 
-    console.log(`Bindings: ${bindings.length}  |  with marker: ${bindings.length - missing.length}  |  missing: ${missing.length}`);
-    if (missing.length) {
-        console.log('\nBindings without a [SEC:...] marker:');
-        for (const b of missing) console.log(`  ${String(b.line).padStart(6)}  ${b.name}`);
+    const noInline = missing.filter(b => !b.marker);
+    const noMap = missing.filter(b => b.marker && !b.inMap);
+    console.log(`Bindings: ${bindings.length}  |  inline missing: ${noInline.length}  |  map missing: ${noMap.length}`);
+    if (noInline.length) {
+        console.log('\nBindings without an inline [SEC:...] marker:');
+        for (const b of noInline) console.log(`  ${String(b.line).padStart(6)}  ${b.name}`);
+    }
+    if (noMap.length) {
+        console.log('\nBindings whose marker is missing from the TECHNICAL MAP block:');
+        for (const b of noMap) console.log(`  ${String(b.line).padStart(6)}  ${b.name}  (${b.marker})`);
     }
 
     if (FIX && missing.length) {
         fs.writeFileSync(SRC, fix(source, missing));
-        console.log(`\n--fix: inserted ${missing.length} placeholder marker(s) of the form [SEC:JS:TODO:<Name>].`);
-        console.log('Recategorize each one (e.g. SRV / UTIL / CTRL / STATE) and add the new ID to the TECHNICAL MAP block at the top of index.html.');
+        const partsFixed = [];
+        if (noInline.length) partsFixed.push(`${noInline.length} inline marker(s)`);
+        if (noMap.length || noInline.length) partsFixed.push('matching TECHNICAL MAP entries');
+        console.log(`\n--fix: inserted ${partsFixed.join(' + ')}.`);
+        console.log('Both the inline marker and the MAP entry use the [SEC:JS:TODO:<Name>] placeholder.');
+        console.log('Recategorize each one (e.g. SRV / UTIL / CTRL / STATE) and rename consistently in both places.');
         process.exit(0);
     }
 

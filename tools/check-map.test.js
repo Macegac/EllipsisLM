@@ -11,7 +11,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
-const { analyze, fix } = require('./check-map.js');
+const { analyze, fix, parseMapBlock, mapEntryLine } = require('./check-map.js');
 
 const CLI = path.join(__dirname, 'check-map.js');
 
@@ -318,4 +318,121 @@ const foo = 1;
 </script></html>`;
     const res = spawnSync(process.execPath, [CLI, '--stdin'], { input: html, encoding: 'utf8' });
     assert.equal(res.status, 1);
+});
+
+// ── TECHNICAL MAP coverage ──────────────────────────────────────────────
+
+// A small fixture that includes a TECHNICAL MAP block in the maintainer's
+// format. The block lists [SEC:JS:UTIL:FOO] but not [SEC:JS:UTIL:BAR].
+const HTML_WITH_MAP = `<!DOCTYPE html>
+<!--
+    =================================================================================================
+    [FILE:TEST] - test fixture
+    =================================================================================================
+    TECHNICAL MAP: Use these unique IDs for instant navigation (Search for the bracketed ID).
+
+    [SEC:JS:UTIL:FOO]       - FooService
+    =================================================================================================
+-->
+<html><script>
+/* [SEC:JS:UTIL:FOO] */
+const foo = 1;
+/* [SEC:JS:UTIL:BAR] */
+const bar = 2;
+</script></html>`;
+
+test('analyze: binding with inline marker but no MAP entry is reported missing', () => {
+    const { bindings, missing } = analyze(HTML_WITH_MAP);
+    assert.equal(bindings.length, 2);
+    // foo has both inline + MAP; bar has inline but no MAP entry
+    assert.equal(bindings[0].inMap, true);
+    assert.equal(bindings[1].inMap, false);
+    assert.equal(missing.length, 1);
+    assert.equal(missing[0].name, 'bar');
+});
+
+test('analyze: MAP enforcement is skipped when no MAP block is present', () => {
+    // Most existing test fixtures lack a MAP block; bindings with an
+    // inline marker should still be considered covered.
+    const html = `<html><script>
+/* [SEC:JS:UTIL:FOO] */
+const foo = 1;
+</script></html>`;
+    const { missing, mapPresent } = analyze(html);
+    assert.equal(mapPresent, false);
+    assert.equal(missing.length, 0);
+});
+
+test('fix: appends MAP entry for an inline marker that\'s missing from MAP', () => {
+    const out = fix(HTML_WITH_MAP, analyze(HTML_WITH_MAP).missing);
+    // The new entry should appear inside the MAP block, before the
+    // closing `===` separator.
+    const mapBlock = out.match(/<!--[\s\S]*?-->/)[0];
+    assert.match(mapBlock, /\[SEC:JS:UTIL:BAR\][\s\S]*bar/);
+    // And the file should re-analyze clean.
+    assert.equal(analyze(out).missing.length, 0);
+});
+
+test('fix: when both inline and MAP missing, both get added in one pass', () => {
+    const html = `<!DOCTYPE html>
+<!--
+    ============
+    TECHNICAL MAP: ids...
+
+    [SEC:JS:UTIL:FOO]       - FooService
+    ============
+-->
+<html><script>
+/* [SEC:JS:UTIL:FOO] */
+const foo = 1;
+const bar = 2;
+</script></html>`;
+    const out = fix(html, analyze(html).missing);
+    // Inline TODO for bar inserted
+    assert.match(out, /\[SEC:JS:TODO:bar\][\s\S]*const bar/);
+    // MAP entry for the same TODO marker added
+    const mapBlock = out.match(/<!--[\s\S]*?-->/)[0];
+    assert.match(mapBlock, /\[SEC:JS:TODO:bar\]\s+- bar/);
+    // Clean on re-analyze
+    assert.equal(analyze(out).missing.length, 0);
+});
+
+test('fix: idempotent on a fully covered file', () => {
+    // Re-running fix on the already-fixed output produces no change.
+    const once = fix(HTML_WITH_MAP, analyze(HTML_WITH_MAP).missing);
+    const twice = fix(once, analyze(once).missing);
+    assert.equal(once, twice);
+});
+
+test('fix: MAP insertion preserves CRLF line endings', () => {
+    const html = HTML_WITH_MAP.replace(/\n/g, '\r\n');
+    const out = fix(html, analyze(html).missing);
+    const bareLF = (out.match(/(?<!\r)\n/g) || []).length;
+    assert.equal(bareLF, 0, 'no bare LF should be introduced into a CRLF source');
+});
+
+test('mapEntryLine: short markers padded to width 24', () => {
+    // Matches the maintainer's existing format: 4-space indent + marker
+    // padded to width 24 + " - " + description.
+    const line = mapEntryLine('[SEC:JS:CTRL:FOO]', 'Foo');
+    assert.equal(line, '    [SEC:JS:CTRL:FOO]       - Foo');
+});
+
+test('mapEntryLine: long markers fall back to single space', () => {
+    // A long [SEC:JS:TODO:LongName] marker can't be padded to width 24;
+    // a single space separates it from the dash.
+    const line = mapEntryLine('[SEC:JS:TODO:LongMarkerName]', 'LongMarkerName');
+    assert.equal(line, '    [SEC:JS:TODO:LongMarkerName] - LongMarkerName');
+});
+
+test('parseMapBlock: returns null when no TECHNICAL MAP block is present', () => {
+    const html = `<html><script>const x = 1;</script></html>`;
+    assert.equal(parseMapBlock(html), null);
+});
+
+test('parseMapBlock: extracts the set of [SEC:...] markers from the block', () => {
+    const info = parseMapBlock(HTML_WITH_MAP);
+    assert.notEqual(info, null);
+    assert.equal(info.markers.has('[SEC:JS:UTIL:FOO]'), true);
+    assert.equal(info.markers.has('[SEC:JS:UTIL:BAR]'), false);
 });

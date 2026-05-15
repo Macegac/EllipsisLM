@@ -20270,16 +20270,58 @@ Write only the descriptive paragraphs.`;
             },
 
             async promptImportLink() {
-                if (!window.electronBridge || !window.electronBridge.app.scrapeUrl) {
-                    alert("This feature is only available in the Desktop App.");
+                const url = prompt("Enter a Chub.ai or FictionLab character URL:");
+                if (!url || !url.trim()) return;
+                const trimmed = url.trim();
+
+                // Chub.ai: fetch V2 PNG card from CDN, fall back to corsproxy.io — works in browser
+                const chubMatch = trimmed.match(/chub\.ai\/characters\/([^?#\s]+)/);
+                if (chubMatch) {
+                    const fullPath = chubMatch[1];
+                    const cdnUrl = `https://avatars.charhub.io/avatars/${fullPath}/chara_card_v2.png`;
+
+                    this.state.isLoading = true;
+                    this.state.searchError = null;
+                    this.renderResults();
+
+                    try {
+                        let blob = null;
+                        try {
+                            const res = await fetch(cdnUrl);
+                            if (res.ok) blob = await res.blob();
+                        } catch (e) { /* fall through to proxy */ }
+
+                        if (!blob) {
+                            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(cdnUrl)}`;
+                            const res = await fetch(proxyUrl);
+                            if (!res.ok) throw new Error(`Could not fetch character card (${res.status})`);
+                            blob = await res.blob();
+                        }
+
+                        const name = fullPath.split('/').pop() || 'Imported Character';
+                        const file = new File([blob], `${name}.png`, { type: 'image/png' });
+                        const { story: newStory, imageBlob } = await ImportExportService.parseUploadedFile(file);
+                        await this._saveImportedStory(newStory, imageBlob);
+
+                    } catch (e) {
+                        console.error('[HubController] Chub link import error:', e);
+                        this.state.searchError = "Import failed: " + e.message;
+                        this.state.results = [];
+                        this.renderResults();
+                    } finally {
+                        this.state.isLoading = false;
+                    }
                     return;
                 }
 
-                const url = prompt("Enter the FictionLab Scenario URL:");
-                if (!url || !url.trim()) return;
+                // FictionLab: desktop only — requires Electron scraper
+                if (!trimmed.includes('fictionlab.ai')) {
+                    alert("Supported sources: chub.ai/characters/... or fictionlab.ai URLs.");
+                    return;
+                }
 
-                if (!url.includes('fictionlab.ai')) {
-                    alert("Currently, only fictionlab.ai URLs are supported for this feature.");
+                if (!window.electronBridge || !window.electronBridge.app.scrapeUrl) {
+                    alert("FictionLab import is only available in the Desktop App.");
                     return;
                 }
 
@@ -20288,7 +20330,7 @@ Write only the descriptive paragraphs.`;
                 this.renderResults();
 
                 try {
-                    const res = await window.electronBridge.app.scrapeUrl(url.trim());
+                    const res = await window.electronBridge.app.scrapeUrl(trimmed);
                     if (!res.success) {
                         throw new Error(res.error || "Scraping failed.");
                     }

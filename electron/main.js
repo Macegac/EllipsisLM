@@ -524,6 +524,69 @@ ipcMain.handle('app:getResourcePath', (_event, filename) => {
 
 ipcMain.handle('app:getVersion', () => app.getVersion());
 
+ipcMain.handle('app:scrapeUrl', async (_event, url) => {
+    return new Promise((resolve) => {
+        let hiddenWindow = new BrowserWindow({
+            show: false,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true
+            }
+        });
+
+        let isResolved = false;
+        const cleanup = () => {
+            if (!hiddenWindow.isDestroyed()) hiddenWindow.close();
+        };
+
+        const checkData = async () => {
+            if (isResolved || hiddenWindow.isDestroyed()) return;
+            try {
+                const nextDataStr = await hiddenWindow.webContents.executeJavaScript(`
+                    (function() {
+                        const script = document.getElementById('__NEXT_DATA__');
+                        if (script) return script.textContent;
+                        return null;
+                    })()
+                `);
+                if (nextDataStr) {
+                    isResolved = true;
+                    try {
+                        const data = JSON.parse(nextDataStr);
+                        resolve({ success: true, data });
+                    } catch (e) {
+                        resolve({ success: false, error: 'Failed to parse JSON data from page.' });
+                    }
+                    cleanup();
+                }
+            } catch (e) {}
+        };
+
+        hiddenWindow.webContents.on('did-finish-load', () => {
+            checkData();
+            setTimeout(checkData, 2000);
+            setTimeout(checkData, 5000);
+            setTimeout(checkData, 8000);
+            
+            // Timeout after 15 seconds
+            setTimeout(() => {
+                if (!isResolved) {
+                    isResolved = true;
+                    resolve({ success: false, error: 'Timeout waiting for page data. Page format may have changed or Cloudflare blocked the request.' });
+                    cleanup();
+                }
+            }, 15000);
+        });
+
+        hiddenWindow.loadURL(url).catch(e => {
+            if (!isResolved) {
+                isResolved = true;
+                resolve({ success: false, error: e.message });
+                cleanup();
+            }
+        });
+    });
+});
 // ============================================================
 // WINDOW CREATION
 // ============================================================

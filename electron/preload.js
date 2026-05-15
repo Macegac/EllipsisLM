@@ -115,6 +115,9 @@ contextBridge.exposeInMainWorld('electronBridge', {
         /** Returns the resolved path to a bundled resource (e.g. koboldcpp.exe). */
         getResourcePath(filename) {
             return ipcRenderer.invoke('app:getResourcePath', filename);
-        }
+        },
+
+        /** Scrape JSON data from a URL using a hidden browser window */
+        scrapeUrl: (url) => ipcRenderer.invoke('app:scrapeUrl', url)
     }
 });

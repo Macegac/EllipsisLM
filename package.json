@@ -6,11 +6,13 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
-    "test": "node test.js",
+    "test": "node test.js && node tools/check-map.test.js",
     "dist": "electron-builder --win --publish never",
-    "dist:mac": "electron-builder --mac --publish never"
+    "dist:mac": "electron-builder --mac --publish never",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
+    "acorn": "^8.15.0",
     "electron": "^30.5.1",
     "electron-builder": "^24.13.3",
     "tailwindcss": "3.4"

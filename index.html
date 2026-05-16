@@ -21,6 +21,24 @@
     [SEC:JS:CTRL:VIS]       - VisualMaster (AI Painter)
     [SEC:JS:CTRL:NAR]       - NarrativeController (Chat Ops)
     [SEC:JS:CTRL:WLD]       - WorldController (Map Ops)
+    [SEC:JS:TODO:downloadedInstallerPath] - downloadedInstallerPath
+    [SEC:JS:TODO:DOM]       - DOM
+    [SEC:JS:TODO:debounce]  - debounce
+    [SEC:JS:TODO:StoryService] - StoryService
+    [SEC:JS:TODO:StateManager] - StateManager
+    [SEC:JS:TODO:APIService] - APIService
+    [SEC:JS:TODO:TTSService] - TTSService
+    [SEC:JS:TODO:MusicService] - MusicService
+    [SEC:JS:TODO:ModalManager] - ModalManager
+    [SEC:JS:TODO:TextFormatter] - TextFormatter
+    [SEC:JS:TODO:ImageProcessor] - ImageProcessor
+    [SEC:JS:TODO:AppController] - AppController
+    [SEC:JS:TODO:StoryGenerationPipeline] - StoryGenerationPipeline
+    [SEC:JS:TODO:InStoryGenerationPipeline] - InStoryGenerationPipeline
+    [SEC:JS:CTRL:SWM]       - SwarmOrchestrator
+    [SEC:JS:TODO:CropController] - CropController
+    [SEC:JS:TODO:ActionDispatcher] - ActionDispatcher
+    [SEC:JS:TODO:app]       - app
     =================================================================================================
 -->
 <html lang="en">
@@ -4781,6 +4799,7 @@
                     };
 
                     // EllipsisLM Application Updater Logic
+                    /* [SEC:JS:TODO:downloadedInstallerPath] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
                     let downloadedInstallerPath = null;
                     window.electronCheckAppUpdate = async function () {
                         if (!window.electronBridge) return;
@@ -5421,6 +5440,7 @@
         /**
          * HTML Sanitizer
          */
+        /* [SEC:JS:TODO:DOM] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const DOM = {
             SafeString: class {
                 constructor(str) { this.str = str; }
@@ -5605,6 +5625,7 @@
         };
 
         // Utility function to prevent a function from being called too frequently.
+        /* [SEC:JS:TODO:debounce] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const debounce = (func, wait) => { let timeout; return function (...args) { const context = this; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), wait); }; };
 
         /**
@@ -6436,6 +6457,7 @@
          * Data Abstraction Layer for managing Stories, Narratives, and their persistence.
          * Handles complex operations like saving state, importing/exporting, and context building.
          */
+        /* [SEC:JS:TODO:StoryService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const StoryService = {
             /**
              * Loads the initial application data (stories, active story/narrative).
@@ -7484,6 +7506,7 @@
          * Centralizes application state management, including the library, global settings, and active narrative.
          * Handles persistence to localStorage and synchronization with DBService.
          */
+        /* [SEC:JS:TODO:StateManager] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const StateManager = {
             data: {
                 library: { active_story_id: null, active_narrative_id: null, stories: [], folders: [], tag_cache: [] },
@@ -7705,6 +7728,7 @@
          * Handles interactions with various AI providers (Gemini, OpenRouter, KoboldCPP, LM Studio).
          * Manages API keys, request formatting, and error handling.
          */
+        /* [SEC:JS:TODO:APIService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const APIService = {
             webllmEngine: null,
             webllmInitProgress: "",
@@ -8467,6 +8491,7 @@
          * Handles Text-to-Speech generation using Gemini's API.
          * Support for multiple voices and audio playback.
          */
+        /* [SEC:JS:TODO:TTSService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const TTSService = {
             CONSTANTS: {
                 VOICES: [
@@ -8721,6 +8746,7 @@
          * Two-phase pipeline: Scene analysis (text LLM) → Music generation (Lyria).
          * Playback via Web Audio API with looping and crossfade support.
          */
+        /* [SEC:JS:TODO:MusicService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const MusicService = {
             CONSTANTS: {
                 MODEL: 'lyria-3-clip-preview',
@@ -9118,6 +9144,7 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
          * Controls the visibility and lifecycle of UI modals.
          * Handles opening, closing, and cleanup (e.g., clearing intervals).
          */
+        /* [SEC:JS:TODO:ModalManager] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const ModalManager = {
             RUNTIME: { carousel_interval: null },
             /**
@@ -11294,6 +11321,7 @@ Write only the character's message.`;
          * Regex-based post-processing for AI responses.
          * Enforces strict compliance with Prose or Roleplay styles.
          */
+        /* [SEC:JS:TODO:TextFormatter] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const TextFormatter = {
             /**
             * Converts text to Prose format (Dialogue in quotes, Action plain).
@@ -11395,6 +11423,7 @@ Write only the character's message.`;
          * Handles image manipulation tasks such as resizing, cropping, and format conversion.
          * Essential for optimizing images before storage or export.
          */
+        /* [SEC:JS:TODO:ImageProcessor] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const ImageProcessor = {
             /**
              * Processes an image file, resizing it if necessary, and returns a Blob.
@@ -17698,6 +17727,7 @@ Write only the character's message.`;
          * Handling Modal orchestration, Settings management, and Persona logic.
          * Acts as the bridge between UI events and the Data/State layers.
          */
+        /* [SEC:JS:TODO:AppController] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const AppController = {
             RUNTIME: {
                 activeSettingsTab: 'appearance',
@@ -19694,6 +19724,7 @@ Write only the character's message.`;
          * Orchestrates the agentic workflow for Story Architect V2.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:StoryGenerationPipeline] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const StoryGenerationPipeline = {
 
             async _callAgent(prompt, retries = 2) {
@@ -19943,6 +19974,7 @@ Write only the character's message.`;
          * Generates differential content (new characters, new lore) to avoid overwriting the foundation.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:InStoryGenerationPipeline] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const InStoryGenerationPipeline = {
 
             async _callAgent(prompt, retries = 2) {
@@ -20265,16 +20297,103 @@ Write only the descriptive paragraphs.`;
             },
 
             async promptImportLink() {
-                if (!window.electronBridge || !window.electronBridge.app.scrapeUrl) {
-                    alert("This feature is only available in the Desktop App.");
+                const url = prompt("Enter a Chub.ai or FictionLab character URL:");
+                if (!url || !url.trim()) return;
+                const trimmed = url.trim();
+
+                // Chub.ai: fetch V2 PNG card from CDN, fall back to corsproxy.io — works in browser
+                const chubMatch = trimmed.match(/chub\.ai\/characters\/([^?#\s]+)/);
+                if (chubMatch) {
+                    const fullPath = chubMatch[1];
+                    const cdnUrl = `https://avatars.charhub.io/avatars/${fullPath}/chara_card_v2.png`;
+
+                    this.state.isLoading = true;
+                    this.state.searchError = null;
+                    this.renderResults();
+
+                    try {
+                        let blob = null;
+                        try {
+                            const res = await fetch(cdnUrl);
+                            if (res.ok) blob = await res.blob();
+                        } catch (e) { /* fall through to proxy */ }
+
+                        if (!blob) {
+                            const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(cdnUrl)}`;
+                            const res = await fetch(proxyUrl);
+                            if (!res.ok) throw new Error(`Could not fetch character card (${res.status})`);
+                            blob = await res.blob();
+                        }
+
+                        const name = fullPath.split('/').pop() || 'Imported Character';
+                        const file = new File([blob], `${name}.png`, { type: 'image/png' });
+                        const { story: newStory, imageBlob } = await ImportExportService.parseUploadedFile(file);
+
+                        // CDN PNG omits alternate_greetings — fetch from API and inject as scenarios
+                        try {
+                            const apiUrl = `https://api.chub.ai/api/characters/${fullPath}?full=true`;
+                            let apiRes = null;
+                            try {
+                                apiRes = await fetch(apiUrl);
+                                if (!apiRes.ok) apiRes = null;
+                            } catch (e) { /* CORS blocked — fall through to proxy */ }
+                            if (!apiRes) {
+                                apiRes = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
+                            }
+                            if (apiRes.ok) {
+                                const apiData = await apiRes.json();
+                                const charData = apiData?.character || apiData?.node?.definition || apiData?.node;
+                                const altGreetings = charData?.alternate_greetings;
+                                if (Array.isArray(altGreetings) && altGreetings.length > 0 && newStory.scenarios?.length > 0) {
+                                    const template = newStory.scenarios[0];
+                                    const charName = newStory.characters?.[0]?.name || '';
+                                    altGreetings.forEach((greeting, i) => {
+                                        const msg = greeting.replace(/\{\{char\}\}/g, charName).replace(/\{\{user\}\}/g, '{user}');
+                                        newStory.scenarios.push({
+                                            ...JSON.parse(JSON.stringify(template)),
+                                            id: crypto.randomUUID(),
+                                            name: `Alternate Start ${i + 1}`,
+                                            message: msg
+                                        });
+                                    });
+                                }
+                            }
+                        } catch (e) { /* API unavailable — proceed with PNG data only */ }
+
+                        await this._saveImportedStory(newStory, imageBlob);
+                        const lib = StateManager.getLibrary();
+                        const idx = lib.stories.findIndex(s => s.id === newStory.id);
+                        if (idx !== -1) lib.stories[idx] = { ...newStory, narratives: lib.stories[idx].narratives };
+                        for (const char of (newStory.characters || [])) {
+                            if (char.image_id && !UIManager.RUNTIME.characterImageCache[char.id]) {
+                                try {
+                                    const b = await DBService.getImage(char.id);
+                                    if (b) UIManager.RUNTIME.characterImageCache[char.id] = URL.createObjectURL(b);
+                                } catch (e) {}
+                            }
+                        }
+                        UIManager.showNotification(`Successfully imported ${newStory.name || name}!`);
+                        await UIManager.openStoryDetails(newStory.id);
+
+                    } catch (e) {
+                        console.error('[HubController] Chub link import error:', e);
+                        this.state.searchError = "Import failed: " + e.message;
+                        this.state.results = [];
+                    } finally {
+                        this.state.isLoading = false;
+                        this.renderResults();
+                    }
                     return;
                 }
 
-                const url = prompt("Enter the FictionLab Scenario URL:");
-                if (!url || !url.trim()) return;
+                // FictionLab: desktop only — requires Electron scraper
+                if (!trimmed.includes('fictionlab.ai')) {
+                    alert("Supported sources: chub.ai/characters/... or fictionlab.ai URLs.");
+                    return;
+                }
 
-                if (!url.includes('fictionlab.ai')) {
-                    alert("Currently, only fictionlab.ai URLs are supported for this feature.");
+                if (!window.electronBridge || !window.electronBridge.app.scrapeUrl) {
+                    alert("FictionLab import is only available in the Desktop App.");
                     return;
                 }
 
@@ -20283,7 +20402,7 @@ Write only the descriptive paragraphs.`;
                 this.renderResults();
 
                 try {
-                    const res = await window.electronBridge.app.scrapeUrl(url.trim());
+                    const res = await window.electronBridge.app.scrapeUrl(trimmed);
                     if (!res.success) {
                         throw new Error(res.error || "Scraping failed.");
                     }
@@ -20711,12 +20830,12 @@ Write only the descriptive paragraphs.`;
                     await DBService.saveNarrative(n);
                 }
 
-                // Save image if provided (for Chub V2 PNG cards)
-                if (imageBlob && newStory.characters?.[0]) {
+                // Save image if provided (for Chub V2 PNG cards) — assign to AI char, not user
+                const imageTarget = newStory.characters?.find(c => !c.is_user) || newStory.characters?.[0];
+                if (imageBlob && imageTarget) {
                     try {
-                        const charId = newStory.characters[0].id;
-                        await DBService.saveImage(charId, imageBlob);
-                        newStory.characters[0].image_id = charId;
+                        await DBService.saveImage(imageTarget.id, imageBlob);
+                        imageTarget.image_id = imageTarget.id;
                         await DBService.saveStory(newStory);
                     } catch (e) { console.warn('[HubController] Image save failed:', e); }
                 }
@@ -28145,6 +28264,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * CropController Module
          * Handles image cropping interface.
          */
+        /* [SEC:JS:TODO:CropController] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const CropController = {
             RUNTIME: {
                 file: null, img: null, scale: 1, posX: 0, posY: 0,
@@ -29571,6 +29691,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * The "Glue" that connects UI Events (ActionHandler) to the specific Controllers.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:ActionDispatcher] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const ActionDispatcher = {
             /**
              * Initializes the ActionDispatcher.
@@ -29768,6 +29889,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * app Module
          * The Application Initializer.
          */
+        /* [SEC:JS:TODO:app] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const app = {
             /**
              * Initializes the application.

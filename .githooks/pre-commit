@@ -1,0 +1,74 @@
+#!/bin/sh
+# Section-map enforcement on commit. Any new top-level binding in
+# index.html that lacks a [SEC:...] marker gets a [SEC:JS:TODO:<Name>]
+# placeholder inserted directly above it; the placeholder is then re-
+# staged so it lands in this commit. Recategorize the TODO later
+# (JS:SRV:* / JS:UTIL:* / JS:CTRL:* / JS:STATE:* / etc.) and add the
+# new ID to the TECHNICAL MAP at the top of index.html.
+#
+# Activation: `git config core.hooksPath .githooks` (done automatically
+# by the `prepare` script in package.json the next time you run
+# `npm install` — assuming npm scripts aren't disabled).
+
+set -e
+
+# Precheck: tools/check-map.js must be loadable. If it's missing, has a
+# syntax error, or its dependencies aren't installed, node would exit 1
+# from `require` failure — indistinguishable from check-map's own drift
+# exit code 1 — and the partial-stage case statement below would print
+# the wrong message. Fail loudly here instead.
+if ! node -e "require('./tools/check-map.js')" 2>/dev/null; then
+    echo "tools/check-map.js can't be loaded (missing file, syntax error,"
+    echo "or missing dependency). Run \`npm install\` and try again."
+    exit 1
+fi
+
+# Only run if index.html has a staged add/copy/modify/rename. The
+# --diff-filter=ACMR excludes 'D' so we don't try to --fix a file that's
+# being deleted (it's gone from the working tree and readFileSync would
+# crash).
+git diff --cached --diff-filter=ACMR --name-only | grep -q '^index\.html$' || exit 0
+
+# Partial-stage case: working tree differs from the index (the user ran
+# `git add -p` or staged only some hunks). Auto-fix would write to the
+# working tree and then `git add index.html` would sweep all the unstaged
+# hunks into the commit too. Refuse to auto-fix in that case; just check
+# the staged blob. Branch on the exit code so the message matches the
+# actual cause: 1 = marker drift, anything else = tool/parser failure.
+if ! git diff --quiet -- index.html; then
+    set +e
+    git show :index.html | node tools/check-map.js --stdin
+    rc=$?
+    set -e
+    case "$rc" in
+        0)
+            exit 0
+            ;;
+        1)
+            echo ""
+            echo "index.html has both staged AND unstaged changes, and the"
+            echo "staged blob is missing one or more [SEC:...] markers."
+            echo "Auto-fix is disabled here to avoid pulling unstaged hunks"
+            echo "into the commit. Either:"
+            echo "  - stage index.html fully (git add index.html) and recommit, or"
+            echo "  - run 'node tools/check-map.js --fix' yourself, then"
+            echo "    'git add -p' the new marker line(s) and recommit."
+            exit 1
+            ;;
+        *)
+            echo ""
+            echo "check-map.js failed (exit $rc) while inspecting the staged"
+            echo "blob of index.html. This is a tool failure (acorn parse"
+            echo "error, missing dependency, empty pipe from git show, etc.),"
+            echo "not marker drift. Investigate before retrying the commit."
+            exit 1
+            ;;
+    esac
+fi
+
+# Clean case: working tree matches the index. Safe to --fix and re-stage.
+node tools/check-map.js --fix
+
+# If --fix changed the working tree, stage the change so it goes in the
+# commit. No-op if nothing changed.
+git add index.html

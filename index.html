@@ -21,6 +21,24 @@
     [SEC:JS:CTRL:VIS]       - VisualMaster (AI Painter)
     [SEC:JS:CTRL:NAR]       - NarrativeController (Chat Ops)
     [SEC:JS:CTRL:WLD]       - WorldController (Map Ops)
+    [SEC:JS:TODO:downloadedInstallerPath] - downloadedInstallerPath
+    [SEC:JS:TODO:DOM]       - DOM
+    [SEC:JS:TODO:debounce]  - debounce
+    [SEC:JS:TODO:StoryService] - StoryService
+    [SEC:JS:TODO:StateManager] - StateManager
+    [SEC:JS:TODO:APIService] - APIService
+    [SEC:JS:TODO:TTSService] - TTSService
+    [SEC:JS:TODO:MusicService] - MusicService
+    [SEC:JS:TODO:ModalManager] - ModalManager
+    [SEC:JS:TODO:TextFormatter] - TextFormatter
+    [SEC:JS:TODO:ImageProcessor] - ImageProcessor
+    [SEC:JS:TODO:AppController] - AppController
+    [SEC:JS:TODO:StoryGenerationPipeline] - StoryGenerationPipeline
+    [SEC:JS:TODO:InStoryGenerationPipeline] - InStoryGenerationPipeline
+    [SEC:JS:CTRL:SWM]       - SwarmOrchestrator
+    [SEC:JS:TODO:CropController] - CropController
+    [SEC:JS:TODO:ActionDispatcher] - ActionDispatcher
+    [SEC:JS:TODO:app]       - app
     =================================================================================================
 -->
 <html lang="en">
@@ -4785,6 +4803,7 @@
                     };
 
                     // EllipsisLM Application Updater Logic
+                    /* [SEC:JS:TODO:downloadedInstallerPath] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
                     let downloadedInstallerPath = null;
                     window.electronCheckAppUpdate = async function () {
                         if (!window.electronBridge) return;
@@ -5425,6 +5444,7 @@
         /**
          * HTML Sanitizer
          */
+        /* [SEC:JS:TODO:DOM] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const DOM = {
             SafeString: class {
                 constructor(str) { this.str = str; }
@@ -5609,6 +5629,7 @@
         };
 
         // Utility function to prevent a function from being called too frequently.
+        /* [SEC:JS:TODO:debounce] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const debounce = (func, wait) => { let timeout; return function (...args) { const context = this; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), wait); }; };
 
         /**
@@ -6440,6 +6461,7 @@
          * Data Abstraction Layer for managing Stories, Narratives, and their persistence.
          * Handles complex operations like saving state, importing/exporting, and context building.
          */
+        /* [SEC:JS:TODO:StoryService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const StoryService = {
             /**
              * Loads the initial application data (stories, active story/narrative).
@@ -7488,6 +7510,7 @@
          * Centralizes application state management, including the library, global settings, and active narrative.
          * Handles persistence to localStorage and synchronization with DBService.
          */
+        /* [SEC:JS:TODO:StateManager] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const StateManager = {
             data: {
                 library: { active_story_id: null, active_narrative_id: null, stories: [], folders: [], tag_cache: [] },
@@ -7709,6 +7732,7 @@
          * Handles interactions with various AI providers (Gemini, OpenRouter, KoboldCPP, LM Studio).
          * Manages API keys, request formatting, and error handling.
          */
+        /* [SEC:JS:TODO:APIService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const APIService = {
             webllmEngine: null,
             webllmInitProgress: "",
@@ -8471,6 +8495,7 @@
          * Handles Text-to-Speech generation using Gemini's API.
          * Support for multiple voices and audio playback.
          */
+        /* [SEC:JS:TODO:TTSService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const TTSService = {
             CONSTANTS: {
                 VOICES: [
@@ -8725,6 +8750,7 @@
          * Two-phase pipeline: Scene analysis (text LLM) → Music generation (Lyria).
          * Playback via Web Audio API with looping and crossfade support.
          */
+        /* [SEC:JS:TODO:MusicService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const MusicService = {
             CONSTANTS: {
                 MODEL: 'lyria-3-clip-preview',
@@ -9122,6 +9148,7 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
          * Controls the visibility and lifecycle of UI modals.
          * Handles opening, closing, and cleanup (e.g., clearing intervals).
          */
+        /* [SEC:JS:TODO:ModalManager] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const ModalManager = {
             RUNTIME: { carousel_interval: null },
             /**
@@ -11298,6 +11325,7 @@ Write only the character's message.`;
          * Regex-based post-processing for AI responses.
          * Enforces strict compliance with Prose or Roleplay styles.
          */
+        /* [SEC:JS:TODO:TextFormatter] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const TextFormatter = {
             /**
             * Converts text to Prose format (Dialogue in quotes, Action plain).
@@ -11399,6 +11427,7 @@ Write only the character's message.`;
          * Handles image manipulation tasks such as resizing, cropping, and format conversion.
          * Essential for optimizing images before storage or export.
          */
+        /* [SEC:JS:TODO:ImageProcessor] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const ImageProcessor = {
             /**
              * Processes an image file, resizing it if necessary, and returns a Blob.
@@ -17704,6 +17733,7 @@ Write only the character's message.`;
          * Handling Modal orchestration, Settings management, and Persona logic.
          * Acts as the bridge between UI events and the Data/State layers.
          */
+        /* [SEC:JS:TODO:AppController] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const AppController = {
             RUNTIME: {
                 activeSettingsTab: 'appearance',
@@ -19700,6 +19730,7 @@ Write only the character's message.`;
          * Orchestrates the agentic workflow for Story Architect V2.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:StoryGenerationPipeline] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const StoryGenerationPipeline = {
 
             async _callAgent(prompt, retries = 2) {
@@ -19948,6 +19979,7 @@ Write only the character's message.`;
          * Generates differential content (new characters, new lore) to avoid overwriting the foundation.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:InStoryGenerationPipeline] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const InStoryGenerationPipeline = {
 
             async _callAgent(prompt, retries = 2) {
@@ -28114,6 +28146,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * CropController Module
          * Handles image cropping interface.
          */
+        /* [SEC:JS:TODO:CropController] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const CropController = {
             RUNTIME: {
                 file: null, img: null, scale: 1, posX: 0, posY: 0,
@@ -29540,6 +29573,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * The "Glue" that connects UI Events (ActionHandler) to the specific Controllers.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:ActionDispatcher] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const ActionDispatcher = {
             /**
              * Initializes the ActionDispatcher.
@@ -29737,6 +29771,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * app Module
          * The Application Initializer.
          */
+        /* [SEC:JS:TODO:app] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const app = {
             /**
              * Initializes the application.

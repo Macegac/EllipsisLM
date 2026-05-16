@@ -20302,14 +20302,27 @@ Write only the descriptive paragraphs.`;
                         const file = new File([blob], `${name}.png`, { type: 'image/png' });
                         const { story: newStory, imageBlob } = await ImportExportService.parseUploadedFile(file);
                         await this._saveImportedStory(newStory, imageBlob);
+                        const lib = StateManager.getLibrary();
+                        const idx = lib.stories.findIndex(s => s.id === newStory.id);
+                        if (idx !== -1) lib.stories[idx] = { ...newStory, narratives: lib.stories[idx].narratives };
+                        for (const char of (newStory.characters || [])) {
+                            if (char.image_id && !UIManager.RUNTIME.characterImageCache[char.id]) {
+                                try {
+                                    const b = await DBService.getImage(char.id);
+                                    if (b) UIManager.RUNTIME.characterImageCache[char.id] = URL.createObjectURL(b);
+                                } catch (e) {}
+                            }
+                        }
+                        UIManager.showNotification(`Successfully imported ${newStory.name || name}!`);
+                        await UIManager.openStoryDetails(newStory.id);
 
                     } catch (e) {
                         console.error('[HubController] Chub link import error:', e);
                         this.state.searchError = "Import failed: " + e.message;
                         this.state.results = [];
-                        this.renderResults();
                     } finally {
                         this.state.isLoading = false;
+                        this.renderResults();
                     }
                     return;
                 }

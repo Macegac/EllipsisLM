@@ -20301,6 +20301,38 @@ Write only the descriptive paragraphs.`;
                         const name = fullPath.split('/').pop() || 'Imported Character';
                         const file = new File([blob], `${name}.png`, { type: 'image/png' });
                         const { story: newStory, imageBlob } = await ImportExportService.parseUploadedFile(file);
+
+                        // CDN PNG omits alternate_greetings — fetch from API and inject as scenarios
+                        try {
+                            const apiUrl = `https://api.chub.ai/api/characters/${fullPath}?full=true`;
+                            let apiRes = null;
+                            try {
+                                apiRes = await fetch(apiUrl);
+                                if (!apiRes.ok) apiRes = null;
+                            } catch (e) { /* CORS blocked — fall through to proxy */ }
+                            if (!apiRes) {
+                                apiRes = await fetch(`https://corsproxy.io/?${encodeURIComponent(apiUrl)}`);
+                            }
+                            if (apiRes.ok) {
+                                const apiData = await apiRes.json();
+                                const charData = apiData?.character || apiData?.node?.definition || apiData?.node;
+                                const altGreetings = charData?.alternate_greetings;
+                                if (Array.isArray(altGreetings) && altGreetings.length > 0 && newStory.scenarios?.length > 0) {
+                                    const template = newStory.scenarios[0];
+                                    const charName = newStory.characters?.[0]?.name || '';
+                                    altGreetings.forEach((greeting, i) => {
+                                        const msg = greeting.replace(/\{\{char\}\}/g, charName).replace(/\{\{user\}\}/g, '{user}');
+                                        newStory.scenarios.push({
+                                            ...JSON.parse(JSON.stringify(template)),
+                                            id: crypto.randomUUID(),
+                                            name: `Alternate Start ${i + 1}`,
+                                            message: msg
+                                        });
+                                    });
+                                }
+                            }
+                        } catch (e) { /* API unavailable — proceed with PNG data only */ }
+
                         await this._saveImportedStory(newStory, imageBlob);
                         const lib = StateManager.getLibrary();
                         const idx = lib.stories.findIndex(s => s.id === newStory.id);

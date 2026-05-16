@@ -21,6 +21,24 @@
     [SEC:JS:CTRL:VIS]       - VisualMaster (AI Painter)
     [SEC:JS:CTRL:NAR]       - NarrativeController (Chat Ops)
     [SEC:JS:CTRL:WLD]       - WorldController (Map Ops)
+    [SEC:JS:TODO:downloadedInstallerPath] - downloadedInstallerPath
+    [SEC:JS:TODO:DOM]       - DOM
+    [SEC:JS:TODO:debounce]  - debounce
+    [SEC:JS:TODO:StoryService] - StoryService
+    [SEC:JS:TODO:StateManager] - StateManager
+    [SEC:JS:TODO:APIService] - APIService
+    [SEC:JS:TODO:TTSService] - TTSService
+    [SEC:JS:TODO:MusicService] - MusicService
+    [SEC:JS:TODO:ModalManager] - ModalManager
+    [SEC:JS:TODO:TextFormatter] - TextFormatter
+    [SEC:JS:TODO:ImageProcessor] - ImageProcessor
+    [SEC:JS:TODO:AppController] - AppController
+    [SEC:JS:TODO:StoryGenerationPipeline] - StoryGenerationPipeline
+    [SEC:JS:TODO:InStoryGenerationPipeline] - InStoryGenerationPipeline
+    [SEC:JS:CTRL:SWM]       - SwarmOrchestrator
+    [SEC:JS:TODO:CropController] - CropController
+    [SEC:JS:TODO:ActionDispatcher] - ActionDispatcher
+    [SEC:JS:TODO:app]       - app
     =================================================================================================
 -->
 <html lang="en">
@@ -2496,14 +2514,14 @@
                 </div>
 
                 <!-- The Control Cluster (Notice the border-l here) -->
-                <div class="flex flex-col gap-2 p-2 border-l border-white/10" style="min-width: 7.5rem;">
+                <div class="flex flex-col gap-2 p-2 border-l border-white/10" style="width: 7.5rem; min-width: 7.5rem;">
                     <!-- Dropdown -->
                     <div class="relative w-full" id="ai-character-selector-wrapper">
                         <button id="ai-character-selector-btn"
                             onclick="event.stopPropagation(); document.getElementById('ai-character-dropdown').classList.toggle('hidden')"
                             aria-label="Select Character"
-                            class="bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] text-gray-300 py-1.5 px-3 rounded-md outline-none cursor-pointer transition-colors text-center font-medium truncate w-full flex items-center justify-center gap-1">
-                            Any
+                            class="bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] text-gray-300 py-1.5 px-3 rounded-md outline-none cursor-pointer transition-colors font-medium w-full flex items-center justify-center gap-1 overflow-hidden">
+                            <span class="truncate">Any</span>
                         </button>
 
                         <input type="hidden" id="ai-character-selector" value="any">
@@ -2654,10 +2672,6 @@
                     <button data-action="open-hub"
                         class="border border-pink-500/50 hover:border-pink-500 bg-pink-500/10 hover:bg-pink-500/20 text-pink-300 hover:text-pink-200 font-bold py-2 px-3 rounded-lg transition-all duration-200 flex items-center gap-2"
                         title="Discover Characters">
-                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
                         <span class="text-sm">Discover</span>
                     </button>
 
@@ -4791,6 +4805,7 @@
                     };
 
                     // EllipsisLM Application Updater Logic
+                    /* [SEC:JS:TODO:downloadedInstallerPath] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
                     let downloadedInstallerPath = null;
                     window.electronCheckAppUpdate = async function () {
                         if (!window.electronBridge) return;
@@ -5431,6 +5446,7 @@
         /**
          * HTML Sanitizer
          */
+        /* [SEC:JS:TODO:DOM] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const DOM = {
             SafeString: class {
                 constructor(str) { this.str = str; }
@@ -5615,6 +5631,7 @@
         };
 
         // Utility function to prevent a function from being called too frequently.
+        /* [SEC:JS:TODO:debounce] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const debounce = (func, wait) => { let timeout; return function (...args) { const context = this; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), wait); }; };
 
         /**
@@ -6446,6 +6463,7 @@
          * Data Abstraction Layer for managing Stories, Narratives, and their persistence.
          * Handles complex operations like saving state, importing/exporting, and context building.
          */
+        /* [SEC:JS:TODO:StoryService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const StoryService = {
             /**
              * Loads the initial application data (stories, active story/narrative).
@@ -7494,6 +7512,7 @@
          * Centralizes application state management, including the library, global settings, and active narrative.
          * Handles persistence to localStorage and synchronization with DBService.
          */
+        /* [SEC:JS:TODO:StateManager] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const StateManager = {
             data: {
                 library: { active_story_id: null, active_narrative_id: null, stories: [], folders: [], tag_cache: [] },
@@ -7715,6 +7734,7 @@
          * Handles interactions with various AI providers (Gemini, OpenRouter, KoboldCPP, LM Studio).
          * Manages API keys, request formatting, and error handling.
          */
+        /* [SEC:JS:TODO:APIService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const APIService = {
             webllmEngine: null,
             webllmInitProgress: "",
@@ -8477,6 +8497,7 @@
          * Handles Text-to-Speech generation using Gemini's API.
          * Support for multiple voices and audio playback.
          */
+        /* [SEC:JS:TODO:TTSService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const TTSService = {
             CONSTANTS: {
                 VOICES: [
@@ -8731,6 +8752,7 @@
          * Two-phase pipeline: Scene analysis (text LLM) → Music generation (Lyria).
          * Playback via Web Audio API with looping and crossfade support.
          */
+        /* [SEC:JS:TODO:MusicService] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const MusicService = {
             CONSTANTS: {
                 MODEL: 'lyria-3-clip-preview',
@@ -9128,6 +9150,7 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
          * Controls the visibility and lifecycle of UI modals.
          * Handles opening, closing, and cleanup (e.g., clearing intervals).
          */
+        /* [SEC:JS:TODO:ModalManager] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const ModalManager = {
             RUNTIME: { carousel_interval: null },
             /**
@@ -11304,6 +11327,7 @@ Write only the character's message.`;
          * Regex-based post-processing for AI responses.
          * Enforces strict compliance with Prose or Roleplay styles.
          */
+        /* [SEC:JS:TODO:TextFormatter] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const TextFormatter = {
             /**
             * Converts text to Prose format (Dialogue in quotes, Action plain).
@@ -11405,6 +11429,7 @@ Write only the character's message.`;
          * Handles image manipulation tasks such as resizing, cropping, and format conversion.
          * Essential for optimizing images before storage or export.
          */
+        /* [SEC:JS:TODO:ImageProcessor] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const ImageProcessor = {
             /**
              * Processes an image file, resizing it if necessary, and returns a Blob.
@@ -15783,8 +15808,8 @@ Write only the character's message.`;
                     // --- Dynamic Titles ---
                     const library = StateManager.getLibrary();
                     const activeStory = library.stories.find(s => s.id === library.active_story_id);
-                    const storyName = (activeStory ? activeStory.name : 'Untitled Story').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                    const narrativeName = (state.narrativeName || 'Untitled Narrative').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    const storyName = (activeStory ? activeStory.name : 'Untitled Story');
+                    const narrativeName = (state.narrativeName || 'Untitled Narrative');
 
                     // --- User Character Chip ---
                     // Find the player-controlled character and build a portrait chip
@@ -15794,16 +15819,14 @@ Write only the character's message.`;
                     if (userChar) {
                         const portraitUrl = UIManager.RUNTIME.characterImageCache[userChar.id] || null;
                         const avatarStyle = portraitUrl
-                            ? `background-image: url('${UTILITY.safeStyleUrl(portraitUrl)}');`
+                            ? DOM.unsafe(`background-image: url('${UTILITY.safeStyleUrl(portraitUrl)}');`)
                             : '';
                         // Fallback silhouette SVG shown when no portrait image exists
-                        const avatarFallback = portraitUrl ? '' : `
+                        const avatarFallback = portraitUrl ? '' : DOM.unsafe(`
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                            </svg>`;
-                        const shortDesc = userChar.short_description
-                            ? userChar.short_description.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-                            : '';
+                            </svg>`);
+                        const shortDesc = userChar.short_description || '';
                         playerChipHTML = DOM.html`
                             <div class="scenario-banner-divider"></div>
                             <div class="scenario-banner-player">
@@ -17156,7 +17179,7 @@ Write only the character's message.`;
                     const safeName = name.replace(/'/g, "\\'");
                     const subtextHtml = subtext ? `<span class="text-[10px] text-gray-500 leading-tight block truncate mt-0.5">${subtext}</span>` : '';
                     return `
-                        <button onclick="document.getElementById('ai-character-selector').value = '${val}'; document.getElementById('ai-character-selector-btn').innerText = '${safeName}'; document.getElementById('ai-character-dropdown').classList.add('hidden');" class="w-full text-left hover:bg-indigo-600/20 px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors group" role="menuitem">
+                        <button onclick="document.getElementById('ai-character-selector').value = '${val}'; document.getElementById('ai-character-selector-btn').innerHTML = '<span class=\'truncate\'>${safeName}</span>'; document.getElementById('ai-character-dropdown').classList.add('hidden');" class="w-full text-left hover:bg-indigo-600/20 px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors group" role="menuitem">
                             <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center group-hover:bg-gray-700 transition-colors overflow-hidden border border-gray-600/50">
                                 ${iconHtml}
                             </div>
@@ -17189,12 +17212,12 @@ Write only the character's message.`;
 
                 if (found) {
                     selectorInput.value = currentValue;
-                    if (currentValue === 'any') btn.innerText = 'Any';
-                    else if (currentValue === 'event_master') btn.innerText = 'Event Master';
-                    else btn.innerText = activeAiChars.find(c => c.id === currentValue).name;
+                    if (currentValue === 'any') btn.innerHTML = '<span class="truncate">Any</span>';
+                    else if (currentValue === 'event_master') btn.innerHTML = '<span class="truncate">Event Master</span>';
+                    else btn.innerHTML = `<span class="truncate">${activeAiChars.find(c => c.id === currentValue).name}</span>`;
                 } else {
                     selectorInput.value = 'any';
-                    btn.innerText = 'Any';
+                    btn.innerHTML = '<span class="truncate">Any</span>';
                 }
             },
 
@@ -17710,6 +17733,7 @@ Write only the character's message.`;
          * Handling Modal orchestration, Settings management, and Persona logic.
          * Acts as the bridge between UI events and the Data/State layers.
          */
+        /* [SEC:JS:TODO:AppController] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const AppController = {
             RUNTIME: {
                 activeSettingsTab: 'appearance',
@@ -19706,6 +19730,7 @@ Write only the character's message.`;
          * Orchestrates the agentic workflow for Story Architect V2.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:StoryGenerationPipeline] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const StoryGenerationPipeline = {
 
             async _callAgent(prompt, retries = 2) {
@@ -19889,6 +19914,7 @@ Write only the character's message.`;
                         name: charDef.name,
                         description: charData.description || "No description.",
                         short_description: charData.short_description || "A character.",
+                        appearance: charData.appearance || "",
                         model_instructions: charData.model_instructions || `Write the next response for ${charDef.name}.`,
                         tags: charData.tags || [],
                         is_user: charDef.role === 'User',
@@ -19954,6 +19980,7 @@ Write only the character's message.`;
          * Generates differential content (new characters, new lore) to avoid overwriting the foundation.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:InStoryGenerationPipeline] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const InStoryGenerationPipeline = {
 
             async _callAgent(prompt, retries = 2) {
@@ -24600,11 +24627,45 @@ CRITICAL INSTRUCTION: The response MUST be written as an out of scenario context
                     }
                 }
 
-                // STEP 3: Merge
+                // STEP 3: Generate specific meta-fields
+                const descFinal = compiledDescription ? compiledDescription.trim() : "No description generated.";
+                
+                let finalShortDesc = skeleton.short_description;
+                let finalAppearance = appearanceText;
+
+                if (descFinal && descFinal !== "No description generated.") {
+                    try {
+                        const shortDescPrompt = `Read the following persona description and create a condensed, 1-2 sentence summary/short description representing the character's core identity:\n\n${descFinal}`;
+                        const appearancePrompt = `You are a creative writer. Based on the following character persona, describe their outward physical appearance only. 
+Include detailed physical attributes (facial features, hair/eye color, body type, posture). 
+Focus strictly on visual, tangible details that could be used by an artist or image generator. 
+Inner thoughts, personality traits, and history are inappropriate in this response and will be covered at a later time. 
+Be concise but descriptive.
+
+### Persona
+${descFinal}
+
+### Output Format
+Return ONLY the physical description. Write in the 3rd person. No preamble.`;
+
+                        const [shortDescRes, appearanceRes] = await Promise.all([
+                            APIService.callAI(shortDescPrompt, false),
+                            APIService.callAI(appearancePrompt, false)
+                        ]);
+                        
+                        if (shortDescRes && shortDescRes.trim()) finalShortDesc = shortDescRes.trim();
+                        if (appearanceRes && appearanceRes.trim()) finalAppearance = appearanceRes.trim();
+                    } catch (e) {
+                        console.error("Meta-field gen failed:", e);
+                    }
+                }
+
+                // STEP 4: Merge
                 return {
                     ...skeleton,
-                    appearance: appearanceText,
-                    description: compiledDescription ? compiledDescription.trim() : "No description generated."
+                    short_description: finalShortDesc,
+                    appearance: finalAppearance,
+                    description: descFinal
                 };
             },
             /**
@@ -26868,6 +26929,7 @@ ${formatRequirements.join('\n\n')}
                         name: nameInput,
                         description: charData.description || "",
                         short_description: charData.short_description || "Summary",
+                        appearance: charData.appearance || "",
                         model_instructions: charData.model_instructions || `Write the next response for ${nameInput}.`,
                         image_url: imageUrl,
                         color: color,
@@ -27236,6 +27298,7 @@ ${formatRequirements.join('\n\n')}
                         name: name.trim(),
                         description: data.description || "A mysterious character.",
                         short_description: data.short_description || "A new character.",
+                        appearance: data.appearance || "",
                         model_instructions: data.model_instructions || `Write the next response for ${name}.`,
                         image_url: "",
                         extra_portraits: [],
@@ -28207,6 +28270,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * CropController Module
          * Handles image cropping interface.
          */
+        /* [SEC:JS:TODO:CropController] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const CropController = {
             RUNTIME: {
                 file: null, img: null, scale: 1, posX: 0, posY: 0,
@@ -29633,6 +29697,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * The "Glue" that connects UI Events (ActionHandler) to the specific Controllers.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:ActionDispatcher] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const ActionDispatcher = {
             /**
              * Initializes the ActionDispatcher.
@@ -29830,6 +29895,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * app Module
          * The Application Initializer.
          */
+        /* [SEC:JS:TODO:app] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const app = {
             /**
              * Initializes the application.

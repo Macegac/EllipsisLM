@@ -20809,12 +20809,12 @@ Write only the descriptive paragraphs.`;
                     await DBService.saveNarrative(n);
                 }
 
-                // Save image if provided (for Chub V2 PNG cards)
-                if (imageBlob && newStory.characters?.[0]) {
+                // Save image if provided (for Chub V2 PNG cards) — assign to AI char, not user
+                const imageTarget = newStory.characters?.find(c => !c.is_user) || newStory.characters?.[0];
+                if (imageBlob && imageTarget) {
                     try {
-                        const charId = newStory.characters[0].id;
-                        await DBService.saveImage(charId, imageBlob);
-                        newStory.characters[0].image_id = charId;
+                        await DBService.saveImage(imageTarget.id, imageBlob);
+                        imageTarget.image_id = imageTarget.id;
                         await DBService.saveStory(newStory);
                     } catch (e) { console.warn('[HubController] Image save failed:', e); }
                 }

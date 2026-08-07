@@ -307,35 +307,47 @@ edit("new setting persist", "'voiceCuePrompt'", a,
 a = "                ActionHandler.register('open-hub', () => HubController.openHub());"
 edit("voice list from server", "refreshCustomTtsVoices", a, a + """
 
-                window.refreshCustomTtsVoices = async function () {
+                // Returns a status string rather than failing silently -- there
+                // is no console on mobile, so the button has to explain itself.
+                window.refreshCustomTtsVoices = async function (quiet) {
                     const gs = StateManager.data.globalSettings || {};
                     const base = (gs.nanoGPTTTSBaseUrl || '').trim();
                     const sel = document.getElementById('nanogpt-tts-voice-select');
-                    if (!base || !sel) return;
+                    const say = (msg, kind) => {
+                        if (!quiet && typeof UIManager !== 'undefined' && UIManager.showNotification)
+                            UIManager.showNotification(msg, kind || 'info');
+                        return msg;
+                    };
+                    if (!sel) return say('Voice dropdown not found.', 'error');
+                    if (!base) return say('Set the Custom API URL first.', 'error');
+                    const url = base.replace(/\\/audio\\/speech\\/?$/, '/models');
+                    let res;
                     try {
-                        const url = base.replace(/\\/audio\\/speech\\/?$/, '/models');
-                        const res = await fetch(url);
-                        if (!res.ok) return;
-                        const data = await res.json();
-                        const voices = (data.data && data.data[0] && data.data[0].voices) || [];
-                        if (!voices.length) return;
-                        const current = gs.nanoGPTTTSVoice || sel.value;
-                        sel.innerHTML = '';
-                        voices.forEach(v => {
-                            const o = document.createElement('option');
-                            o.value = v; o.textContent = v;
-                            sel.appendChild(o);
-                        });
-                        sel.value = voices.includes(current) ? current : voices[0];
-                        gs.nanoGPTTTSVoice = sel.value;
-                        StateManager.saveGlobalSettings();
-                    } catch (e) { /* server not running yet; leave defaults */ }
+                        res = await fetch(url, { cache: 'no-store' });
+                    } catch (e) {
+                        return say('Cannot reach ' + url + ' - is the bridge running and Tailscale connected? (' + e.message + ')', 'error');
+                    }
+                    if (!res.ok) return say('Server replied ' + res.status + ' for ' + url, 'error');
+                    let data;
+                    try { data = await res.json(); }
+                    catch (e) { return say('Server did not return JSON from ' + url, 'error'); }
+                    const voices = (data.data && data.data[0] && data.data[0].voices) || [];
+                    if (!voices.length) return say('Server returned no voices.', 'error');
+
+                    const current = gs.nanoGPTTTSVoice || sel.value;
+                    sel.innerHTML = '';
+                    voices.forEach(v => {
+                        const o = document.createElement('option');
+                        o.value = v; o.textContent = v;
+                        sel.appendChild(o);
+                    });
+                    sel.value = voices.includes(current) ? current : voices[0];
+                    gs.nanoGPTTTSVoice = sel.value;
+                    StateManager.saveGlobalSettings();
+                    return say('Loaded ' + voices.length + ' voices: ' + voices.join(', '), 'success');
                 };
                 ActionHandler.register('tts-refresh-voices', () => {
-                    window.refreshCustomTtsVoices().then(() => {
-                        if (typeof UIManager !== 'undefined' && UIManager.showNotification)
-                            UIManager.showNotification('Voice list refreshed.', 'success');
-                    });
+                    window.refreshCustomTtsVoices(false);
                 });""")
 
 # 13b3. a refresh button next to the voice dropdown -------------------------
@@ -368,10 +380,16 @@ edit("new setting listeners", "'tts-voice-prompt-input', 'voiceCuePrompt'", a, a
                         _vp.parentElement.addEventListener('toggle', fill);
                         fill();
                     }
-                    // Pull the local server's voice list once on boot.
+                    // Pull the server's voice list on boot (quietly), and again
+                    // whenever the URL changes so you do not have to hunt for
+                    // the refresh button after pasting it.
                     setTimeout(() => {
-                        if (window.refreshCustomTtsVoices) window.refreshCustomTtsVoices();
+                        if (window.refreshCustomTtsVoices) window.refreshCustomTtsVoices(true);
                     }, 1500);
+                    const _url = document.getElementById('nanogpt-tts-baseurl-input');
+                    if (_url) _url.addEventListener('change', () => {
+                        setTimeout(() => window.refreshCustomTtsVoices(false), 150);
+                    });
                 })();""")
 
 a = "                ActionHandler.register('open-hub', () => HubController.openHub());"

@@ -5905,6 +5905,13 @@
                         URL</label>
                     <input type="text" id="lmstudio-url-input" class="w-full rounded-lg p-2"
                         placeholder="http://localhost:1234">
+                    <div class="flex items-center space-x-3 pt-2">
+                        <button type="button" id="test-lmstudio-btn"
+                            class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold px-3 py-1.5 rounded transition-colors">
+                            Test Connection
+                        </button>
+                        <span id="lmstudio-status-text" class="text-xs text-gray-400"></span>
+                    </div>
                 </div>
             </div>
             <div id="webllm-settings">
@@ -9373,6 +9380,12 @@
                         });
                         if (!res.ok) throw new Error("Invalid NanoGPT API Key.");
                         return true;
+                    } else if (provider === 'lmstudio') {
+                        const rawUrl = config.lmstudio_url || 'http://localhost:1234';
+                        const baseUrl = rawUrl.replace(/\/+$/, '');
+                        const res = await fetch(`${baseUrl}/v1/models`);
+                        if (!res.ok) throw new Error("LM Studio server not responding.");
+                        return true;
                     }
                     return false;
                 } catch (e) {
@@ -10221,14 +10234,16 @@
             async callLMStudio(prompt, signal, isJson = false) {
                 const state = StateManager.getState();
                 if (!state.lmstudio_url) throw new Error("LM Studio URL not set.");
-                const endpoint = `${state.lmstudio_url}/v1/chat/completions`;
+                const baseUrl = state.lmstudio_url.replace(/\/+$/, '');
+                const endpoint = `${baseUrl}/v1/chat/completions`;
                 let cleanPrompt = typeof prompt === 'string' ? prompt : prompt.text;
                 const images = typeof prompt === 'string' ? [] : (prompt.images || []);
 
-                const messages = [{ role: 'user', content: [{ type: 'text', text: cleanPrompt }] }];
+                let contentPayload = cleanPrompt;
                 if (images.length > 0) {
+                    contentPayload = [{ type: 'text', text: cleanPrompt }];
                     images.forEach(img => {
-                        messages[0].content.push({
+                        contentPayload.push({
                             type: 'image_url',
                             image_url: {
                                 url: `data:${img.mimeType};base64,${img.data}`
@@ -10237,10 +10252,12 @@
                     });
                 }
 
+                const messages = [{ role: 'user', content: contentPayload }];
+
                 const payload = {
+                    model: state.lmStudioModel || 'local-model',
                     messages: messages,
                     temperature: 0.7,
-                    max_tokens: -1,
                     stream: false
                 };
 
@@ -11236,6 +11253,22 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
             activePromptResolver: null,
 
             /**
+             * Safely extracts plain text content from string, multimodal prompt objects, or nested prompt objects.
+             * @param {string|Object|null|undefined} promptInput
+             * @returns {string} The text prompt string.
+             */
+            resolvePromptText(promptInput) {
+                if (!promptInput) return "";
+                if (typeof promptInput === 'string') return promptInput;
+                if (typeof promptInput === 'object') {
+                    if (typeof promptInput.text === 'string') return promptInput.text;
+                    if (typeof promptInput.prompt === 'string') return promptInput.prompt;
+                    if (typeof promptInput.prompt === 'object') return UTILITY.resolvePromptText(promptInput.prompt);
+                }
+                return String(promptInput);
+            },
+
+            /**
              * Reusable custom input prompt modal that replaces the native window.prompt() dialog.
              * This ensures full support in Electron environments where prompt() is disabled.
              */
@@ -11305,19 +11338,49 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
             },
 
             /**
-             * Extracts the category of a static entry based on its title tag.
-             * @param {string} title - The entry title.
+             * Extracts the category of a static entry based on its category property or title tag.
+             * @param {string|object} titleOrEntry - The entry title or entry object.
              * @returns {string} - 'event', 'character', 'item', 'world', 'relationship', or 'other'.
              */
-            getEntryCategory(title) {
-                if (!title) return 'other';
-                const t = title.trim().toLowerCase();
+            getEntryCategory(titleOrEntry) {
+                if (!titleOrEntry) return 'other';
+                if (typeof titleOrEntry === 'object') {
+                    if (titleOrEntry.category && titleOrEntry.category !== 'other') {
+                        return titleOrEntry.category;
+                    }
+                    return this.getEntryCategory(titleOrEntry.title);
+                }
+                const t = String(titleOrEntry).trim().toLowerCase();
                 if (t.startsWith('[event]') || t.startsWith('event:') || t.includes('(event)')) return 'event';
                 if (t.startsWith('[character:') || t.startsWith('[character]') || t.startsWith('character:') || t.includes('(character)')) return 'character';
                 if (t.startsWith('[item]') || t.startsWith('item:') || t.includes('(item)')) return 'item';
                 if (t.startsWith('[world]') || t.startsWith('world:') || t.includes('(world)')) return 'world';
                 if (t.startsWith('[relationship]') || t.startsWith('relationship:') || t.includes('(relationship)')) return 'relationship';
                 return 'other';
+            },
+
+            /**
+             * Formats an entry title with a category tag.
+             * @param {string} title - The current entry title.
+             * @param {string} category - The target category ('event', 'character', 'item', 'world', 'relationship', 'other').
+             * @returns {string} - The updated title with category tag applied or stripped.
+             */
+            formatTitleWithCategory(title, category) {
+                if (!title) title = 'Untitled';
+                let cleanTitle = String(title).trim();
+                cleanTitle = cleanTitle.replace(/^\[(event|item|world|relationship)\]\s*/i, '');
+                cleanTitle = cleanTitle.replace(/^\[character:\s*([^\]]+)\]/i, '$1');
+                cleanTitle = cleanTitle.replace(/^\[character\]\s*/i, '');
+                cleanTitle = cleanTitle.replace(/^(event|character|item|world|relationship)\s*:\s*/i, '');
+                cleanTitle = cleanTitle.trim();
+                if (!cleanTitle) cleanTitle = 'Untitled';
+
+                if (category === 'event') return `[Event] ${cleanTitle}`;
+                if (category === 'character') return `[Character: ${cleanTitle}]`;
+                if (category === 'item') return `[Item] ${cleanTitle}`;
+                if (category === 'world') return `[World] ${cleanTitle}`;
+                if (category === 'relationship') return `[Relationship] ${cleanTitle}`;
+                return cleanTitle;
             },
 
             /**
@@ -19516,15 +19579,27 @@ Write only the character's message.`;
                 const container = document.getElementById('static-entry-details-content');
                 const entry = (state.static_entries || []).find(e => e && e.id === state.selectedStaticEntryId);
                 if (entry) {
+                    const currentCategory = UTILITY.getEntryCategory(entry);
                     container.innerHTML = DOM.html`
             <div class="flex flex-col h-full">
                 <div class="flex flex-col gap-2 mb-4">
-                    <div class="flex justify-between items-center">
-                        <input type="text" value="${entry.title}" oninput="WorldController.updateStaticEntryField('${entry.id}', 'title', this.value)" onblur="UIManager.renderStaticEntries()" class="text-xl font-bold bg-black/30 p-2 flex-grow rounded mr-2 focus:ring-1 focus:ring-indigo-500 border-none">
-                    <button onclick="WorldController.convertStaticToDynamic('${entry.id}')" class="text-xs bg-indigo-600/80 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded flex-shrink-0" title="Convert to Dynamic Entry">
-                        To Dynamic &rarr;
-                    </button>
-                </div>
+                    <div class="flex justify-between items-center gap-2">
+                        <input type="text" value="${entry.title}" oninput="WorldController.updateStaticEntryField('${entry.id}', 'title', this.value)" onblur="UIManager.renderStaticEntries()" class="text-xl font-bold bg-black/30 p-2 flex-grow rounded focus:ring-1 focus:ring-indigo-500 border-none">
+                        <div class="flex items-center gap-1.5 flex-shrink-0 bg-black/30 p-1.5 rounded border border-gray-700">
+                            <label class="text-xs font-semibold text-gray-400">Category:</label>
+                            <select onchange="WorldController.updateStaticEntryCategory('${entry.id}', this.value)" class="bg-gray-800 text-gray-200 text-xs rounded p-1 font-semibold focus:ring-1 focus:ring-indigo-500 border border-gray-700 cursor-pointer">
+                                <option value="other" ${currentCategory === 'other' ? 'selected' : ''}>Other</option>
+                                <option value="event" ${currentCategory === 'event' ? 'selected' : ''}>Event</option>
+                                <option value="character" ${currentCategory === 'character' ? 'selected' : ''}>Character</option>
+                                <option value="item" ${currentCategory === 'item' ? 'selected' : ''}>Item</option>
+                                <option value="world" ${currentCategory === 'world' ? 'selected' : ''}>World</option>
+                                <option value="relationship" ${currentCategory === 'relationship' ? 'selected' : ''}>Relationship</option>
+                            </select>
+                        </div>
+                        <button onclick="WorldController.convertStaticToDynamic('${entry.id}')" class="text-xs bg-indigo-600/80 hover:bg-indigo-500 text-white font-bold py-2 px-3 rounded flex-shrink-0 transition-colors" title="Convert to Dynamic Entry">
+                            To Dynamic &rarr;
+                        </button>
+                    </div>
                 </div>
                 <div class="relative flex-grow min-h-[300px]">
                     <textarea oninput="WorldController.updateStaticEntryField('${entry.id}', 'content', this.value)" class="w-full h-full bg-black/30 p-4 resize-none rounded-md">${entry.content}</textarea>
@@ -22952,7 +23027,7 @@ Write only the character's message.`;
                             StateManager.data.globalSettings.koboldcpp_url = 'http://localhost:5001';
                         } catch (e) {
                             try {
-                                success = await APIService.testConnection('koboldcpp', { koboldcpp_url: 'http://localhost:1234' });
+                                success = await APIService.testConnection('lmstudio', { lmstudio_url: 'http://localhost:1234' });
                                 StateManager.data.globalSettings.apiProvider = 'lmstudio';
                                 StateManager.data.globalSettings.lmstudio_url = 'http://localhost:1234';
                             } catch (e2) {
@@ -23686,6 +23761,35 @@ Write only the character's message.`;
                     this.populateGeminiModels();
                     // Render TTS Settings
                     this.renderTTSSettings();
+
+                    const testLMBtn = document.getElementById('test-lmstudio-btn');
+                    const lmStatusText = document.getElementById('lmstudio-status-text');
+                    if (testLMBtn) {
+                        testLMBtn.onclick = async () => {
+                            const url = document.getElementById('lmstudio-url-input')?.value || 'http://localhost:1234';
+                            if (lmStatusText) {
+                                lmStatusText.textContent = "Testing...";
+                                lmStatusText.className = "text-xs text-yellow-400 font-semibold";
+                            }
+                            try {
+                                const ok = await APIService.testConnection('lmstudio', { lmstudio_url: url });
+                                if (lmStatusText) {
+                                    if (ok) {
+                                        lmStatusText.textContent = "Online ✅";
+                                        lmStatusText.className = "text-xs text-green-400 font-semibold";
+                                    } else {
+                                        lmStatusText.textContent = "Offline ❌";
+                                        lmStatusText.className = "text-xs text-red-400 font-semibold";
+                                    }
+                                }
+                            } catch (e) {
+                                if (lmStatusText) {
+                                    lmStatusText.textContent = `Error: ${e.message || "Failed"}`;
+                                    lmStatusText.className = "text-xs text-red-400 font-semibold";
+                                }
+                            }
+                        };
+                    }
                 } else if (tabName === 'image-gen') {
                     // Dynamic show/hide based on backend
                     const backendSelect = document.getElementById('image-gen-backend');
@@ -28520,12 +28624,38 @@ Write only the descriptive paragraphs.`;
                 const entry = this.currentEditScenario.static_entries.find(e => e.id === this.selectedScenarioStaticId);
                 if (!entry) return;
 
+                const currentCategory = UTILITY.getEntryCategory(entry);
+
                 container.innerHTML = DOM.unsafe(`
                     <div class="flex flex-col gap-2 mb-4 h-full">
-                        <input type="text" value="${entry.title}" oninput="LibraryController.updateScenarioStaticEntry('title', this.value)" onblur="LibraryController.renderScenarioStaticEntries()" class="text-xl font-bold bg-black/30 p-2 rounded focus:ring-1 focus:ring-indigo-500 border-none w-full text-white">
+                        <div class="flex items-center gap-2">
+                            <input type="text" value="${entry.title}" oninput="LibraryController.updateScenarioStaticEntry('title', this.value)" onblur="LibraryController.renderScenarioStaticEntries()" class="text-xl font-bold bg-black/30 p-2 rounded focus:ring-1 focus:ring-indigo-500 border-none flex-grow text-white">
+                            <div class="flex items-center gap-1.5 flex-shrink-0 bg-black/30 p-1.5 rounded border border-gray-700">
+                                <label class="text-xs font-semibold text-gray-400">Category:</label>
+                                <select onchange="LibraryController.updateScenarioStaticEntryCategory(this.value)" class="bg-gray-800 text-gray-200 text-xs rounded p-1 font-semibold focus:ring-1 focus:ring-indigo-500 border border-gray-700 cursor-pointer">
+                                    <option value="other" ${currentCategory === 'other' ? 'selected' : ''}>Other</option>
+                                    <option value="event" ${currentCategory === 'event' ? 'selected' : ''}>Event</option>
+                                    <option value="character" ${currentCategory === 'character' ? 'selected' : ''}>Character</option>
+                                    <option value="item" ${currentCategory === 'item' ? 'selected' : ''}>Item</option>
+                                    <option value="world" ${currentCategory === 'world' ? 'selected' : ''}>World</option>
+                                    <option value="relationship" ${currentCategory === 'relationship' ? 'selected' : ''}>Relationship</option>
+                                </select>
+                            </div>
+                        </div>
                         <textarea oninput="LibraryController.updateScenarioStaticEntry('content', this.value)" class="w-full flex-grow bg-black/30 border border-gray-600 p-3 rounded text-gray-200 resize-none focus:ring-1 focus:ring-indigo-500 font-mono text-sm leading-relaxed" placeholder="Lore content...">${entry.content}</textarea>
                     </div>
                 `);
+            },
+
+            updateScenarioStaticEntryCategory(category) {
+                if (!this.currentEditScenario || !this.selectedScenarioStaticId) return;
+                const entry = this.currentEditScenario.static_entries.find(e => e.id === this.selectedScenarioStaticId);
+                if (entry) {
+                    entry.category = category;
+                    entry.title = UTILITY.formatTitleWithCategory(entry.title, category);
+                    this.renderScenarioStaticEntries();
+                    this.renderScenarioStaticDetails();
+                }
             },
 
             // --- SCENARIO DYNAMIC KNOWLEDGE ---
@@ -31337,6 +31467,12 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
              */
             async _executeDirective(char, directive, userAction, state, signal, scratchpadResult = null, objectiveDescription = "") {
                 const prompt = PromptBuilder.buildSwarmCharacterResponsePrompt(char, directive, userAction, state, scratchpadResult, objectiveDescription);
+                this.RUNTIME.lastPromptDetails = {
+                    prompt: prompt,
+                    model: state.apiProvider,
+                    charId: char.id,
+                    timestamp: new Date().toISOString()
+                };
 
                 console.groupCollapsed(`%c[Swarm Phase 4] Character Response: ${char.name}`, "color: #ec4899; font-weight: bold;");
                 console.log("%cDirective:", "color: #f472b6; font-weight: bold;", directive);
@@ -31447,6 +31583,12 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
                 if (primarySpeaker.is_narrator) {
                     console.log(`%c[Swarm Phase 0.5] Narrator selected (${primarySpeaker.name}). Bypassing thoughts and director.`, "color: #f59e0b; font-weight: bold;");
                     const prompt = PromptBuilder.buildPrompt(primarySpeaker.id, false);
+                    this.RUNTIME.lastPromptDetails = {
+                        prompt: prompt,
+                        model: state.apiProvider,
+                        charId: primarySpeaker.id,
+                        timestamp: new Date().toISOString()
+                    };
                     const raw = await APIService.callAI(prompt, false, signal);
                     if (!raw || !raw.trim()) throw new Error('Narrator returned empty response.');
 
@@ -36147,10 +36289,17 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 // [NEW] Check for cached prompt first
                 if (this.RUNTIME.lastPromptDetails) {
                     const cached = this.RUNTIME.lastPromptDetails;
+                    const rawText = UTILITY.resolvePromptText(cached.prompt);
+                    const images = (typeof cached.prompt === 'object' && cached.prompt && Array.isArray(cached.prompt.images)) ? cached.prompt.images : [];
+
                     let metaInfo = `--- LAST GENERATED PROMPT ---\n`;
                     metaInfo += `Timestamp: ${cached.timestamp}\n`;
                     metaInfo += `Target Character ID: ${cached.charId}\n`;
                     metaInfo += `Provider: ${cached.model}\n`;
+
+                    if (images.length > 0) {
+                        metaInfo += `Attached Image Entries: ${images.length}\n`;
+                    }
 
                     if (cached.model === 'koboldcpp') {
                         const template = state.koboldcpp_template || 'none';
@@ -36160,7 +36309,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
 
                     const contentEl = document.getElementById('raw-prompt-content');
                     if (contentEl) {
-                        contentEl.textContent = metaInfo + cached.prompt;
+                        contentEl.textContent = metaInfo + rawText;
                     }
                     AppController.openModal('view-raw-prompt-modal');
                     return;
@@ -36190,12 +36339,18 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 }
 
                 // 2. Build the prompt string using the shared logic
-                const promptText = PromptBuilder.buildPrompt(charId);
+                const promptObj = PromptBuilder.buildPrompt(charId);
+                const promptText = UTILITY.resolvePromptText(promptObj);
+                const images = (typeof promptObj === 'object' && promptObj && Array.isArray(promptObj.images)) ? promptObj.images : [];
 
                 // 3. Generate Metadata Header for the view
                 let metaInfo = `--- PREVIEW (NEXT PROMPT) ---\n`;
                 metaInfo += `Target Character ID: ${charId}\n`;
                 metaInfo += `Active Provider: ${state.apiProvider}\n`;
+
+                if (images.length > 0) {
+                    metaInfo += `Attached Image Entries: ${images.length}\n`;
+                }
 
                 if (state.apiProvider === 'koboldcpp') {
                     // Show specific template being used
@@ -38544,6 +38699,21 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 const entry = ReactiveStore.state.static_entries.find(e => e.id === id);
                 if (entry) entry[field] = value;
             }, 300),
+
+            /**
+             * Updates the category of a global static entry.
+             * @param {string} id - The entry ID.
+             * @param {string} category - The new category value.
+             */
+            updateStaticEntryCategory(id, category) {
+                const entry = ReactiveStore.state.static_entries.find(e => e.id === id);
+                if (entry) {
+                    entry.category = category;
+                    entry.title = UTILITY.formatTitleWithCategory(entry.title, category);
+                    UIManager.renderStaticEntries();
+                    UIManager.renderStaticEntryDetails();
+                }
+            },
 
             /**
              * Generates content for a static entry using AI.

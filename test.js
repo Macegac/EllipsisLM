@@ -1147,6 +1147,40 @@ test('isBackupNewerOrRicher: compares backup vs current state correctly', () => 
     assert.equal(UTILITY.isBackupNewerOrRicher(backup, [{ id: 's1' }, { id: 's2' }], [{ id: 'n1' }, { id: 'n2' }]), false);
 });
 
+test('resolvePromptText: extracts plain text from strings, objects, and nested structures', () => {
+    assert.equal(UTILITY.resolvePromptText('hello world'), 'hello world');
+    assert.equal(UTILITY.resolvePromptText({ text: 'prompt text', images: [] }), 'prompt text');
+    assert.equal(UTILITY.resolvePromptText({ prompt: 'prompt text', model: 'gemini' }), 'prompt text');
+    assert.equal(UTILITY.resolvePromptText({ prompt: { text: 'nested prompt' } }), 'nested prompt');
+    assert.equal(UTILITY.resolvePromptText(null), '');
+    assert.equal(UTILITY.resolvePromptText(undefined), '');
+});
+
+test('getEntryCategory: resolves category from title tag or entry object category property', () => {
+    assert.equal(UTILITY.getEntryCategory('[Event] Battle of Waterloo'), 'event');
+    assert.equal(UTILITY.getEntryCategory('[Character: Arthur]'), 'character');
+    assert.equal(UTILITY.getEntryCategory('[Item] Excalibur'), 'item');
+    assert.equal(UTILITY.getEntryCategory('[World] Camelot'), 'world');
+    assert.equal(UTILITY.getEntryCategory('[Relationship] Arthur & Guinevere'), 'relationship');
+    assert.equal(UTILITY.getEntryCategory('Plain Lore Title'), 'other');
+    assert.equal(UTILITY.getEntryCategory({ title: 'Plain Lore', category: 'world' }), 'world');
+    assert.equal(UTILITY.getEntryCategory({ title: '[Event] Siege', category: 'event' }), 'event');
+    assert.equal(UTILITY.getEntryCategory({ title: '[Item] Ring', category: 'other' }), 'item');
+    assert.equal(UTILITY.getEntryCategory(null), 'other');
+});
+
+test('formatTitleWithCategory: applies and updates category tags on title strings correctly', () => {
+    assert.equal(UTILITY.formatTitleWithCategory('Dragon Attack', 'event'), '[Event] Dragon Attack');
+    assert.equal(UTILITY.formatTitleWithCategory('Arthur', 'character'), '[Character: Arthur]');
+    assert.equal(UTILITY.formatTitleWithCategory('Excalibur', 'item'), '[Item] Excalibur');
+    assert.equal(UTILITY.formatTitleWithCategory('Camelot', 'world'), '[World] Camelot');
+    assert.equal(UTILITY.formatTitleWithCategory('Arthur & Guinevere', 'relationship'), '[Relationship] Arthur & Guinevere');
+    assert.equal(UTILITY.formatTitleWithCategory('[Event] Dragon Attack', 'world'), '[World] Dragon Attack');
+    assert.equal(UTILITY.formatTitleWithCategory('[Item] Magic Wand', 'other'), 'Magic Wand');
+    assert.equal(UTILITY.formatTitleWithCategory('', 'event'), '[Event] Untitled');
+});
+
+
 
 
 

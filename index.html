@@ -2019,9 +2019,12 @@
             background: rgba(255, 255, 255, 0.16);
         }
 
-        /* Push the thread clear of the floating header bar. */
+        /* Push the thread clear of the floating header bar, and hold the conversation in a
+           narrow centred column. Texts are short, so the full chat width reads badly. */
         body[data-dm-mode="true"] #chat-window {
             padding-top: calc(3.5rem + env(safe-area-inset-top));
+            padding-left: max(0.75rem, calc((100% - 40rem) / 2));
+            padding-right: max(0.75rem, calc((100% - 40rem) / 2));
         }
 
         /* --- Bubble layout --- */
@@ -2189,6 +2192,20 @@
             position: absolute;
             top: 0.1rem;
             right: 0.1rem;
+        }
+
+        .dm-experimental-tag {
+            display: inline-block;
+            margin-left: 0.35rem;
+            padding: 0.05rem 0.3rem;
+            border-radius: 0.25rem;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            color: rgba(245, 158, 11, 0.9);
+            font-size: 0.55rem;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            vertical-align: middle;
         }
 
         /* NEW is informational, so it stays quiet. */
@@ -3359,6 +3376,14 @@
                         <span class="text-xs text-gray-200">Typing Indicator</span>
                         <input type="checkbox" id="dm-opt-typing" data-dm-opt="dmTypingIndicator" class="dm-opt-toggle">
                     </label>
+                    <label class="flex items-start justify-between gap-3 px-3 py-2 hover:bg-white/5 rounded cursor-pointer">
+                        <span class="min-w-0">
+                            <span class="text-xs text-gray-200">Characters Can Text First</span>
+                            <span class="dm-experimental-tag">Experimental</span>
+                            <span class="block text-[10px] text-gray-500 leading-tight mt-0.5">Requires Director Mode. Characters decide while thinking.</span>
+                        </span>
+                        <input type="checkbox" id="dm-opt-unprompted" data-dm-opt="dmUnpromptedTexts" class="dm-opt-toggle mt-0.5">
+                    </label>
                 </div>
                 <!-- Text Mode Inbox: the persistent entry point. Lists every active character with
                      their thread state, so an unread text is visible even when that character has
@@ -3498,8 +3523,8 @@
                         </div>
                     </div>
 
-                    <!-- Icon Button Cluster -->
-                    <div class="flex gap-1 justify-center mt-auto">
+                    <!-- Icon Button Cluster: 2x2 so a fourth button fits the fixed 7.5rem column -->
+                    <div class="grid grid-cols-2 gap-1 justify-items-center mt-auto">
                         <!-- Primary Action -->
                         <button id="primary-action-btn"
                             class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
@@ -8849,7 +8874,7 @@
                             // AI Logic Toggles
                             'enableAutoStaticKnowledge', 'enableAnalysis', 'enableResponseOptions', 'enableStats', 'enableLivingPersona', 'enableJournal',
                             'enableAutoBuildLocations', 'enableAutoGenerateLocationImages',
-                            'enableTextMode', 'dmAllowEmoji', 'dmTimestampAwareness', 'dmTypingIndicator',
+                            'enableTextMode', 'dmAllowEmoji', 'dmTimestampAwareness', 'dmTypingIndicator', 'dmUnpromptedTexts',
 
                             // Visual
                             'imageGenArtStyle',
@@ -12581,7 +12606,8 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
                     enableTextMode: globals.default_enableTextMode !== undefined ? globals.default_enableTextMode : true,
                     dmAllowEmoji: false,
                     dmTimestampAwareness: true,
-                    dmTypingIndicator: true
+                    dmTypingIndicator: true,
+                    dmUnpromptedTexts: true
                 };
             },
             /**
@@ -15205,6 +15231,23 @@ Write only the character's message.`;
 
                 prompt += "[OUTPUT INSTRUCTION]\n" +
                     "Respond with exactly ONE paragraph of internal monologue. Focus on your character's immediate emotional response and planned next move.";
+
+                // Text Mode: let the character decide, during the thinking step they already run,
+                // whether they would privately text the player right now. Appended after the
+                // editable template so a customised scratchpad prompt keeps working.
+                if (state.enableTextMode !== false && state.dmUnpromptedTexts !== false) {
+                    const userChar = (state.characters || []).find(c => c.is_user);
+                    const userName = userChar ? userChar.name : 'the user';
+                    prompt += "\n\n### PRIVATE TEXT MESSAGE (OPTIONAL)\n"
+                        + `You have a phone. You may privately text ${userName} right now.\n`
+                        + "Only do it if you genuinely would: something just happened you cannot say out loud "
+                        + "in front of the others, you want to reach them alone, or you have been sitting with "
+                        + "something unsaid.\n"
+                        + "Most turns you will NOT text. Saying nothing is the normal case.\n"
+                        + "If and only if you decide to, finish your response with a line starting exactly:\n"
+                        + "TEXT: the message, written the way a real person types on a phone\n"
+                        + "Keep it short. Write nothing after that line, and never mention texting inside your monologue.";
+                }
 
                 return prompt;
             },
@@ -31944,16 +31987,26 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
                     if (!rawResponse) throw new Error('Empty scratchpad response.');
                     console.log(`%c[Swarm Thinking] ${char.name} Raw:`, "color: #64748b; font-size: 10px;", rawResponse);
 
-                    // Just return the raw prose response as consolidated thoughts
+                    // Split off an optional private text before the monologue is handed to the
+                    // Director, so the decision never leaks into the spoken scene.
+                    let thoughts = rawResponse.trim();
+                    let textMessage = null;
+                    const textMatch = thoughts.match(/^[ \t]*TEXT:[ \t]*([\s\S]+)$/m);
+                    if (textMatch) {
+                        textMessage = textMatch[1].split('\n')[0].trim();
+                        thoughts = thoughts.slice(0, textMatch.index).trim();
+                    }
+
                     return {
-                        thoughts: rawResponse.trim(),
-                        secret_used: false
+                        thoughts: thoughts,
+                        secret_used: false,
+                        text_message: textMessage || null
                     };
                 } catch (e) {
                     if (e.name === 'AbortError') throw e;
                     console.warn(`SwarmOrchestrator: Scratchpad call failed for ${char.name}:`, e.message);
                     // Graceful degradation: agent defaults to passive observation
-                    return { thoughts: `${char.name} watches silently.`, secret_used: false };
+                    return { thoughts: `${char.name} watches silently.`, secret_used: false, text_message: null };
                 }
             },
 
@@ -33316,6 +33369,12 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                         this.startStreamingResponse(char.id, prose, 'neutral', targetMessageIndex, []);
                         lastCharId = char.id;
                         lastIndex = (targetMessageIndex !== null) ? targetMessageIndex : (state.chat_history.length - 1);
+                    }
+
+                    // Text Mode: deliver any private texts the agents decided to send while
+                    // deliberating. Committed after the scene so they read as arriving during it.
+                    if (typeof TextModeController !== 'undefined') {
+                        TextModeController.deliverUnprompted(result.agentResults);
                     }
 
                     // Post-turn emotion analysis on the last character's bubble.
@@ -37440,6 +37499,8 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 if (emoji) emoji.checked = state.dmAllowEmoji === true;
                 if (stamp) stamp.checked = state.dmTimestampAwareness !== false;
                 if (typing) typing.checked = state.dmTypingIndicator !== false;
+                const unprompted = document.getElementById('dm-opt-unprompted');
+                if (unprompted) unprompted.checked = state.dmUnpromptedTexts !== false;
 
                 menu.classList.remove('hidden');
             },
@@ -37536,6 +37597,11 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     images: []
                 };
                 ReactiveStore.state.chat_history.push(msg);
+
+                // Anything arriving in the thread you are currently reading is already read.
+                // Without this the character's own reply raises an unread badge mid-conversation.
+                if (charId === this.RUNTIME.activeCharId) this._markRead(charId);
+
                 return msg;
             },
 
@@ -37564,6 +37630,34 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 UIManager.renderChat();
 
                 await this._generateReply(charId, priorThread);
+            },
+
+            /**
+             * Commits private texts that characters chose to send during Director Mode's
+             * deliberation. The decision is made inside the existing scratchpad call, so this
+             * only delivers the result.
+             * @param {Array} agentResults - [{ char, result }] from SwarmOrchestrator.runTurn.
+             */
+            deliverUnprompted(agentResults) {
+                const state = ReactiveStore.state;
+                if (!state || state.enableTextMode === false || state.dmUnpromptedTexts === false) return;
+                if (!Array.isArray(agentResults)) return;
+
+                let delivered = 0;
+                agentResults.forEach(entry => {
+                    const char = entry && entry.char;
+                    const text = entry && entry.result && entry.result.text_message;
+                    if (!char || !text || char.is_user) return;
+
+                    this._addDM(char.id, char.id, this._sanitize(text, char));
+                    delivered++;
+                });
+
+                if (delivered > 0) {
+                    this.updateInboxBadge();
+                    if (this.isActive()) UIManager.renderChat();
+                    if (typeof ReactiveStore.forceSave === 'function') ReactiveStore.forceSave();
+                }
             },
 
             /**
@@ -37643,12 +37737,13 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
              * @returns {string}
              * @private
              */
-            _sanitize(text) {
+            _sanitize(text, charOverride = null) {
                 const state = ReactiveStore.state;
                 let out = text;
 
                 // Drop a leading "Name:" speaker tag and any "[via text]" history marker.
-                const char = ReactiveStore.getCharacter(this.RUNTIME.activeCharId);
+                // charOverride covers unprompted texts, whose sender is not the open thread.
+                const char = charOverride || ReactiveStore.getCharacter(this.RUNTIME.activeCharId);
                 if (char && char.name) {
                     const safeName = char.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     out = out.replace(new RegExp('^\\s*' + safeName + '\\s*:\\s*', 'i'), '');

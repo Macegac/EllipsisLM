@@ -7170,6 +7170,12 @@
                     const regenBtn = e.target.closest('#regen-btn');
                     const btn = primaryBtn || regenBtn;
 
+                    // Directives drive the main narrative, so the menu has no meaning in a thread.
+                    if (btn && typeof TextModeController !== 'undefined' && TextModeController.isActive()) {
+                        e.preventDefault();
+                        return;
+                    }
+
                     if (btn) {
                         e.preventDefault();
                         const contextMenu = document.getElementById('generate-context-menu');
@@ -32371,6 +32377,10 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
              * @param {boolean} isRegen - If true, regenerates the last message instead of creating a new one.
              */
             async handleDirectCharacter(actionVal, isRegen = false) {
+                // Belt and braces: the context menu is suppressed in Text Mode, but this must
+                // never reach the main narrative pipeline from a private thread.
+                if (typeof TextModeController !== 'undefined' && TextModeController.isActive()) return;
+
                 if (!StateManager.getLibrary().active_story_id) return;
 
                 const input = document.getElementById('chat-input');
@@ -32449,6 +32459,21 @@ OPENING SCENE: ${firstMsg.substring(0, 200)}`;
 
                 // New logic: Empty = Trigger AI. Text = Send.
                 const input = document.getElementById('chat-input');
+
+                // ── TEXT MODE BRANCH ──────────────────────────────────────────────────────
+                // A private thread is open, so neither branch should touch the main narrative.
+                if (typeof TextModeController !== 'undefined' && TextModeController.isActive()) {
+                    const typed = input.value.trim();
+                    if (typed) {
+                        input.value = '';
+                        await TextModeController.sendInThread(typed);
+                    } else {
+                        await TextModeController.generateFollowUp();
+                    }
+                    return;
+                }
+                // ── END TEXT MODE BRANCH ──────────────────────────────────────────────────
+
                 if (input.value.trim() === '') {
                     // Empty Input = Pass Turn
                     this._clearResponseOptions();
@@ -33687,6 +33712,12 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
             async handleRegen() {
                 const state = ReactiveStore.state;
                 if (!StateManager.getLibrary().active_narrative_id) { alert("Load a narrative first."); return; }
+
+                // In a private thread, regenerate that thread's last text instead of the scene.
+                if (typeof TextModeController !== 'undefined' && TextModeController.isActive()) {
+                    await TextModeController.regenerateLast();
+                    return;
+                }
                 if (this.RUNTIME.activeRequestAbortController || UIManager.RUNTIME.streamingInterval) return;
 
                 // Hide response options if visible
@@ -34238,6 +34269,22 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 if (this.RUNTIME.activeRequestAbortController || UIManager.RUNTIME.streamingInterval) return;
                 const history = ReactiveStore.state.chat_history;
                 if (history.length === 0) return;
+
+                // In a private thread, undo removes that thread's last message. The main-story
+                // walk below would otherwise delete trailing texts AND a scene message.
+                if (typeof TextModeController !== 'undefined' && TextModeController.isActive()) {
+                    const dmCharId = TextModeController.RUNTIME.activeCharId;
+                    for (let i = history.length - 1; i >= 0; i--) {
+                        const m = history[i];
+                        if (m && m.type === 'dm' && m.exclusive_to_char_id === dmCharId) {
+                            this.rollbackKnowledgeForDeletedMessages([m.id]);
+                            history.splice(i, 1);
+                            break;
+                        }
+                    }
+                    UIManager.renderChat();
+                    return;
+                }
 
                 const deletedIds = [];
                 let removedChatMessage = false;
@@ -37516,6 +37563,52 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 this._addDM(userChar.id, charId, content);
                 UIManager.renderChat();
 
+                await this._generateReply(charId, priorThread);
+            },
+
+            /**
+             * Generates another text from the character without the player saying anything.
+             * This is what the send button does in a thread when the input is empty, mirroring
+             * the main chat's "empty input passes the turn" behaviour.
+             */
+            async generateFollowUp() {
+                const charId = this.RUNTIME.activeCharId;
+                if (!charId || this.RUNTIME.isGenerating) return;
+                await this._generateReply(charId, this.getThread(charId));
+            },
+
+            /**
+             * Drops the character's most recent text in this thread and generates a new one.
+             * Does nothing if the last message in the thread is the player's.
+             */
+            async regenerateLast() {
+                const charId = this.RUNTIME.activeCharId;
+                if (!charId || this.RUNTIME.isGenerating) return;
+
+                const state = ReactiveStore.state;
+                for (let i = state.chat_history.length - 1; i >= 0; i--) {
+                    const m = state.chat_history[i];
+                    if (!m || m.type !== 'dm' || m.exclusive_to_char_id !== charId) continue;
+                    // Only the trailing message matters; if it is the player's there is
+                    // nothing of the character's to redo.
+                    if (m.character_id === charId) state.chat_history.splice(i, 1);
+                    break;
+                }
+
+                UIManager.renderChat();
+                await this._generateReply(charId, this.getThread(charId));
+            },
+
+            /**
+             * Shared generation path for the thread.
+             * @param {string} charId - The character replying.
+             * @param {Array} priorThread - Thread state used for elapsed-time awareness.
+             * @private
+             */
+            async _generateReply(charId, priorThread = []) {
+                if (this.RUNTIME.isGenerating) return;
+
+                const state = ReactiveStore.state;
                 this.RUNTIME.isGenerating = true;
                 if (state.dmTypingIndicator !== false) {
                     UIManager.showTypingIndicator(charId, 'is typing...');

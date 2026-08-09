@@ -1988,6 +1988,17 @@
             background: rgba(12, 12, 15, 0.92);
             backdrop-filter: blur(14px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            /* Above #mobile-story-title-overlay (z-index 50), which is fixed to the top of the
+               viewport and would otherwise paint the story title across this bar. */
+            z-index: 60;
+            padding-top: calc(0.5rem + env(safe-area-inset-top));
+        }
+
+        /* The story title is meaningless inside a private thread, and its :hover rule flips it to
+           pointer-events: auto, which swallows clicks aimed at the back button. */
+        body[data-dm-mode="true"] #mobile-story-title-overlay,
+        body[data-dm-inbox="true"] #mobile-story-title-overlay {
+            display: none !important;
         }
 
         body[data-dm-mode="true"] #dm-bar {
@@ -2010,7 +2021,7 @@
 
         /* Push the thread clear of the floating header bar. */
         body[data-dm-mode="true"] #chat-window {
-            padding-top: 3.5rem;
+            padding-top: calc(3.5rem + env(safe-area-inset-top));
         }
 
         /* --- Bubble layout --- */
@@ -2078,6 +2089,129 @@
 
         body[data-dm-mode="true"] .chat-bubble-container[data-dm-side="char"] .bubble-body div[id^="message-content-"] {
             color: #e9e9ea !important;
+        }
+
+        /* --- Inbox --- */
+        #dm-inbox {
+            background: rgba(10, 10, 12, 0.96);
+            backdrop-filter: blur(14px);
+            z-index: 60;
+        }
+
+        #dm-inbox:not(.hidden) {
+            display: flex;
+        }
+
+        #dm-inbox-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.03);
+            padding-top: calc(0.5rem + env(safe-area-inset-top));
+        }
+
+        .dm-inbox-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border-radius: 0.6rem;
+            text-align: left;
+            transition: background 0.15s ease;
+        }
+
+        .dm-inbox-row:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .dm-inbox-avatar {
+            width: 2.75rem;
+            height: 2.75rem;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background-size: cover;
+            background-position: center;
+            flex-shrink: 0;
+        }
+
+        .dm-inbox-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #e9e9ea;
+        }
+
+        .dm-inbox-preview {
+            font-size: 0.75rem;
+            color: rgba(233, 233, 234, 0.45);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .dm-inbox-row.is-unread .dm-inbox-preview {
+            color: rgba(233, 233, 234, 0.85);
+            font-weight: 500;
+        }
+
+        .dm-inbox-time {
+            font-size: 0.65rem;
+            color: rgba(233, 233, 234, 0.35);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* Unread is actionable, so it is the loud one.
+           .hidden must still win: this rule is declared after Tailwind's utility and has the
+           same specificity, so without the guard below the pill shows at a count of zero. */
+        .dm-unread-pill.hidden,
+        .dm-new-tag.hidden {
+            display: none;
+        }
+
+        .dm-unread-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.15rem;
+            height: 1.15rem;
+            padding: 0 0.35rem;
+            border-radius: 999px;
+            background: #4f46e5;
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        /* On the toolbar button the pill floats over the icon. */
+        #dm-inbox-btn .dm-unread-pill {
+            position: absolute;
+            top: 0.1rem;
+            right: 0.1rem;
+        }
+
+        /* NEW is informational, so it stays quiet. */
+        .dm-new-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.05rem 0.4rem;
+            border-radius: 0.25rem;
+            border: 1px solid rgba(233, 233, 234, 0.25);
+            color: rgba(233, 233, 234, 0.5);
+            font-size: 0.6rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+
+        .dm-inbox-section {
+            padding: 0.75rem 0.75rem 0.35rem;
+            font-size: 0.6rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: rgba(233, 233, 234, 0.3);
         }
 
         /* Timestamp divider inserted between messages with a real time gap. */
@@ -3202,7 +3336,47 @@
                         <div id="dm-bar-name" class="text-sm font-semibold truncate leading-tight"></div>
                         <div class="text-[10px] opacity-50 truncate leading-tight">Private thread — no one else can see this</div>
                     </div>
+                    <button data-action="toggle-dm-options" title="Thread options"
+                        class="dm-back-btn flex items-center justify-center w-8 h-8 rounded-full transition-colors flex-shrink-0">
+                        <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    </button>
                 </div>
+
+                <!-- Text Mode thread options: the per-conversation feel settings live here rather
+                     than in the main settings page, which keeps that page to one Text Mode entry. -->
+                <div id="dm-options-menu" class="hidden absolute z-40 bg-gray-900/95 backdrop-blur-md border border-gray-700 rounded-lg shadow-xl py-2 px-1"
+                     style="min-width: 250px; top: 3.25rem; right: 0.75rem;">
+                    <div class="px-3 py-1 text-[10px] uppercase tracking-wider text-gray-500">Thread Options</div>
+                    <label class="flex items-center justify-between gap-3 px-3 py-2 hover:bg-white/5 rounded cursor-pointer">
+                        <span class="text-xs text-gray-200">Allow Emoji</span>
+                        <input type="checkbox" id="dm-opt-emoji" data-dm-opt="dmAllowEmoji" class="dm-opt-toggle">
+                    </label>
+                    <label class="flex items-center justify-between gap-3 px-3 py-2 hover:bg-white/5 rounded cursor-pointer">
+                        <span class="text-xs text-gray-200">Timestamp Awareness</span>
+                        <input type="checkbox" id="dm-opt-timestamp" data-dm-opt="dmTimestampAwareness" class="dm-opt-toggle">
+                    </label>
+                    <label class="flex items-center justify-between gap-3 px-3 py-2 hover:bg-white/5 rounded cursor-pointer">
+                        <span class="text-xs text-gray-200">Typing Indicator</span>
+                        <input type="checkbox" id="dm-opt-typing" data-dm-opt="dmTypingIndicator" class="dm-opt-toggle">
+                    </label>
+                </div>
+                <!-- Text Mode Inbox: the persistent entry point. Lists every active character with
+                     their thread state, so an unread text is visible even when that character has
+                     not spoken in the main story for a long time. -->
+                <div id="dm-inbox" class="hidden absolute inset-0 z-40 flex-col">
+                    <div id="dm-inbox-header" class="flex items-center gap-3 px-3 py-2 flex-shrink-0">
+                        <button data-action="close-dm-inbox" title="Back to story"
+                            class="dm-back-btn flex items-center justify-center w-8 h-8 rounded-full transition-colors flex-shrink-0">
+                            <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"></path></svg>
+                        </button>
+                        <div class="min-w-0 flex-grow">
+                            <div class="text-sm font-semibold leading-tight">Messages</div>
+                            <div class="text-[10px] opacity-50 leading-tight">Private threads, hidden from the rest of the cast</div>
+                        </div>
+                    </div>
+                    <div id="dm-inbox-list" class="flex-grow overflow-y-auto overflow-x-hidden px-2 py-2"></div>
+                </div>
+
                 <!-- Active Character Portrait: Displayed alongside chat on desktop -->
                 <div id="character-portrait-container" class="flex-shrink-0 flex-col justify-center items-center"
                     style="padding-right: 0.5rem;"></div>
@@ -3355,6 +3529,19 @@
                         </button>
                         <input type="file" id="image-upload-input" class="hidden" accept="image/*"
                             onchange="NarrativeController.handleImageUpload(event)">
+
+                        <!-- Text Mode Inbox -->
+                        <button id="dm-inbox-btn" data-action="open-dm-inbox"
+                            class="relative p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            title="Text Messages">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="pointer-events-none lucide lucide-smartphone">
+                                <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+                                <path d="M12 18h.01" />
+                            </svg>
+                            <span id="dm-inbox-badge" class="dm-unread-pill hidden">0</span>
+                        </button>
 
                         <!-- Regenerate -->
                         <button id="regen-btn"
@@ -5217,52 +5404,7 @@
                         </label>
                     </div>
 
-                    <!-- Text Mode: Emoji Toggle -->
-                    <div
-                        class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
-                        <div>
-                            <span class="text-gray-200 font-medium block">Text Mode: Allow Emoji</span>
-                            <span class="text-xs text-gray-500">Off by default. Models tend to drift into replying with nothing but emoji.</span>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="dm-allow-emoji-toggle" class="sr-only peer">
-                            <div
-                                class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
-                            </div>
-                        </label>
                     </div>
-
-                    <!-- Text Mode: Timestamp Awareness -->
-                    <div
-                        class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
-                        <div>
-                            <span class="text-gray-200 font-medium block">Text Mode: Timestamp Awareness</span>
-                            <span class="text-xs text-gray-500">Lets the character notice how long it has been since you last replied.</span>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="dm-timestamp-toggle" class="sr-only peer">
-                            <div
-                                class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
-                            </div>
-                        </label>
-                    </div>
-
-                    <!-- Text Mode: Typing Indicator -->
-                    <div
-                        class="flex items-center justify-between bg-gray-900/30 p-4 rounded-lg border border-gray-700/50 hover:bg-gray-900/40 transition-colors">
-                        <div>
-                            <span class="text-gray-200 font-medium block">Text Mode: Typing Indicator</span>
-                            <span class="text-xs text-gray-500">Shows animated dots while the character composes a reply.</span>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" id="dm-typing-toggle" class="sr-only peer">
-                            <div
-                                class="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600">
-                            </div>
-                        </label>
-                    </div>
-
-                </div>
             </div>
 
             <!-- Generation Settings -->
@@ -7152,6 +7294,14 @@
                     if (e.key === 'Escape') hideCharacterMenu();
                 });
                 window.addEventListener('scroll', hideCharacterMenu, true);
+
+                // Dismiss the thread options menu on any outside click.
+                document.addEventListener('click', (e) => {
+                    const menu = document.getElementById('dm-options-menu');
+                    if (!menu || menu.classList.contains('hidden')) return;
+                    if (e.target.closest('#dm-options-menu') || e.target.closest('[data-action="toggle-dm-options"]')) return;
+                    menu.classList.add('hidden');
+                });
             }
         };
 
@@ -8688,6 +8838,7 @@
                             'prompt_adjacent_locations_gen',
                             'prompt_entry_gen', 'prompt_location_memory_gen', 'prompt_story_notes_gen', 'prompt_story_tags_gen',
                             'prompt_auto_static_knowledge', 'prompt_stats_init',
+                            'prompt_text_mode',
 
                             // AI Logic Toggles
                             'enableAutoStaticKnowledge', 'enableAnalysis', 'enableResponseOptions', 'enableStats', 'enableLivingPersona', 'enableJournal',
@@ -12434,6 +12585,7 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
             getHardcodedSystemPrompts() {
                 return {
                     system_prompt: 'You are a master storyteller. Follow instructions precisely.',
+                    prompt_text_mode: "### TEXT MESSAGE MODE\nYou are {character_name}, texting {user_character} privately on a phone. This is a one-to-one conversation. No other character can see it.\n\nRules for this mode:\n- Write ONLY what would be typed into a phone. Plain text messages.\n- Do NOT write actions, gestures, or physical description. No asterisks, no *does something*.\n- Do NOT write internal thoughts or narration. No italics for inner monologue.\n- Do NOT describe the scene, the setting, or the weather.\n- Let length follow feeling, not a formula. Real texting is inconsistent:\n    - Calm, casual, or busy: one or two sentences. This is the normal case.\n    - Worked up \u2014 angry, hurt, anxious, excited \u2014 can go either way, and both are true to life:\n        - A wall of text: venting, over-explaining, listing grievances, repeating yourself, sending the thing you swore you would not send.\n        - Or the opposite: \"fine.\" \"whatever.\" \"k.\" A clipped reply often carries more anger than a paragraph does.\n    - Choose whichever fits THIS character at THIS moment. Do not default to long just because the mood is heavy, and do not be terse every time either.\n- A long message must come from feeling, never from description. Even at your angriest you are still typing on a phone, not narrating a scene.\n- Stay fully in character. Your personality, mood, and history still apply.\n- You may reference anything you know from the main story, and anything said in this private thread.\n- What is said here is private. Other characters do not know it unless you choose to tell them later.\n{emoji_rule}\n{elapsed_time}",
                     event_master_base_prompt: 'You are a secret Event Master. Read the chat. Generate a brief, secret instruction for AI characters to introduce a logical but unexpected event.',
                     event_master_prompt: 'You are a secret Event Master. Read the chat. Generate a brief, secret instruction for AI characters to introduce a logical but unexpected event.',
                     prompt_persona_gen: "Embellish this character concept into a rich, detailed, and compelling persona description, focusing on detailed appearance, personality, goals, relationships, and backstory.\n\nSTYLE INSTRUCTIONS: Write in an immersive interview style. Use double quotes for any dialogue and plain text for actions. For example: *He leaned back, adjusted his glasses, and sighed.* \"I didn't think you would find me here so soon.\"\n\n### Name\n\"{name}\"\n\n### Concept\n\"{concept}\"",
@@ -14133,39 +14285,34 @@ JSON Schema:
                 const userChar = (state.characters || []).find(c => c.is_user);
                 const userName = userChar ? userChar.name : 'the user';
 
-                let instruction = `### TEXT MESSAGE MODE\n`;
-                instruction += `You are ${char ? char.name : 'the character'}, texting ${userName} privately on a phone. `;
-                instruction += `This is a one-to-one conversation. No other character can see it.\n\n`;
-                instruction += `Rules for this mode:\n`;
-                instruction += `- Write ONLY what would be typed into a phone. Plain text messages.\n`;
-                instruction += `- Do NOT write actions, gestures, or physical description. No asterisks, no *does something*.\n`;
-                instruction += `- Do NOT write internal thoughts or narration. No italics for inner monologue.\n`;
-                instruction += `- Do NOT describe the scene, the setting, or the weather.\n`;
-                instruction += `- Keep it short. Real texts are usually one or two sentences.\n`;
-                instruction += `- Stay fully in character. Your personality, mood, and history still apply.\n`;
-                instruction += `- You may reference anything you know from the main story, and anything said in this private thread.\n`;
-                instruction += `- What is said here is private. Other characters do not know it unless you choose to tell them later.\n`;
+                const template = state.prompt_text_mode || UTILITY.getDefaultSystemPrompts().prompt_text_mode;
 
-                if (state.dmAllowEmoji) {
-                    instruction += `- Emoji are allowed, but use them sparingly and only where the character would naturally.\n`;
-                } else {
-                    instruction += `- Do NOT use emoji, emoticons, or kaomoji of any kind.\n`;
-                }
+                // {emoji_rule}: driven by the Allow Emoji toggle.
+                const emojiRule = state.dmAllowEmoji
+                    ? '- Emoji are allowed, but use them sparingly and only where the character would naturally.'
+                    : '- Do NOT use emoji, emoticons, or kaomoji of any kind.';
 
-                // Elapsed-time awareness: let the character notice real gaps between messages.
+                // {elapsed_time}: driven by the Timestamp Awareness toggle. Empty when there is
+                // no prior message to measure against, or the toggle is off.
+                let elapsedBlock = '';
                 if (state.dmTimestampAwareness !== false && thread.length > 0) {
                     const last = thread[thread.length - 1];
                     if (last && last.timestamp) {
                         const elapsed = Date.now() - new Date(last.timestamp).getTime();
                         if (elapsed > 0) {
-                            instruction += `\n### ELAPSED TIME\n`;
-                            instruction += `Time since the previous message in this thread: ${this._formatElapsed(elapsed)}. `;
-                            instruction += `React naturally if that gap is long enough to be worth mentioning. Do not mention it if it is short.\n`;
+                            elapsedBlock = `\n### ELAPSED TIME\n`
+                                + `Time since the previous message in this thread: ${this._formatElapsed(elapsed)}. `
+                                + `React naturally if that gap is long enough to be worth mentioning. `
+                                + `Do not mention it if it is short.\n`;
                         }
                     }
                 }
 
-                return instruction;
+                return template
+                    .replace(/{character_name}/g, char ? char.name : 'the character')
+                    .replace(/{user_character}/g, userName)
+                    .replace(/{emoji_rule}/g, emojiRule)
+                    .replace(/{elapsed_time}/g, elapsedBlock);
             },
 
             /**
@@ -20503,9 +20650,10 @@ Write only the character's message.`;
                     })
                     .join('');
 
-                // 5.5 Text Mode: insert time dividers between messages with a real gap.
-                if (typeof TextModeController !== 'undefined' && TextModeController.isActive()) {
-                    TextModeController.decorateThread();
+                // 5.5 Text Mode: insert time dividers, and keep the inbox badge current.
+                if (typeof TextModeController !== 'undefined') {
+                    if (TextModeController.isActive()) TextModeController.decorateThread();
+                    TextModeController.updateInboxBadge();
                 }
 
                 // 6. Restore Typing Indicator (Persistence Fix for Visual Master Updates)
@@ -24777,7 +24925,8 @@ Write only the character's message.`;
                     'Agents': ['event_master_base_prompt', 'visual_master_base_prompt', 'prompt_persona_gen', 'prompt_living_persona_gen', 'prompt_timeline_extractor', 'prompt_relationship_matrix'],
                     'Lore & Map': ['prompt_world_map_gen', 'prompt_location_gen', 'prompt_adjacent_locations_gen', 'prompt_entry_gen', 'prompt_location_memory_gen', 'prompt_auto_static_knowledge'],
                     'Director Mode': ['swarm_scratchpad_prompt', 'swarm_director_prompt'],
-                    'Objectivity': ['prompt_objectivity_description', 'prompt_objectivity_thoughts']
+                    'Objectivity': ['prompt_objectivity_description', 'prompt_objectivity_thoughts'],
+                    'Text Mode': ['prompt_text_mode']
                 };
 
                 const promptInfo = {
@@ -24801,7 +24950,8 @@ Write only the character's message.`;
                     'swarm_scratchpad_prompt': 'Director Mode: Private scratchpad for each character agent. Variables: {character_name}, {objective_description}, {character_description}, {recent_history}',
                     'swarm_director_prompt': 'Director Mode: Multi-agent orchestrator that resolves all character intents into a single prose scene. Variables: {recent_history}, {winner_intents}, {character_descriptions}, {primary_speaker}',
                     'prompt_objectivity_description': 'Objectivity Step 1: Neutral overview of the physical scene. Variables: {character_name}, {history}',
-                    'prompt_objectivity_thoughts': 'Objectivity Step 2: Internal character monologue processing the scene. Variables: {character_name}, {objective_description}, {personal_goal}, {relationships}, {sensations}'
+                    'prompt_objectivity_thoughts': 'Objectivity Step 2: Internal character monologue processing the scene. Variables: {character_name}, {objective_description}, {personal_goal}, {relationships}, {sensations}',
+                    'prompt_text_mode': 'Governs how a character writes in a private text thread. Variables: {character_name}, {user_character}, {emoji_rule}, {elapsed_time}'
                 };
 
                 const setupPromptEditor = (selectorId, editorId, hintId, isGlobal = false, resetBtnId = null) => {
@@ -25055,10 +25205,9 @@ Write only the character's message.`;
                         if (typeof ReactiveStore.forceSave === 'function') ReactiveStore.forceSave();
                     });
                 };
+                // Only the master switch lives in settings. The per-conversation feel toggles
+                // are in the thread gear menu, wired by TextModeController.
                 bindTextModeToggle('enable-text-mode-toggle', 'enableTextMode', true);
-                bindTextModeToggle('dm-allow-emoji-toggle', 'dmAllowEmoji', false);
-                bindTextModeToggle('dm-timestamp-toggle', 'dmTimestampAwareness', true);
-                bindTextModeToggle('dm-typing-toggle', 'dmTypingIndicator', true);
 
                 // ── DIRECTOR MODE SETTINGS WIRING ───────────────────────────────────────
                 const swarmToggle = document.getElementById('swarm-mode-toggle');
@@ -37011,6 +37160,175 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
             },
 
             /**
+             * Characters eligible for texting: active, not the player.
+             * @returns {Array}
+             */
+            getContacts() {
+                const state = ReactiveStore.state;
+                if (!state || !Array.isArray(state.characters)) return [];
+                return state.characters.filter(c => c && !c.is_user && c.is_active !== false);
+            },
+
+            /**
+             * Number of messages from a character that arrived after the thread was last opened.
+             * Always 0 until characters can text unprompted, but the plumbing belongs here.
+             * @param {string} charId
+             * @returns {number}
+             */
+            getUnreadCount(charId) {
+                const state = ReactiveStore.state;
+                if (!state) return 0;
+                const lastRead = (state.dmLastRead || {})[charId];
+                const readAt = lastRead ? new Date(lastRead).getTime() : 0;
+                return this.getThread(charId).filter(m =>
+                    m.character_id === charId && m.timestamp && new Date(m.timestamp).getTime() > readAt
+                ).length;
+            },
+
+            /**
+             * Total unread across every thread, for the toolbar badge.
+             * @returns {number}
+             */
+            getTotalUnread() {
+                return this.getContacts().reduce((sum, c) => sum + this.getUnreadCount(c.id), 0);
+            },
+
+            /**
+             * Marks a thread as read up to now.
+             * @param {string} charId
+             * @private
+             */
+            _markRead(charId) {
+                const state = ReactiveStore.state;
+                if (!state) return;
+                if (!state.dmLastRead) state.dmLastRead = {};
+                state.dmLastRead[charId] = new Date().toISOString();
+            },
+
+            /**
+             * Refreshes the unread pill on the toolbar button.
+             */
+            updateInboxBadge() {
+                const badge = document.getElementById('dm-inbox-badge');
+                const btn = document.getElementById('dm-inbox-btn');
+                if (!badge || !btn) return;
+
+                const state = ReactiveStore.state;
+                const enabled = state && state.enableTextMode !== false && this.getContacts().length > 0;
+                btn.classList.toggle('hidden', !enabled);
+
+                const total = enabled ? this.getTotalUnread() : 0;
+                badge.textContent = total > 99 ? '99+' : String(total);
+                badge.classList.toggle('hidden', total === 0);
+            },
+
+            /**
+             * Opens the inbox. With exactly one contact there is no choice to make,
+             * so it goes straight to that thread.
+             */
+            openInbox() {
+                const state = ReactiveStore.state;
+                if (!state || state.enableTextMode === false) return;
+
+                const contacts = this.getContacts();
+                if (contacts.length === 0) return;
+                if (contacts.length === 1) {
+                    this.open(contacts[0].id);
+                    return;
+                }
+
+                this.close();
+                const panel = document.getElementById('dm-inbox');
+                if (panel) panel.classList.remove('hidden');
+                document.body.dataset.dmInbox = 'true';
+                this.renderInbox();
+            },
+
+            /**
+             * Closes the inbox panel.
+             */
+            closeInbox() {
+                const panel = document.getElementById('dm-inbox');
+                if (panel) panel.classList.add('hidden');
+                delete document.body.dataset.dmInbox;
+            },
+
+            /**
+             * Renders the contact list: threads with history first, newest activity at the top,
+             * then characters never texted.
+             */
+            renderInbox() {
+                const container = document.getElementById('dm-inbox-list');
+                if (!container) return;
+
+                const rows = this.getContacts().map(c => {
+                    const thread = this.getThread(c.id);
+                    const last = thread.length ? thread[thread.length - 1] : null;
+                    return {
+                        char: c,
+                        thread: thread,
+                        last: last,
+                        unread: this.getUnreadCount(c.id),
+                        stamp: last && last.timestamp ? new Date(last.timestamp).getTime() : 0
+                    };
+                });
+
+                const started = rows.filter(r => r.thread.length > 0).sort((a, b) => b.stamp - a.stamp);
+                const fresh = rows.filter(r => r.thread.length === 0);
+
+                let html = '';
+                const rowHtml = (r) => {
+                    const speaker = r.last ? ReactiveStore.getCharacter(r.last.character_id) : null;
+                    const prefix = speaker && speaker.is_user ? 'You: ' : '';
+                    const preview = r.last ? prefix + (r.last.content || '') : 'No messages yet';
+                    const time = r.stamp ? this._formatInboxTime(new Date(r.stamp)) : '';
+                    const src = UIManager.getPortraitSrc(r.char, 'neutral');
+                    const avatarStyle = src ? `background-image: url('${src}')` : '';
+
+                    return DOM.html`
+                        <button class="dm-inbox-row ${r.unread > 0 ? 'is-unread' : ''}" data-action="open-dm-thread" data-id="${r.char.id}">
+                            <div class="dm-inbox-avatar" style="${DOM.unsafe(avatarStyle)}"></div>
+                            <div class="min-w-0 flex-grow">
+                                <div class="flex items-center gap-2">
+                                    <span class="dm-inbox-name truncate">${r.char.name || 'Unknown'}</span>
+                                    ${r.thread.length === 0 ? DOM.unsafe('<span class="dm-new-tag">New</span>') : ''}
+                                </div>
+                                <div class="dm-inbox-preview">${preview}</div>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <span class="dm-inbox-time">${time}</span>
+                                ${r.unread > 0 ? DOM.unsafe(`<span class="dm-unread-pill">${r.unread > 99 ? '99+' : r.unread}</span>`) : ''}
+                            </div>
+                        </button>`.toString();
+                };
+
+                started.forEach(r => { html += rowHtml(r); });
+                if (fresh.length > 0) {
+                    if (started.length > 0) html += `<div class="dm-inbox-section">Not yet messaged</div>`;
+                    fresh.forEach(r => { html += rowHtml(r); });
+                }
+
+                container.innerHTML = html;
+            },
+
+            /**
+             * Compact relative time for an inbox row.
+             * @param {Date} date
+             * @returns {string}
+             * @private
+             */
+            _formatInboxTime(date) {
+                const now = new Date();
+                if (date.toDateString() === now.toDateString()) {
+                    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                }
+                const yesterday = new Date(now);
+                yesterday.setDate(now.getDate() - 1);
+                if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
+                return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            },
+
+            /**
              * Opens the text thread for a character.
              * @param {string} charId
              */
@@ -37024,6 +37342,9 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
 
                 this.RUNTIME.activeCharId = charId;
                 document.body.dataset.dmMode = 'true';
+                this.closeInbox();
+                this._markRead(charId);
+                this.updateInboxBadge();
 
                 const nameEl = document.getElementById('dm-bar-name');
                 const avatarEl = document.getElementById('dm-bar-avatar');
@@ -37042,10 +37363,46 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
              * Closes the thread and returns to the main narrative.
              */
             close() {
+                const wasActive = this.RUNTIME.activeCharId;
+                if (wasActive) this._markRead(wasActive);
+
                 this.RUNTIME.activeCharId = null;
                 delete document.body.dataset.dmMode;
                 this._setInputPlaceholder(null);
+                this.hideOptions();
+                this.updateInboxBadge();
                 UIManager.renderChat();
+            },
+
+            /**
+             * Shows or hides the thread options menu, syncing the toggles from state first.
+             */
+            toggleOptions() {
+                const menu = document.getElementById('dm-options-menu');
+                if (!menu) return;
+
+                if (!menu.classList.contains('hidden')) {
+                    this.hideOptions();
+                    return;
+                }
+
+                const state = ReactiveStore.state || {};
+                const emoji = document.getElementById('dm-opt-emoji');
+                const stamp = document.getElementById('dm-opt-timestamp');
+                const typing = document.getElementById('dm-opt-typing');
+                if (emoji) emoji.checked = state.dmAllowEmoji === true;
+                if (stamp) stamp.checked = state.dmTimestampAwareness !== false;
+                if (typing) typing.checked = state.dmTypingIndicator !== false;
+
+                menu.classList.remove('hidden');
+            },
+
+            /**
+             * Hides the thread options menu.
+             */
+            hideOptions() {
+                const menu = document.getElementById('dm-options-menu');
+                if (menu) menu.classList.add('hidden');
             },
 
             /**
@@ -40454,11 +40811,33 @@ Relationship | Alistair & Elara | Alistair has started to trust Elara after she 
                 // --- TextModeController (Private text threads) ---
                 ActionHandler.register('open-dm-thread', (ds) => TextModeController.open(ds.id));
                 ActionHandler.register('close-dm-thread', () => TextModeController.close());
+                ActionHandler.register('toggle-dm-options', () => TextModeController.toggleOptions());
+                ActionHandler.register('open-dm-inbox', () => TextModeController.openInbox());
+                ActionHandler.register('close-dm-inbox', () => TextModeController.closeInbox());
+
+                // Thread option toggles write straight to narrative state.
+                document.querySelectorAll('.dm-opt-toggle').forEach(el => {
+                    el.addEventListener('change', (e) => {
+                        const key = el.dataset.dmOpt;
+                        if (!key || !ReactiveStore.state) return;
+                        ReactiveStore.state[key] = e.target.checked;
+                        if (typeof ReactiveStore.forceSave === 'function') ReactiveStore.forceSave();
+                    });
+                });
                 // Sending is handled by the normal chat input via NarrativeController.sendMessage,
                 // so the thread keeps every existing message tool. Escape leaves the thread.
                 document.addEventListener('keydown', (e) => {
                     if (e.key !== 'Escape') return;
-                    if (typeof TextModeController === 'undefined' || !TextModeController.isActive()) return;
+                    if (typeof TextModeController === 'undefined') return;
+
+                    // Inbox closes first if it is open.
+                    const inbox = document.getElementById('dm-inbox');
+                    if (inbox && !inbox.classList.contains('hidden')) {
+                        e.preventDefault();
+                        TextModeController.closeInbox();
+                        return;
+                    }
+                    if (!TextModeController.isActive()) return;
 
                     // If the character menu is open, Escape dismisses that first.
                     const menu = document.getElementById('character-context-menu');

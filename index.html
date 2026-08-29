@@ -9796,13 +9796,59 @@
                     text += "\n\n[SYSTEM NOTE: The user has provided an image, but your current model configuration does not support image analysis. Please acknowledge the user's intent if necessary, but inform them you cannot see the image.]";
                 }
 
-                // Apply a default 60-second timeout to prevent background/un-signaled tasks from hanging the UI
+                // Apply a default 60-second timeout to prevent background/un-signaled tasks from hanging the UI.
+                //
+                // The budget counts only time the app is actually on screen. A phone that
+                // backgrounds the tab suspends this timer, and the browser fires anything
+                // overdue the moment the user comes back - so a reply still on its way was
+                // aborted for "taking too long" when it had only been waiting to be looked
+                // at. That is the single most common way a generation is lost on mobile.
                 let activeSignal = signal;
                 let timeoutId = null;
+                let onVisibilityChange = null;
+
+                // Tracked for every call, not just the ones that own the abort budget,
+                // because the main turn passes its own signal for the stop button. A
+                // network failure that spans a period off screen is a dropped connection,
+                // not a broken setup, and the caller can recover from it.
+                let wentHiddenDuringCall = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+                const hiddenProbe = () => {
+                    if (document.visibilityState === 'hidden') wentHiddenDuringCall = true;
+                };
+                if (typeof document !== 'undefined') {
+                    document.addEventListener('visibilitychange', hiddenProbe);
+                }
                 if (!activeSignal) {
                     const controller = new AbortController();
                     activeSignal = controller.signal;
-                    timeoutId = setTimeout(() => controller.abort(), 60000);
+
+                    let remainingMs = 60000;
+                    let armedAt = 0;
+
+                    const arm = () => {
+                        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+                        armedAt = Date.now();
+                        timeoutId = setTimeout(() => controller.abort(), remainingMs);
+                    };
+
+                    const disarm = () => {
+                        if (!timeoutId) return;
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                        // Keep a floor so returning to a nearly-expired request still
+                        // leaves a moment for the response to land.
+                        remainingMs = Math.max(5000, remainingMs - (Date.now() - armedAt));
+                    };
+
+                    onVisibilityChange = () => {
+                        if (document.visibilityState === 'hidden') disarm();
+                        else if (!timeoutId) arm();
+                    };
+
+                    if (typeof document !== 'undefined') {
+                        document.addEventListener('visibilitychange', onVisibilityChange);
+                    }
+                    arm();
                 }
 
                 let responseText = "";
@@ -9867,7 +9913,12 @@
                         else if (friendlyProvider === 'openrouter') friendlyProvider = 'OpenRouter';
                         else if (friendlyProvider === 'nanogpt') friendlyProvider = 'NanoGPT';
                         
-                        const msg = `Connection failed: ${friendlyProvider} is offline or unreachable.`;
+                        const msg = wentHiddenDuringCall
+                            ? `Connection dropped while the app was in the background (${friendlyProvider}).`
+                            : `Connection failed: ${friendlyProvider} is offline or unreachable.`;
+                        // Lets the caller tell "your backend is down" apart from "the phone
+                        // cut this off while you were in another app", which is recoverable.
+                        error.interruptedWhileHidden = wentHiddenDuringCall;
                         console.warn(`[APIService] ${msg}`, error);
                         if (!silent && typeof UIManager !== 'undefined' && UIManager.showNotification) {
                             UIManager.showNotification(msg, 'error');
@@ -9880,6 +9931,12 @@
                     throw error;
                 } finally {
                     if (timeoutId) clearTimeout(timeoutId);
+                    if (typeof document !== 'undefined') {
+                        document.removeEventListener('visibilitychange', hiddenProbe);
+                        if (onVisibilityChange) {
+                            document.removeEventListener('visibilitychange', onVisibilityChange);
+                        }
+                    }
                 }
             },
 
@@ -34877,6 +34934,31 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                             UIManager.showToast(`AI Error: ${error.message}`, true);
                         } else if (!error.reported) {
                             console.error(`AI Error: ${error.message}`);
+                        }
+
+                        // The connection was cut while the app was in another app, which
+                        // is the common mobile case: submit, switch away, come back to a
+                        // turn that never happened and no way forward but sending again.
+                        // Take the turn once more as soon as the app is back on screen.
+                        if (error.interruptedWhileHidden && !this.RUNTIME.resumeArmed) {
+                            this.RUNTIME.resumeArmed = true;
+                            const lengthAtFailure = state.chat_history.length;
+                            const resume = () => {
+                                if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+                                if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', resume);
+                                this.RUNTIME.resumeArmed = false;
+                                // A reply that landed in the meantime means there is nothing
+                                // to resume, and retrying would produce a duplicate turn.
+                                if (ReactiveStore.state.chat_history.length !== lengthAtFailure) return;
+                                if (typeof UIManager !== 'undefined') {
+                                    UIManager.showNotification('Connection dropped while you were away. Taking the turn again.', 'info');
+                                }
+                                this.triggerAIResponse(null, '', false, null, null);
+                            };
+                            if (typeof document !== 'undefined') {
+                                document.addEventListener('visibilitychange', resume);
+                                if (document.visibilityState === 'visible') setTimeout(resume, 0);
+                            }
                         }
                     }
                     if (targetMessageIndex !== null && originalContent !== null) {

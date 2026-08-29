@@ -6897,6 +6897,11 @@
                 document.body.addEventListener('contextmenu', (e) => {
                     const header = e.target.closest('.bubble-header');
                     if (!header) return;
+                    // The character name is its own control and sits inside this strip.
+                    // Leave anything carrying its own action alone, so a right-click there
+                    // stays available to whatever owns it rather than being claimed here.
+                    // Matches the touch path, which already skips these.
+                    if (e.target.closest('[data-action]')) return;
                     e.preventDefault();
                     openMessageMenuFrom(header, e.clientX, e.clientY);
                 });

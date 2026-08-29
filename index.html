@@ -9593,13 +9593,47 @@
                     text += "\n\n[SYSTEM NOTE: The user has provided an image, but your current model configuration does not support image analysis. Please acknowledge the user's intent if necessary, but inform them you cannot see the image.]";
                 }
 
-                // Apply a default 60-second timeout to prevent background/un-signaled tasks from hanging the UI
+                // Apply a default 60-second timeout to prevent background/un-signaled tasks from hanging the UI.
+                //
+                // The budget counts only time the app is actually on screen. A phone that
+                // backgrounds the tab suspends this timer, and the browser fires anything
+                // overdue the moment the user comes back - so a reply still on its way was
+                // aborted for "taking too long" when it had only been waiting to be looked
+                // at. That is the single most common way a generation is lost on mobile.
                 let activeSignal = signal;
                 let timeoutId = null;
+                let onVisibilityChange = null;
                 if (!activeSignal) {
                     const controller = new AbortController();
                     activeSignal = controller.signal;
-                    timeoutId = setTimeout(() => controller.abort(), 60000);
+
+                    let remainingMs = 60000;
+                    let armedAt = 0;
+
+                    const arm = () => {
+                        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+                        armedAt = Date.now();
+                        timeoutId = setTimeout(() => controller.abort(), remainingMs);
+                    };
+
+                    const disarm = () => {
+                        if (!timeoutId) return;
+                        clearTimeout(timeoutId);
+                        timeoutId = null;
+                        // Keep a floor so returning to a nearly-expired request still
+                        // leaves a moment for the response to land.
+                        remainingMs = Math.max(5000, remainingMs - (Date.now() - armedAt));
+                    };
+
+                    onVisibilityChange = () => {
+                        if (document.visibilityState === 'hidden') disarm();
+                        else if (!timeoutId) arm();
+                    };
+
+                    if (typeof document !== 'undefined') {
+                        document.addEventListener('visibilitychange', onVisibilityChange);
+                    }
+                    arm();
                 }
 
                 let responseText = "";
@@ -9670,6 +9704,9 @@
                     throw error;
                 } finally {
                     if (timeoutId) clearTimeout(timeoutId);
+                    if (onVisibilityChange && typeof document !== 'undefined') {
+                        document.removeEventListener('visibilitychange', onVisibilityChange);
+                    }
                 }
             },
 

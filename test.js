@@ -463,6 +463,124 @@ test('testLoreEntries: triggers GM-style rule mapping with probability and keywo
     assert.equal(r2 && r2.id, 'r2');
 });
 
+// ─── lowestLoreIndexByEntry ──────────────────
+
+test('lowestLoreIndexByEntry: rewinds to the earliest stage when an entry revealed twice', () => {
+    const removed = [
+        { type: 'lore_reveal', dynamic_entry_id: 'e1', previous_index: 3 },
+        { type: 'lore_reveal', dynamic_entry_id: 'e1', previous_index: 1 },
+        { type: 'lore_reveal', dynamic_entry_id: 'e2', previous_index: 2 }
+    ];
+    deepEq(UTILITY.lowestLoreIndexByEntry(removed), { e1: 1, e2: 2 });
+});
+
+test('lowestLoreIndexByEntry: keeps stage 0 (must not be dropped as falsy)', () => {
+    const removed = [{ type: 'lore_reveal', dynamic_entry_id: 'e1', previous_index: 0 }];
+    deepEq(UTILITY.lowestLoreIndexByEntry(removed), { e1: 0 });
+});
+
+test('lowestLoreIndexByEntry: ignores chat messages and pre-upgrade reveals', () => {
+    const removed = [
+        { type: 'chat', content: 'hello', dynamic_entry_id: 'e1', previous_index: 5 },
+        { type: 'lore_reveal', dynamic_entry_id: 'e2' },
+        { type: 'lore_reveal', previous_index: 4 },
+        null
+    ];
+    deepEq(UTILITY.lowestLoreIndexByEntry(removed), {});
+});
+
+test('lowestLoreIndexByEntry: returns an empty map for empty or missing input', () => {
+    deepEq(UTILITY.lowestLoreIndexByEntry([]), {});
+    deepEq(UTILITY.lowestLoreIndexByEntry(undefined), {});
+});
+
+// ─── canCombineAt ────────────────────
+
+test('canCombineAt: allows combining a reply with the chat message before it', () => {
+    const history = [
+        { type: 'chat', content: 'He lifted the sword.' },
+        { type: 'chat', content: 'The thieves laughed.' }
+    ];
+    assert.equal(UTILITY.canCombineAt(history, 1), true);
+});
+
+test('canCombineAt: refuses index 0, which has nothing before it', () => {
+    const history = [{ type: 'chat', content: 'He lifted the sword.' }];
+    assert.equal(UTILITY.canCombineAt(history, 0), false);
+});
+
+test('canCombineAt: refuses lore reveals and system events on either side', () => {
+    const lorePrev = [
+        { type: 'lore_reveal', content: 'The vault remembers.' },
+        { type: 'chat', content: 'She stepped back.' }
+    ];
+    assert.equal(UTILITY.canCombineAt(lorePrev, 1), false, 'lore reveal as the earlier message');
+
+    const eventLater = [
+        { type: 'chat', content: 'She stepped back.' },
+        { type: 'system_event', content: 'The door seals.' }
+    ];
+    assert.equal(UTILITY.canCombineAt(eventLater, 1), false, 'system event as the later message');
+});
+
+test('canCombineAt: refuses empty content on either side', () => {
+    const history = [
+        { type: 'chat', content: '' },
+        { type: 'chat', content: 'The thieves laughed.' }
+    ];
+    assert.equal(UTILITY.canCombineAt(history, 1), false);
+});
+
+test('canCombineAt: refuses bad input instead of throwing', () => {
+    assert.equal(UTILITY.canCombineAt(undefined, 1), false);
+    assert.equal(UTILITY.canCombineAt([], 1), false);
+    assert.equal(UTILITY.canCombineAt([{ type: 'chat', content: 'a' }], 5), false);
+    assert.equal(UTILITY.canCombineAt([{ type: 'chat', content: 'a' }], 1.5), false);
+});
+
+// ─── collapseErrors ────────────────────
+
+test('collapseErrors: groups repeats into one row with a count', () => {
+    const rows = UTILITY.collapseErrors([
+        { message: 'Connection timed out.', ts: 100 },
+        { message: 'Connection timed out.', ts: 200 },
+        { message: 'Connection timed out.', ts: 300 }
+    ]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].count, 3);
+    assert.equal(rows[0].firstTs, 100);
+    assert.equal(rows[0].lastTs, 300);
+});
+
+test('collapseErrors: orders distinct errors most recent first', () => {
+    const rows = UTILITY.collapseErrors([
+        { message: 'old failure', ts: 100 },
+        { message: 'newer failure', ts: 500 },
+        { message: 'middle failure', ts: 300 }
+    ]);
+    deepEq(rows.map(r => r.message), ['newer failure', 'middle failure', 'old failure']);
+});
+
+test('collapseErrors: a repeat refreshes its position, not its first-seen time', () => {
+    const rows = UTILITY.collapseErrors([
+        { message: 'flaky call', ts: 100 },
+        { message: 'other failure', ts: 200 },
+        { message: 'flaky call', ts: 900 }
+    ]);
+    assert.equal(rows[0].message, 'flaky call');
+    assert.equal(rows[0].count, 2);
+    assert.equal(rows[0].firstTs, 100, 'first sighting is preserved');
+    assert.equal(rows[0].lastTs, 900);
+});
+
+test('collapseErrors: skips junk entries and survives no input', () => {
+    deepEq(UTILITY.collapseErrors([]), []);
+    deepEq(UTILITY.collapseErrors(undefined), []);
+    const rows = UTILITY.collapseErrors([null, { ts: 1 }, { message: '', ts: 2 }, { message: 'real', ts: 3 }]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].message, 'real');
+});
+
 // ─── createDefaultMapGrid ─────────────────────────────────────────────────
 
 test('createDefaultMapGrid: returns an 8x8 grid with empty content', () => {

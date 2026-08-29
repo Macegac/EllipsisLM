@@ -2776,6 +2776,50 @@
         .animate-pulse-crimson {
             animation: pulse-crimson 2s infinite ease-in-out;
         }
+
+        /* Error dot: draws the eye briefly, then stops. It stays on screen until it is
+           read, but a dot that animated forever would be its own kind of nag. */
+        .error-dot-pulse {
+            animation: pulse-crimson 1s ease-in-out 2;
+        }
+
+        /* Sized here rather than with utility classes. tailwind.css in this repo is a
+           prebuilt stylesheet, not JIT, so a utility that no existing markup uses is
+           simply absent: h-7 resolves, w-7 does not, and the dot collapses to a sliver. */
+        #error-dot {
+            position: fixed;
+            top: 4.5rem;
+            right: 1rem;
+            z-index: 95;
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            border-radius: 9999px;
+            background-color: rgba(220, 38, 38, 0.92);
+            border: 1px solid rgba(252, 165, 165, 0.4);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 1;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+            cursor: pointer;
+        }
+
+        #error-dot.is-visible {
+            display: flex;
+        }
+
+        #error-log-panel {
+            position: fixed;
+            top: 4.5rem;
+            right: 1rem;
+            z-index: 96;
+            width: min(22rem, calc(100vw - 2rem));
+            max-height: 60vh;
+        }
         
         #context-visualizer-tooltip {
             position: fixed;
@@ -3314,6 +3358,26 @@
     <div id="message-context-menu"
         class="hidden fixed z-50 bg-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-xl py-1 overflow-hidden"
         style="min-width: 210px;"></div>
+    <!-- Error dot: errors collect here instead of throwing a full-width toast over the
+         chat. On a phone that toast covered the top of the story for three seconds and
+         then vanished whether or not it had been read. -->
+    <!-- [UI:MENU:ERRORS] -->
+    <button id="error-dot" data-action="open-error-log" title="Show recent errors">
+        <span id="error-dot-count">0</span></button>
+
+    <div id="error-log-panel"
+        class="hidden bg-gray-900/95 backdrop-blur-md border border-gray-700 rounded-lg shadow-2xl flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-2 border-b border-gray-700/70 shrink-0">
+            <span class="text-sm font-semibold text-red-300">Recent Errors</span>
+            <div class="flex items-center gap-3">
+                <button data-action="clear-error-log" class="text-xs text-gray-400 hover:text-white transition-colors">Clear</button>
+                <button data-action="close-error-log" class="text-gray-400 hover:text-white transition-colors" aria-label="Close">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+        </div>
+        <div id="error-log-list" class="overflow-y-auto px-4 py-2 space-y-2"></div>
+    </div>
 
     <!-- MODALS -->
 
@@ -9776,9 +9840,14 @@
                 } catch (error) {
                     if (error.name === 'AbortError') {
                         if (timeoutId && !signal) {
-                            const timeoutError = new Error("Request timed out after 60 seconds.");
-                            if (typeof UIManager !== 'undefined' && UIManager.showToast) {
-                                UIManager.showToast("Connection timed out. Please check if your AI backend is running.", true);
+                            // One report per failure. This used to raise its own toast AND
+                            // throw a differently worded error, so every caller that reported
+                            // e.message produced a second banner for the same problem.
+                            // The friendly wording now rides on the error itself.
+                            const timeoutError = new Error("Connection timed out after 60 seconds. Check that your AI backend is running.");
+                            if (typeof UIManager !== 'undefined' && UIManager.showNotification) {
+                                UIManager.showNotification(timeoutError.message, 'error');
+                                timeoutError.reported = true;
                             }
                             throw timeoutError;
                         }
@@ -9800,8 +9869,10 @@
                         
                         const msg = `Connection failed: ${friendlyProvider} is offline or unreachable.`;
                         console.warn(`[APIService] ${msg}`, error);
-                        if (!silent && typeof UIManager !== 'undefined' && UIManager.showToast) {
-                            UIManager.showToast(msg, true);
+                        if (!silent && typeof UIManager !== 'undefined' && UIManager.showNotification) {
+                            UIManager.showNotification(msg, 'error');
+                            // Marked so a caller that also reports does not double up.
+                            error.reported = true;
                         }
                     } else {
                         console.error(`AI call failed (${state.apiProvider}):`, error);
@@ -11916,6 +11987,30 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
                 if (later.type !== 'chat' || earlier.type !== 'chat') return false;
                 if (!later.content || !earlier.content) return false;
                 return true;
+            },
+
+            /**
+             * Groups repeated error messages so a failure that fires twenty times reads as
+             * one line with a count rather than twenty identical rows. Most recent first.
+             * @param {Array<Object>} entries - Raw {message, ts} entries, oldest first.
+             * @returns {Array<Object>} - [{ message, count, firstTs, lastTs }]
+             */
+            collapseErrors(entries) {
+                const seen = {};
+                const rows = [];
+                (entries || []).forEach(e => {
+                    if (!e || !e.message) return;
+                    const key = String(e.message);
+                    if (seen[key]) {
+                        seen[key].count += 1;
+                        seen[key].lastTs = e.ts;
+                        return;
+                    }
+                    const row = { message: key, count: 1, firstTs: e.ts, lastTs: e.ts };
+                    seen[key] = row;
+                    rows.push(row);
+                });
+                return rows.sort((a, b) => (b.lastTs || 0) - (a.lastTs || 0));
             },
 
             /**
@@ -22863,7 +22958,101 @@ Write only the character's message.`;
             /**
              * Displays a toast notification.
              */
+            /**
+             * Records an error and surfaces the dot. Replaces the red toast: that covered
+             * the top of the chat on a phone and auto-dismissed after three seconds,
+             * whether or not it had been read. The dot waits to be read instead.
+             * @param {string} message - The error text.
+             */
+            logError(message) {
+                this.RUNTIME.errorLog = this.RUNTIME.errorLog || [];
+                this.RUNTIME.errorLog.push({ message: String(message || 'Unknown error'), ts: Date.now() });
+                // Capped: a repeating background failure must not grow without bound.
+                if (this.RUNTIME.errorLog.length > 50) this.RUNTIME.errorLog.shift();
+
+                const dot = document.getElementById('error-dot');
+                if (!dot) return;
+                const count = document.getElementById('error-dot-count');
+                if (count) count.textContent = String(this.RUNTIME.errorLog.length);
+                dot.classList.add('is-visible');
+
+                // Restart the one-shot pulse even if the dot was already showing.
+                dot.classList.remove('error-dot-pulse');
+                void dot.offsetWidth;
+                dot.classList.add('error-dot-pulse');
+
+                const openPanel = document.getElementById('error-log-panel');
+                if (openPanel && !openPanel.classList.contains('hidden')) {
+                    this.renderErrorLog();
+                }
+            },
+
+            /**
+             * Renders the collected errors into the panel, newest first.
+             */
+            renderErrorLog() {
+                const list = document.getElementById('error-log-list');
+                if (!list) return;
+                const rows = UTILITY.collapseErrors(this.RUNTIME.errorLog || []);
+                if (rows.length === 0) {
+                    list.innerHTML = DOM.html`<p class="text-xs text-gray-500 py-2">Nothing has gone wrong.</p>`.toString();
+                    return;
+                }
+                list.innerHTML = rows.map(r => {
+                    const time = new Date(r.lastTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const badge = r.count > 1 ? DOM.html`<span class="shrink-0 text-[10px] font-bold text-red-300 bg-red-900/40 rounded px-1.5 py-0.5">x${r.count}</span>`.toString() : '';
+                    return DOM.html`<div class="border-b border-gray-800 pb-2 last:border-0">
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="text-xs text-gray-200 leading-relaxed">${r.message}</span>
+                            ${DOM.unsafe(badge)}
+                        </div>
+                        <span class="text-[10px] text-gray-500">${time}</span>
+                    </div>`.toString();
+                }).join('');
+            },
+
+            /**
+             * Opens the error list.
+             */
+            openErrorLog() {
+                const panel = document.getElementById('error-log-panel');
+                if (!panel) return;
+                this.renderErrorLog();
+                panel.classList.remove('hidden');
+                panel.classList.add('flex');
+            },
+
+            /**
+             * Closes the error list, leaving the dot in place so nothing is lost.
+             */
+            closeErrorLog() {
+                const panel = document.getElementById('error-log-panel');
+                if (panel) {
+                    panel.classList.add('hidden');
+                    panel.classList.remove('flex');
+                }
+            },
+
+            /**
+             * Discards the collected errors and hides the dot.
+             */
+            clearErrorLog() {
+                this.RUNTIME.errorLog = [];
+                this.renderErrorLog();
+                this.closeErrorLog();
+                const dot = document.getElementById('error-dot');
+                if (dot) {
+                    dot.classList.remove('is-visible', 'error-dot-pulse');
+                }
+            },
+
             showNotification(message, type = 'info') {
+                // Errors go to the dot, not across the chat. Success and info still toast.
+                if (type === 'error') {
+                    this.logError(message);
+                    return;
+                }
+
                 const container = document.getElementById('notification-container') || (() => {
                     const d = document.createElement('div');
                     d.id = 'notification-container';
@@ -34680,9 +34869,13 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     if (error.name === 'AbortError') {
                         console.log("Stopped.");
                     } else {
-                        if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                        // callAI already reports and marks the failures it recognises,
+                        // so repeating it here produced two entries for one problem:
+                        // "Connection failed: OpenRouter is offline or unreachable."
+                        // alongside "AI Error: Failed to fetch".
+                        if (!error.reported && typeof UIManager !== 'undefined' && UIManager.showToast) {
                             UIManager.showToast(`AI Error: ${error.message}`, true);
-                        } else {
+                        } else if (!error.reported) {
                             console.error(`AI Error: ${error.message}`);
                         }
                     }
@@ -36712,7 +36905,10 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 try {
                     return await APIService.callAI(prompt);
                 } catch (e) {
-                    alert(e.message);
+                    // Was alert(), a blocking system dialog that had to be dismissed by hand
+                    // on mobile. callAI already reports what it recognises, so only speak up
+                    // for the failures it did not.
+                    if (!e || !e.reported) UIManager.showNotification((e && e.message) || 'Generation failed.', 'error');
                     return null;
                 } finally {
                     if (btn) {
@@ -40311,6 +40507,9 @@ Relationship | Alistair & Elara | Alistair has started to trust Elara after she 
                 ActionHandler.register('combine-with-previous', (ds) => NarrativeController.combineWithPrevious(parseInt(ds.index)));
                 ActionHandler.register('recombine-message', (ds) => NarrativeController.recombineMessage(parseInt(ds.index)));
                 ActionHandler.register('split-combined-message', (ds) => NarrativeController.splitCombinedMessage(parseInt(ds.index)));
+                ActionHandler.register('open-error-log', () => UIManager.openErrorLog());
+                ActionHandler.register('close-error-log', () => UIManager.closeErrorLog());
+                ActionHandler.register('clear-error-log', () => UIManager.clearErrorLog());
                 ActionHandler.register('chat-copy', (ds) => NarrativeController.copyMessage(ds.index));
                 ActionHandler.register('chat-edit', (ds) => NarrativeController.openEditModal(ds.index));
                 ActionHandler.register('chat-delete', (ds) => NarrativeController.deleteMessage(ds.index));

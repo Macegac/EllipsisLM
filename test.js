@@ -463,6 +463,37 @@ test('testLoreEntries: triggers GM-style rule mapping with probability and keywo
     assert.equal(r2 && r2.id, 'r2');
 });
 
+// ─── lowestLoreIndexByEntry ──────────────────
+
+test('lowestLoreIndexByEntry: rewinds to the earliest stage when an entry revealed twice', () => {
+    const removed = [
+        { type: 'lore_reveal', dynamic_entry_id: 'e1', previous_index: 3 },
+        { type: 'lore_reveal', dynamic_entry_id: 'e1', previous_index: 1 },
+        { type: 'lore_reveal', dynamic_entry_id: 'e2', previous_index: 2 }
+    ];
+    deepEq(UTILITY.lowestLoreIndexByEntry(removed), { e1: 1, e2: 2 });
+});
+
+test('lowestLoreIndexByEntry: keeps stage 0 (must not be dropped as falsy)', () => {
+    const removed = [{ type: 'lore_reveal', dynamic_entry_id: 'e1', previous_index: 0 }];
+    deepEq(UTILITY.lowestLoreIndexByEntry(removed), { e1: 0 });
+});
+
+test('lowestLoreIndexByEntry: ignores chat messages and pre-upgrade reveals', () => {
+    const removed = [
+        { type: 'chat', content: 'hello', dynamic_entry_id: 'e1', previous_index: 5 },
+        { type: 'lore_reveal', dynamic_entry_id: 'e2' },
+        { type: 'lore_reveal', previous_index: 4 },
+        null
+    ];
+    deepEq(UTILITY.lowestLoreIndexByEntry(removed), {});
+});
+
+test('lowestLoreIndexByEntry: returns an empty map for empty or missing input', () => {
+    deepEq(UTILITY.lowestLoreIndexByEntry([]), {});
+    deepEq(UTILITY.lowestLoreIndexByEntry(undefined), {});
+});
+
 // ─── createDefaultMapGrid ─────────────────────────────────────────────────
 
 test('createDefaultMapGrid: returns an 8x8 grid with empty content', () => {

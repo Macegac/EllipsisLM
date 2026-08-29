@@ -11739,6 +11739,28 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
             },
 
             /**
+             * Reduces removed chat messages to the earliest lore stage each dynamic entry
+             * should rewind to. A single delete can remove several reveals for one entry
+             * (a repeat reveal is spliced out and re-pushed by _triggerLoreEntry), so the
+             * lowest previous_index wins. Reveals saved before previous_index existed are
+             * skipped rather than guessed at.
+             * @param {Array<Object>} messages - The messages being removed.
+             * @returns {Object} - Map of dynamic_entry_id to the index to restore.
+             */
+            lowestLoreIndexByEntry(messages) {
+                const lowest = {};
+                (messages || []).forEach(m => {
+                    if (!m || m.type !== 'lore_reveal' || !m.dynamic_entry_id) return;
+                    if (typeof m.previous_index !== 'number') return;
+                    const seen = lowest[m.dynamic_entry_id];
+                    if (seen === undefined || m.previous_index < seen) {
+                        lowest[m.dynamic_entry_id] = m.previous_index;
+                    }
+                });
+                return lowest;
+            },
+
+            /**
              * Safely extracts and parses JSON from a string, handling markdown code blocks.
              * @param {string} str - The string containing JSON.
              * @returns {Object|null} - The parsed object or null.
@@ -33415,6 +33437,19 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                         const cleanedPersona = UTILITY.sanitizeEvolvedPersona(responseText, charNames);
                         
                         if (cleanedPersona) {
+                            // Snapshot BEFORE the overwrite, tagged with the same slice
+                            // buildLivingPersonaPrompt read, so deleting those scenes also
+                            // reverts the persona they produced. Runs fire-and-forget outside
+                            // triggerAutoKnowledgeUpdates, so it logs its own revision.
+                            const personaSourceIds = (state.chat_history || [])
+                                .filter(m => m.type === 'chat' && !m.isHidden)
+                                .slice(-21, -1)
+                                .map(m => m.id);
+                            if (personaSourceIds.length > 0) {
+                                state.knowledge_revisions = state.knowledge_revisions || [];
+                                state.knowledge_revisions.push(this.createKnowledgeSnapshot(personaSourceIds));
+                            }
+
                             state.evolved_characters = state.evolved_characters || {};
                             state.evolved_characters[charId] = cleanedPersona;
 
@@ -33583,6 +33618,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                             deletedIds.push(nextMsg.id);
                         }
                         this.rollbackKnowledgeForDeletedMessages(deletedIds);
+                        this.restoreLoreIndicesForRemovedMessages([msg, nextMsg]);
                     }
 
                     if (msg && msg.type === 'chat') state.messageCounter--;
@@ -33601,6 +33637,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     const removed = state.chat_history.slice(index);
                     const deletedIds = removed.map(m => m.id);
                     this.rollbackKnowledgeForDeletedMessages(deletedIds);
+                    this.restoreLoreIndicesForRemovedMessages(removed);
 
                     const chatCount = removed.filter(m => m.type === 'chat').length;
                     state.messageCounter = Math.max(0, state.messageCounter - chatCount);
@@ -33621,11 +33658,13 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 if (history.length === 0) return;
 
                 const deletedIds = [];
+                const removedMessages = [];
                 let removedChatMessage = false;
                 let i = history.length - 1;
                 while (i >= 0 && !removedChatMessage) {
                     const msg = history[i];
                     deletedIds.push(msg.id);
+                    removedMessages.push(msg);
                     history.splice(i, 1); // Reactive splice
                     if (msg.type === 'chat') {
                         ReactiveStore.state.messageCounter--;
@@ -33636,6 +33675,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
 
                 if (deletedIds.length > 0) {
                     this.rollbackKnowledgeForDeletedMessages(deletedIds);
+                    this.restoreLoreIndicesForRemovedMessages(removedMessages);
                 }
             },
 
@@ -33655,6 +33695,8 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                         narrative_timeline: JSON.parse(JSON.stringify(state.narrative_timeline || [])),
                         relationship_matrix: JSON.parse(JSON.stringify(state.relationship_matrix || [])),
                         journal_entries: JSON.parse(JSON.stringify(state.journal_entries || [])),
+                        evolved_characters: JSON.parse(JSON.stringify(state.evolved_characters || {})),
+                        livingPersonaCounters: JSON.parse(JSON.stringify(state.livingPersonaCounters || {})),
                         gameState: state.gameState ? JSON.parse(JSON.stringify(state.gameState)) : null,
                         worldMapGrid: state.worldMap && state.worldMap.grid 
                             ? JSON.parse(JSON.stringify(state.worldMap.grid))
@@ -33691,6 +33733,16 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     state.relationship_matrix = JSON.parse(JSON.stringify(rev.snapshot.relationship_matrix || []));
                     state.journal_entries = JSON.parse(JSON.stringify(rev.snapshot.journal_entries || []));
 
+                    // Revisions saved before these two stores were tracked have no such key.
+                    // Defaulting to {} would erase a persona the snapshot never captured, so
+                    // an absent key means "leave it alone" rather than "it was empty".
+                    if (rev.snapshot.evolved_characters) {
+                        state.evolved_characters = JSON.parse(JSON.stringify(rev.snapshot.evolved_characters));
+                    }
+                    if (rev.snapshot.livingPersonaCounters) {
+                        state.livingPersonaCounters = JSON.parse(JSON.stringify(rev.snapshot.livingPersonaCounters));
+                    }
+
                     if (rev.snapshot.gameState) {
                         state.gameState = JSON.parse(JSON.stringify(rev.snapshot.gameState));
                     }
@@ -33708,6 +33760,44 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                         UIManager.renderDynamicEntries();
                         UIManager.renderInventoryPanel();
                     }
+                }
+            },
+
+            /**
+             * Rewinds sequential lorebook entries whose reveals are being deleted.
+             * current_index advances every turn, so the every-6-messages knowledge
+             * snapshot is too coarse to undo it; the stage is carried on the
+             * lore_reveal message itself instead (see _triggerLoreEntry).
+             * Scans the same pools as checkDynamicEntryTriggers: global dynamic_entries
+             * plus dynamic_knowledge on roster and location characters.
+             * @param {Array<Object>} removedMessages - The messages being removed.
+             */
+            restoreLoreIndicesForRemovedMessages(removedMessages) {
+                const lowest = UTILITY.lowestLoreIndexByEntry(removedMessages);
+                if (Object.keys(lowest).length === 0) return;
+
+                const state = ReactiveStore.state;
+                const locationChars = (typeof ReactiveStore.getActiveLocationCharacters === 'function')
+                    ? ReactiveStore.getActiveLocationCharacters()
+                    : [];
+                const pools = [state.dynamic_entries || []];
+                [...(state.characters || []), ...locationChars].forEach(c => {
+                    if (c && c.dynamic_knowledge) pools.push(c.dynamic_knowledge);
+                });
+
+                let changed = false;
+                pools.forEach(pool => {
+                    pool.forEach(entry => {
+                        if (!entry || !(entry.id in lowest)) return;
+                        if (entry.current_index === lowest[entry.id]) return;
+                        entry.current_index = lowest[entry.id];
+                        changed = true;
+                    });
+                });
+
+                if (changed) {
+                    ReactiveStore.forceSave();
+                    if (typeof UIManager !== 'undefined') UIManager.renderDynamicEntries();
                 }
             },
 
@@ -36144,6 +36234,9 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     title: entry.title,
                     content: contentToReveal,
                     dynamic_entry_id: entry.id,
+                    // Stage this reveal consumed. Deleting the message rewinds
+                    // entry.current_index back to it (restoreLoreIndicesForRemovedMessages).
+                    previous_index: contentIndex,
                     exclusive_to_char_id: charId,
                     timestamp: new Date().toISOString(),
                     isHidden: true

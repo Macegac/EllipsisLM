@@ -463,6 +463,49 @@ test('testLoreEntries: triggers GM-style rule mapping with probability and keywo
     assert.equal(r2 && r2.id, 'r2');
 });
 
+// ─── collapseErrors ────────────────────
+
+test('collapseErrors: groups repeats into one row with a count', () => {
+    const rows = UTILITY.collapseErrors([
+        { message: 'Connection timed out.', ts: 100 },
+        { message: 'Connection timed out.', ts: 200 },
+        { message: 'Connection timed out.', ts: 300 }
+    ]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].count, 3);
+    assert.equal(rows[0].firstTs, 100);
+    assert.equal(rows[0].lastTs, 300);
+});
+
+test('collapseErrors: orders distinct errors most recent first', () => {
+    const rows = UTILITY.collapseErrors([
+        { message: 'old failure', ts: 100 },
+        { message: 'newer failure', ts: 500 },
+        { message: 'middle failure', ts: 300 }
+    ]);
+    deepEq(rows.map(r => r.message), ['newer failure', 'middle failure', 'old failure']);
+});
+
+test('collapseErrors: a repeat refreshes its position, not its first-seen time', () => {
+    const rows = UTILITY.collapseErrors([
+        { message: 'flaky call', ts: 100 },
+        { message: 'other failure', ts: 200 },
+        { message: 'flaky call', ts: 900 }
+    ]);
+    assert.equal(rows[0].message, 'flaky call');
+    assert.equal(rows[0].count, 2);
+    assert.equal(rows[0].firstTs, 100, 'first sighting is preserved');
+    assert.equal(rows[0].lastTs, 900);
+});
+
+test('collapseErrors: skips junk entries and survives no input', () => {
+    deepEq(UTILITY.collapseErrors([]), []);
+    deepEq(UTILITY.collapseErrors(undefined), []);
+    const rows = UTILITY.collapseErrors([null, { ts: 1 }, { message: '', ts: 2 }, { message: 'real', ts: 3 }]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].message, 'real');
+});
+
 // ─── createDefaultMapGrid ─────────────────────────────────────────────────
 
 test('createDefaultMapGrid: returns an 8x8 grid with empty content', () => {

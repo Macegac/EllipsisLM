@@ -33752,7 +33752,9 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 if (targetIndex !== -1) {
                     // Update Mode: Regenerate the existing bubble
                     const msg = history[targetIndex];
-                    await this.triggerAIResponse(msg.character_id, '', false, targetIndex, null, msg.images || []);
+                    // Carry any directive that produced this message, so a rerun answers
+                    // the same direction rather than reverting to the previous message.
+                    await this.triggerAIResponse(msg.character_id, msg.directive || '', false, targetIndex, null, msg.images || []);
                 } else {
                     // New Mode: Just trigger a fresh response logic
                     let targetId = document.getElementById('ai-character-selector').value;
@@ -34723,6 +34725,14 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
             async triggerAIResponse(charIdOrPromise = null, userMessage = '', isAfterMove = false, targetMessageIndex = null, visualBlockerPromise = null, userImages = []) {
                 const state = ReactiveStore.state;
 
+                // handleDirectCharacter passes its instruction in through userMessage, and
+                // the prompt built below never forwarded it - so outside Swarm mode the
+                // directive was read from the input, used to choose a speaker, and then
+                // dropped. Swarm honours it because its own builders look for this marker.
+                const directiveInstruction = (typeof userMessage === 'string' && userMessage.includes('[DIRECTIVE]:'))
+                    ? userMessage
+                    : null;
+
                 // Clear previous error messages before starting new generation
                 this.clearSystemErrors();
                 this._clearResponseOptions();
@@ -34805,7 +34815,18 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
 
                     // Fix: Provide clean history context if regenerating (exclude the old message)
                     const historyOverride = targetMessageIndex !== null ? state.chat_history.slice(0, targetMessageIndex) : null;
-                    const prompt = PromptBuilder.buildPrompt(targetId, false, historyOverride);
+                    // customInstruction REPLACES the default instruction rather than adding
+                    // to it, so the default is restated here and the directive follows it.
+                    // Landing last puts it directly before the response anchor, which is
+                    // where the Swarm director prompt deliberately places it too.
+                    let directiveCustomInstruction = null;
+                    if (directiveInstruction) {
+                        const actingChar = ReactiveStore.getCharacter(targetId);
+                        const actingName = actingChar ? actingChar.name : 'the character';
+                        directiveCustomInstruction =
+                            `Generate the next response for ${actingName}. Stay in character.\n\n${directiveInstruction}`;
+                    }
+                    const prompt = PromptBuilder.buildPrompt(targetId, false, historyOverride, directiveCustomInstruction);
 
                     // START REQUEST (Do not await yet if there might be other parallel work, but here we await basic text first)
                     // actually, to fully parallelize, we could start this promise and the emotion analysis promise.
@@ -34844,6 +34865,18 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     UIManager.hideTypingIndicator();
                     // Display with neutral emotion first to avoid blocking text display
                     this.startStreamingResponse(targetId, responseText, 'neutral', targetMessageIndex, []);
+
+                    // Directives are otherwise one-shot: read from the input, used once,
+                    // never stored. Regenerating the message then quietly dropped the
+                    // direction and answered the previous message instead. Keeping it on
+                    // the message it produced lets handleRegen apply it again.
+                    if (directiveInstruction) {
+                        const producedIndex = (targetMessageIndex !== null)
+                            ? targetMessageIndex
+                            : (state.chat_history.length - 1);
+                        const producedMsg = state.chat_history[producedIndex];
+                        if (producedMsg) producedMsg.directive = directiveInstruction;
+                    }
 
                     // 7. Analyze combined interaction (Post-Display Concurrency)
                     // We don't await this so the text shows up instantly. 

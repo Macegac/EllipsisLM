@@ -34384,9 +34384,13 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     if (error.name === 'AbortError') {
                         console.log("Stopped.");
                     } else {
-                        if (typeof UIManager !== 'undefined' && UIManager.showToast) {
+                        // callAI already reports and marks the failures it recognises,
+                        // so repeating it here produced two entries for one problem:
+                        // "Connection failed: OpenRouter is offline or unreachable."
+                        // alongside "AI Error: Failed to fetch".
+                        if (!error.reported && typeof UIManager !== 'undefined' && UIManager.showToast) {
                             UIManager.showToast(`AI Error: ${error.message}`, true);
-                        } else {
+                        } else if (!error.reported) {
                             console.error(`AI Error: ${error.message}`);
                         }
                     }

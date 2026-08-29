@@ -33543,7 +33543,10 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 if (!prompt) return;
 
                 this.RUNTIME.combineInFlight = true;
-                UIManager.showNotification('Combining messages...', 'info');
+                // Same indicator as an ordinary turn, attributed to whoever will own the
+                // result, so a combine looks like every other wait in the app instead of
+                // a toast that leaves you guessing whether anything is happening.
+                UIManager.showTypingIndicator(this.resolveCombineSpeaker(later), 'is combining the last two messages...');
                 let combined = null;
                 try {
                     combined = await APIService.callAI(prompt);
@@ -33551,6 +33554,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     UIManager.showNotification(e.message || 'Combine failed.', 'error');
                 } finally {
                     this.RUNTIME.combineInFlight = false;
+                    UIManager.hideTypingIndicator();
                 }
                 if (!combined || !combined.trim()) {
                     UIManager.showNotification('Combine returned nothing. Messages left as they were.', 'error');
@@ -33596,7 +33600,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 if (!prompt) return;
 
                 this.RUNTIME.combineInFlight = true;
-                UIManager.showNotification('Combining again...', 'info');
+                UIManager.showTypingIndicator(msg.character_id, 'is combining the scene again...');
                 let combined = null;
                 try {
                     combined = await APIService.callAI(prompt);
@@ -33604,6 +33608,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     UIManager.showNotification(e.message || 'Combine failed.', 'error');
                 } finally {
                     this.RUNTIME.combineInFlight = false;
+                    UIManager.hideTypingIndicator();
                 }
                 if (!combined || !combined.trim()) {
                     UIManager.showNotification('Combine returned nothing. The current take is unchanged.', 'error');

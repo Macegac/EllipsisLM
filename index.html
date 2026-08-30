@@ -6762,11 +6762,22 @@
                 <div id="vision-bridge-shared-settings" class="space-y-4 mt-4 hidden">
                     <div>
                         <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Vision Model</label>
-                        <input type="text" id="vision-bridge-model" data-setting-key="visionBridgeModel"
-                            placeholder="e.g. google/gemma-4-12b-it"
-                            class="w-full bg-black/30 border border-gray-600 rounded p-2 text-sm text-white focus:border-indigo-500">
+                        <div class="flex space-x-2">
+                            <input type="text" id="vision-bridge-model" data-setting-key="visionBridgeModel"
+                                placeholder="e.g. google/gemma-4-12b-it"
+                                class="flex-grow bg-black/30 border border-gray-600 rounded p-2 text-sm text-white focus:border-indigo-500">
+                            <button id="vision-bridge-browse-btn" onclick="AppController.openOpenRouterModelBrowser('vision')"
+                                class="bg-gray-700 hover:bg-indigo-600 text-white font-bold py-2 px-3 rounded-lg transition-colors"
+                                title="Browse vision models">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+                                </svg>
+                            </button>
+                        </div>
                         <p class="text-xs text-gray-500 mt-1">Local servers usually ignore this and use
-                            whichever model is loaded. Required for OpenRouter.</p>
+                            whichever model is loaded. Required for OpenRouter. Browsing lists only
+                            models that can actually read an image.</p>
                     </div>
                     <div>
                         <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Description Instruction</label>
@@ -27268,6 +27279,20 @@ Write only the character's message.`;
                     // - 'text' mode  -> default endpoint          (returns text/multimodal models)
                     let models = await APIService.fetchOpenRouterModels(mode);
 
+                    // "image" mode means models that PRODUCE pictures. The Vision Bridge
+                    // needs the opposite: models that can READ one. That is not a separate
+                    // endpoint, so filter the normal list on input modalities.
+                    if (mode === 'vision') {
+                        models = models.filter(m => {
+                            const arch = m && m.architecture;
+                            if (!arch) return false;
+                            if (Array.isArray(arch.input_modalities)) {
+                                return arch.input_modalities.includes('image');
+                            }
+                            return typeof arch.modality === 'string' && arch.modality.includes('image');
+                        });
+                    }
+
                     if (models.length > 0) {
                         console.groupCollapsed("OpenRouter Model Fetch Debug");
                         console.log(`Total Models Fetched (${mode} mode):`, models.length);
@@ -27423,6 +27448,20 @@ Write only the character's message.`;
              * @param {string} modelId - The model ID to select.
              */
             _selectModelFromBrowser(modelId) {
+                if (this.RUNTIME.modelBrowserMode === 'vision') {
+                    const input = document.getElementById('vision-bridge-model');
+                    if (input) {
+                        input.value = modelId;
+                        // The settings binding listens for input, so this keeps the stored
+                        // value in step with the field.
+                        input.dispatchEvent(new Event('input'));
+                    }
+                    StateManager.data.globalSettings.visionBridgeModel = modelId;
+                    StateManager.saveGlobalSettings();
+                    this.closeModal('openrouter-model-modal');
+                    return;
+                }
+
                 if (this.RUNTIME.modelBrowserMode === 'image') {
                     // Image Mode Selection
                     const input = document.getElementById('image-gen-openrouter-model-input');

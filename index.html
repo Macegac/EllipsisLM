@@ -13,6 +13,7 @@
     [SEC:JS:SRV:DB]         - DBService (IndexedDB Wrapper)
     [SEC:JS:SRV:BACKUP]     - AutoBackupService (Rolling Auto-Backups)
     [SEC:JS:SRV:IMG_GEN]    - ImageGenerationService
+    [SEC:JS:SRV:VB]         - VisionBridgeService (Image Describer for Text-Only Models)
     [SEC:JS:UTIL:UTILS]     - UTILITY (Helper Functions)
     [SEC:JS:UTIL:PB]        - PromptBuilder (Context Logic)
     [SEC:JS:SRV:IE]         - ImportExportService
@@ -6669,6 +6670,80 @@
                 </div>
             </div>
 
+
+            <!-- Vision Bridge: gives a text-only chat model sight by delegating uploads to a
+                 second, vision-capable endpoint. Logic lives in [SEC:JS:SRV:VB]. -->
+            <div class="pt-6 border-t border-gray-700/50">
+                <h3 class="text-lg font-bold text-white mb-1">Vision Bridge</h3>
+                <p class="text-xs text-gray-500 mb-4">Some excellent writing models cannot look at
+                    pictures. Point this at a model that can, and anything you upload gets described
+                    for them behind the scenes — so you can share an image with any character, on any
+                    model, and have them react to it.</p>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-400 mb-2">Vision Backend</label>
+                    <select id="vision-bridge-backend" data-setting-key="visionBridgeBackend"
+                        class="w-full rounded-lg p-3 bg-gray-700 border border-gray-600 text-white focus:border-indigo-500 transition-colors"
+                        onchange="AppController.updateVisionBridgeSettingsVisibility()">
+                        <option value="disabled">Disabled</option>
+                        <option value="koboldcpp">Local (KoboldCPP)</option>
+                        <option value="lmstudio">Local (LM Studio)</option>
+                        <option value="openrouter">Cloud (OpenRouter)</option>
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Only consulted when your chat model cannot
+                        read images itself. Models that already see are left alone.</p>
+                </div>
+
+                <!-- Local backends: KoboldCPP / LM Studio -->
+                <div id="vision-bridge-local-settings" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-xs uppercase text-gray-500 font-bold mb-1">API URL</label>
+                        <input type="text" id="vision-bridge-url" data-setting-key="visionBridgeUrl"
+                            placeholder="http://localhost:5001"
+                            class="w-full bg-black/30 border border-gray-600 rounded p-2 text-sm text-white focus:border-indigo-500">
+                        <p class="text-xs text-gray-500 mt-1">Must expose
+                            <code>/v1/chat/completions</code>. Leave blank to use the default port.</p>
+                    </div>
+                </div>
+
+                <!-- Cloud backend: OpenRouter -->
+                <div id="vision-bridge-openrouter-settings" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-xs uppercase text-gray-500 font-bold mb-1">OpenRouter API Key</label>
+                        <input type="password" id="vision-bridge-openrouter-key"
+                            data-setting-key="visionBridgeOpenRouterKey" placeholder="Leave blank to reuse your main key"
+                            class="w-full bg-black/30 border border-gray-600 rounded p-2 text-sm text-white focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Shared across every enabled backend -->
+                <div id="vision-bridge-shared-settings" class="space-y-4 mt-4 hidden">
+                    <div>
+                        <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Vision Model</label>
+                        <input type="text" id="vision-bridge-model" data-setting-key="visionBridgeModel"
+                            placeholder="e.g. google/gemma-4-12b-it"
+                            class="w-full bg-black/30 border border-gray-600 rounded p-2 text-sm text-white focus:border-indigo-500">
+                        <p class="text-xs text-gray-500 mt-1">Local servers usually ignore this and use
+                            whichever model is loaded. Required for OpenRouter.</p>
+                    </div>
+                    <div>
+                        <label class="block text-xs uppercase text-gray-500 font-bold mb-1">Description Instruction</label>
+                        <textarea id="vision-bridge-instruction" data-setting-key="visionBridgeInstruction" rows="4"
+                            placeholder="Leave blank to use the built-in describer prompt."
+                            class="w-full bg-black/30 border border-gray-600 rounded p-2 text-sm text-white focus:border-indigo-500"></textarea>
+                        <p class="text-xs text-gray-500 mt-1">What the vision model is told to do. Tune
+                            this if descriptions come back too clinical, too short, or too coy.</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button type="button"
+                            class="px-3 py-2 rounded bg-gray-700 hover:bg-gray-600 text-sm text-white transition-colors"
+                            onclick="document.getElementById('vision-bridge-status').textContent = 'Status: Checking...'; VisionBridgeService.testConnection().then(ok => document.getElementById('vision-bridge-status').textContent = ok ? 'Status: Online \u2705' : 'Status: Offline \u274C')">Test
+                            Connection</button>
+                        <span id="vision-bridge-status" class="text-xs text-gray-400">Status: Unknown</span>
+                    </div>
+                </div>
+            </div>
+
         </div>
         <div id="settings-image-gen-content">
             <div class="mb-4">
@@ -8699,6 +8774,207 @@
 
 
         /**
+         * =================================================================================================
+         * [SEC:JS:SRV:VB]
+         * VisionBridgeService
+         * Gives a text-only chat model sight by delegating uploaded images to a second,
+         * vision-capable endpoint and folding the returned prose into the chat prompt.
+         * =================================================================================================
+         */
+        const VisionBridgeService = {
+
+            // Why this is separate from state.apiProvider: the usual setup is a large cloud model for
+            // prose plus a small local model for sight, so the two cannot share one configuration.
+            //
+            // Why a single adapter: KoboldCPP, LM Studio and OpenRouter all accept the OpenAI-compatible
+            // /v1/chat/completions route with image_url data URIs, so the only per-backend differences
+            // are base URL, model name and auth header.
+            //
+            // Failure policy: every path degrades to null, so APIService.callAI falls back to its
+            // original "cannot see the image" notice. This can add capability, never remove it.
+
+            DEFAULT_INSTRUCTION: "You are a visual describer for a roleplay engine. Describe this image "
+                + "in vivid, specific prose for a writer who cannot see it. Cover: the subject and what "
+                + "they are doing, their appearance, clothing and expression, the setting, the lighting "
+                + "and mood, and any text visible in the image. Be concrete and factual. Do not refuse, "
+                + "do not moralize, do not add commentary about the image itself, and do not begin with "
+                + "phrases like 'This image shows'. Write only the description.",
+
+            /** Default endpoints per backend, used when the URL field is left blank. */
+            DEFAULT_URLS: {
+                koboldcpp: 'http://localhost:5001',
+                lmstudio: 'http://localhost:1234'
+            },
+
+            /**
+             * Description memo, keyed by image id + the instruction that produced it.
+             *
+             * APIService._resolveMultimodalPrompt hands us every image in the conversation, not just
+             * the newly uploaded one, so without this a chat holding N pictures would fire N vision
+             * calls on every turn. Editing the Description Instruction changes the key, so tuning the
+             * prompt re-describes rather than serving stale prose.
+             *
+             * Session-scoped on purpose: descriptions are cheap to regenerate and pinning them to
+             * IndexedDB would mean migrating them whenever the instruction or vision model changes.
+             */
+            _descriptionCache: new Map(),
+
+            /**
+             * Whether the bridge is configured well enough to attempt a call.
+             * @returns {boolean}
+             */
+            isEnabled() {
+                const gs = StateManager.data.globalSettings || {};
+                const backend = gs.visionBridgeBackend || 'disabled';
+                if (backend === 'disabled') return false;
+                if (backend === 'openrouter') {
+                    return !!(gs.visionBridgeOpenRouterKey || gs.openRouterKey) && !!gs.visionBridgeModel;
+                }
+                // Local backends fall back to their default port, so a blank URL is still usable.
+                return true;
+            },
+
+            /**
+             * Describes each supplied image via the configured vision endpoint.
+             *
+             * Images are described one call per image rather than batched: batching makes weaker local
+             * models blend two pictures into one muddled paragraph, and per-image calls let a single
+             * failure degrade to a partial result instead of losing everything.
+             *
+             * @param {Array<{mimeType:string,data:string}>} images - Payloads from _resolveMultimodalPrompt.
+             * @param {AbortSignal|null} signal - Propagated from the parent turn so Stop cancels this too.
+             * @returns {Promise<string|null>} Injectable block, or null if nothing could be described.
+             */
+            async describe(images, signal = null) {
+                if (!this.isEnabled() || !Array.isArray(images) || images.length === 0) return null;
+
+                const gs = StateManager.data.globalSettings || {};
+                const instruction = (gs.visionBridgeInstruction || '').trim() || this.DEFAULT_INSTRUCTION;
+
+                const results = await Promise.all(images.map(async img => {
+                    const key = img && img.id ? `${img.id}::${instruction}` : null;
+                    if (key && this._descriptionCache.has(key)) return this._descriptionCache.get(key);
+                    try {
+                        const described = await this._describeOne(img, instruction, signal);
+                        // Only cache real prose. Caching "" would make one transient blank
+                        // response permanent for the rest of the session.
+                        if (key && described) this._descriptionCache.set(key, described);
+                        return described;
+                    } catch (e) {
+                        console.error('VisionBridge: image description failed.', e);
+                        return null;
+                    }
+                }));
+
+                const usable = results.filter(r => typeof r === 'string' && r.trim().length > 0);
+                if (usable.length === 0) return null;
+                return UTILITY.buildVisionContextBlock(usable);
+            },
+
+            /**
+             * Resolves the base URL, model and auth header for the active backend.
+             * @returns {{url:string, model:string, headers:Object}}
+             */
+            _resolveTarget() {
+                const gs = StateManager.data.globalSettings || {};
+                const backend = gs.visionBridgeBackend || 'disabled';
+                const headers = { 'Content-Type': 'application/json' };
+
+                if (backend === 'openrouter') {
+                    const key = gs.visionBridgeOpenRouterKey || gs.openRouterKey;
+                    headers['Authorization'] = `Bearer ${key}`;
+                    return {
+                        url: 'https://openrouter.ai/api',
+                        model: gs.visionBridgeModel || '',
+                        headers
+                    };
+                }
+
+                const normalized = UTILITY.normalizeVisionEndpoint(gs.visionBridgeUrl || '');
+                return {
+                    url: normalized || this.DEFAULT_URLS[backend] || this.DEFAULT_URLS.koboldcpp,
+                    // Local runtimes serve whatever single model is loaded and ignore this field,
+                    // but OpenAI-compatible servers require the key to be present.
+                    model: gs.visionBridgeModel || 'local-vision-model',
+                    headers
+                };
+            },
+
+            /**
+             * Sends one image to the vision endpoint and returns its description.
+             * @param {{mimeType:string,data:string}} img - Base64 payload.
+             * @param {string} instruction - The captioning prompt.
+             * @param {AbortSignal|null} signal
+             * @returns {Promise<string>}
+             */
+            async _describeOne(img, instruction, signal) {
+                const target = this._resolveTarget();
+                const mime = img.mimeType || 'image/jpeg';
+
+                const payload = {
+                    model: target.model,
+                    // Deliberately generous. instructions.md is explicit that functionality must not
+                    // be crippled for token efficiency, and a user who edits the Description
+                    // Instruction to ask for exhaustive detail should get it rather than a sentence
+                    // truncated mid-word. Measured: the built-in instruction lands around 120 tokens;
+                    // an intentionally maximal one reaches ~690.
+                    max_tokens: 1500,
+                    temperature: 0.3,
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: instruction },
+                            { type: 'image_url', image_url: { url: `data:${mime};base64,${img.data}` } }
+                        ]
+                    }]
+                };
+
+                const res = await fetch(`${target.url}/v1/chat/completions`, {
+                    method: 'POST',
+                    headers: target.headers,
+                    body: JSON.stringify(payload),
+                    signal
+                });
+
+                if (!res.ok) {
+                    let details = `Status: ${res.status} ${res.statusText}.`;
+                    try { details += ` Message: ${(await res.json()).error.message}`; }
+                    catch (e) { try { details += ` Body: ${await res.text()}`; } catch (e2) { /* body already consumed */ } }
+                    throw new Error(`Vision Bridge API Error: ${details}`);
+                }
+
+                const data = await res.json();
+                const text = data?.choices?.[0]?.message?.content;
+                return typeof text === 'string' ? text.trim() : '';
+            },
+
+            /**
+             * Verifies the configured endpoint answers. Mirrors ImageGenerationService.testConnection.
+             * @returns {Promise<boolean>}
+             */
+            async testConnection() {
+                const gs = StateManager.data.globalSettings || {};
+                const backend = gs.visionBridgeBackend || 'disabled';
+                if (backend === 'disabled') return false;
+
+                try {
+                    const target = this._resolveTarget();
+                    if (backend === 'openrouter') {
+                        const res = await fetch('https://openrouter.ai/api/v1/models', {
+                            headers: { 'Authorization': target.headers['Authorization'] }
+                        });
+                        return res.ok;
+                    }
+                    const res = await fetch(`${target.url}/v1/models`, { method: 'GET' });
+                    return res.ok;
+                } catch (e) {
+                    console.error('Vision Bridge connection test failed:', e);
+                    return false;
+                }
+            }
+        };
+
+        /**
          * StoryService Module (Data Abstraction Layer)
          */
         /**
@@ -10228,6 +10504,9 @@
                             if (blob) {
                                 const base64 = await UTILITY.blobToBase64(blob);
                                 imagePayloads.push({
+                                    // id is carried so VisionBridgeService can memoize descriptions
+                                    // per image ([SEC:JS:SRV:VB]); providers that don't need it ignore it.
+                                    id: imgId,
                                     mimeType: blob.type,
                                     data: base64
                                 });
@@ -10313,7 +10592,25 @@
                         provider === 'koboldcpp' ? 'local' : 'unknown') || 'unknown';
 
                 if (images.length > 0 && !this._supportsVision(provider, model)) {
-                    text += "\n\n[SYSTEM NOTE: The user has provided an image, but your current model configuration does not support image analysis. Please acknowledge the user's intent if necessary, but inform them you cannot see the image.]";
+                    // Vision Bridge ([SEC:JS:SRV:VB]): before telling the model it is blind, try
+                    // routing the images through a second, vision-capable endpoint and injecting the
+                    // prose it returns. Any failure — unconfigured, offline, aborted — falls through
+                    // to the original notice, so this can only ever add capability, never remove it.
+                    let bridged = null;
+                    if (typeof VisionBridgeService !== 'undefined' && VisionBridgeService.isEnabled()) {
+                        try {
+                            bridged = await VisionBridgeService.describe(images, signal);
+                        } catch (e) {
+                            console.error("Vision Bridge failed; falling back to the no-vision notice.", e);
+                            bridged = null;
+                        }
+                    }
+
+                    if (bridged) {
+                        text += "\n\n" + bridged;
+                    } else {
+                        text += "\n\n[SYSTEM NOTE: The user has provided an image, but your current model configuration does not support image analysis. Please acknowledge the user's intent if necessary, but inform them you cannot see the image.]";
+                    }
                 }
 
                 // Apply a default 60-second timeout to prevent background/un-signaled tasks from hanging the UI.
@@ -14171,6 +14468,58 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
                 if (validation.storiesCount > currStoriesCount || validation.narrativesCount > currNarrativesCount) return true;
 
                 return false;
+            },
+
+            /**
+             * Normalizes a user-entered Vision Bridge endpoint down to its origin.
+             * People paste whatever their provider's docs showed them — a bare host, a
+             * trailing slash, or the full chat-completions path. All three must resolve
+             * to the same base so VisionBridgeService can append its own route.
+             * Pure: no DOM, no network. Tested in test.js.
+             * @param {string} url - Raw user input.
+             * @returns {string} Origin with no trailing slash, or "" if unusable.
+             */
+            normalizeVisionEndpoint(url) {
+                if (typeof url !== 'string') return '';
+                let out = url.trim();
+                if (!out) return '';
+                out = out.replace(/\s+/g, '');
+                // Strip the OpenAI-compatible suffixes users commonly paste in whole.
+                out = out.replace(/\/+(v1\/)?chat\/completions\/*$/i, '');
+                out = out.replace(/\/+v1\/*$/i, '');
+                out = out.replace(/\/+$/, '');
+                if (!out) return '';
+                if (!/^https?:\/\//i.test(out)) out = 'http://' + out;
+                return out;
+            },
+
+            /**
+             * Formats vision-model descriptions into the block injected into the chat
+             * model's prompt. Deliberately instructs the model to treat the text as
+             * direct sight and never to narrate the mechanism — a character who says
+             * "according to the image description" breaks the fiction instantly.
+             * Pure: no DOM, no network. Tested in test.js.
+             * @param {string[]} descriptions - One entry per image, in upload order.
+             * @returns {string} The injectable block, or "" when there is nothing to say.
+             */
+            buildVisionContextBlock(descriptions) {
+                if (!Array.isArray(descriptions)) return '';
+                const clean = descriptions
+                    .map(d => (typeof d === 'string' ? d.trim() : ''))
+                    .filter(d => d.length > 0);
+                if (clean.length === 0) return '';
+
+                const plural = clean.length === 1 ? 'an image' : `${clean.length} images`;
+                const lines = clean.length === 1
+                    ? clean[0]
+                    : clean.map((d, i) => `Image ${i + 1}: ${d}`).join('\n');
+
+                return `[VISUAL CONTEXT]\nThe user has shared ${plural} with you. `
+                    + `You can see it directly. The following is what is depicted:\n\n`
+                    + `${lines}\n\n`
+                    + `Respond as though you are looking at it yourself. Never mention this `
+                    + `description, never refer to it as a description, and never state that `
+                    + `anything was described to you.`;
             }
         };
 
@@ -24095,6 +24444,9 @@ Write only the character's message.`;
                     'imageGenBackend', 'koboldImageGenUrl', 'imageGenOpenRouterKey', 'imageGenOpenRouterModel',
                     'imageGenWidth', 'imageGenHeight',
                     'koboldImageGenCfg', 'koboldImageGenSampler', 'koboldImageGenScheduler', 'koboldImageGenSteps',
+                    // Vision Bridge Keys
+                    'visionBridgeBackend', 'visionBridgeUrl', 'visionBridgeModel',
+                    'visionBridgeOpenRouterKey', 'visionBridgeInstruction',
                     // TTS Keys
                     'ttsEnabled', 'ttsVoice', 'ttsAutoPlayback', 'ttsBackend',
                     // Music Keys
@@ -25309,6 +25661,15 @@ Write only the character's message.`;
                     });
                 };
 
+                // --- Bindings: Vision Bridge (Model Tab) ---
+                if (document.getElementById('vision-bridge-backend')) setListener('vision-bridge-backend', 'visionBridgeBackend', () => {
+                    AppController.updateVisionBridgeSettingsVisibility();
+                });
+                if (document.getElementById('vision-bridge-url')) setListener('vision-bridge-url', 'visionBridgeUrl');
+                if (document.getElementById('vision-bridge-model')) setListener('vision-bridge-model', 'visionBridgeModel');
+                if (document.getElementById('vision-bridge-openrouter-key')) setListener('vision-bridge-openrouter-key', 'visionBridgeOpenRouterKey');
+                if (document.getElementById('vision-bridge-instruction')) setListener('vision-bridge-instruction', 'visionBridgeInstruction');
+
                 // --- Bindings: Image Generation Tab ---
                 if (document.getElementById('image-gen-backend')) setListener('image-gen-backend', 'imageGenBackend', () => {
                     // Trigger visibility update if valid
@@ -25964,6 +26325,7 @@ Write only the character's message.`;
 
                 // Force visibility update on init
                 AppController.updateImageGenSettingsVisibility();
+                AppController.updateVisionBridgeSettingsVisibility();
             },
 
 
@@ -26344,6 +26706,36 @@ Write only the character's message.`;
                 alert(`"${persona.name}" is now the active User.`);
             },
             // --- OpenRouter Saved Models Logic ---
+
+            /**
+             * Updates visibility of Vision Bridge settings based on the selected backend.
+             * Local and cloud backends need different fields; model + instruction are shared
+             * by all of them and hidden only when the bridge is off entirely.
+             */
+            updateVisionBridgeSettingsVisibility() {
+                const backendSelect = document.getElementById('vision-bridge-backend');
+                if (!backendSelect) return;
+                const val = backendSelect.value;
+
+                const show = (id, visible) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    if (visible) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
+                };
+
+                const isLocal = val === 'koboldcpp' || val === 'lmstudio';
+                show('vision-bridge-local-settings', isLocal);
+                show('vision-bridge-openrouter-settings', val === 'openrouter');
+                show('vision-bridge-shared-settings', val !== 'disabled');
+
+                // Nudge the URL placeholder to the right default port for the chosen runtime,
+                // so a blank field visibly means "the usual place" rather than "unset".
+                const urlInput = document.getElementById('vision-bridge-url');
+                if (urlInput && isLocal) {
+                    urlInput.placeholder = VisionBridgeService.DEFAULT_URLS[val] || 'http://localhost:5001';
+                }
+            },
 
             /**
              * Updates visibility of Image Generation settings based on selected backend.

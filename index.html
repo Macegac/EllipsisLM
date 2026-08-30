@@ -9075,13 +9075,12 @@
                 const gs = StateManager.data.globalSettings || {};
                 const instruction = (instructionOverride || gs.visionBridgeInstruction || '').trim()
                     || this.DEFAULT_INSTRUCTION;
-                try {
-                    const described = await this._describeOne(img, instruction, null);
-                    return (typeof described === 'string' && described.trim()) ? described.trim() : null;
-                } catch (e) {
-                    console.error('VisionBridge: single description failed.', e);
-                    return null;
-                }
+                // Deliberately does NOT swallow. describe() catches per image so one bad
+                // upload cannot spoil a whole turn, but a person who pressed a Describe
+                // button needs the actual reason - "returned nothing" sent me looking in the
+                // app for a fault that was an account setting on the provider.
+                const described = await this._describeOne(img, instruction, null);
+                return (typeof described === 'string' && described.trim()) ? described.trim() : null;
             },
 
             /**
@@ -42824,7 +42823,7 @@ Relationship | Alistair & Elara | Alistair has started to trust Elara after she 
                             VisualLoreService.save(Object.assign({}, item, { description: described }));
                             UIManager.showNotification('Described. Edit it to taste.', 'success');
                         } else {
-                            UIManager.showNotification('The Vision Bridge returned nothing.', 'error');
+                            UIManager.showNotification('The model replied with an empty description. It may have declined this picture.', 'error');
                         }
                     } catch (err) {
                         UIManager.showNotification(err.message || 'Describe failed.', 'error');

@@ -3568,6 +3568,8 @@
                         </div>
                     </div>
 
+                    <div id="visual-lore-chips" class="hidden flex-wrap gap-1 px-3 pt-2"></div>
+
                     <textarea id="chat-input"
                         class="w-full bg-transparent outline-none resize-none p-3 focus:ring-0 border-0 grow"
                         placeholder="Message..." rows="4"
@@ -3627,6 +3629,14 @@
                         </button>
 
                         <!-- Image Upload -->
+                        <button id="visual-lore-attach-btn" data-action="visual-lore-open-picker"
+                            title="Attach from Visual Lore"
+                            class="text-gray-500 hover:text-teal-400 transition-colors p-1">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M5 8h14M5 12h14M5 16h6"></path>
+                            </svg>
+                        </button>
                         <button id="upload-image-btn" onclick="document.getElementById('image-upload-input').click()"
                             class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
                             title="Upload Image">
@@ -3758,6 +3768,30 @@
     <div id="message-context-menu"
         class="hidden fixed z-50 bg-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-xl py-1 overflow-hidden"
         style="min-width: 210px;"></div>
+    <!-- Visual Lore picker: choose items to attach to the turn being written. -->
+    <!-- [UI:MENU:VISUAL_LORE] -->
+    <div id="visual-lore-picker" class="fixed inset-0 z-[70] items-center justify-center hidden p-4">
+        <div class="modal-overlay absolute inset-0" data-action="visual-lore-close-picker"></div>
+        <div class="bg-gray-800/90 backdrop-blur-md rounded-lg shadow-xl relative flex flex-col w-full max-w-lg max-h-[80vh] overflow-hidden">
+            <div class="p-3 flex items-center justify-between border-b border-gray-700 shrink-0">
+                <span class="font-semibold text-gray-100">Attach from Visual Lore</span>
+                <button data-action="visual-lore-close-picker" class="text-gray-400 hover:text-white transition-colors" aria-label="Close">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-3 shrink-0 space-y-2">
+                <input type="text" id="visual-lore-picker-search" placeholder="Search..."
+                    class="w-full bg-black/30 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-200 outline-none focus:border-indigo-500">
+                <div id="visual-lore-picker-filter" class="flex flex-wrap gap-1"></div>
+            </div>
+            <div id="visual-lore-picker-list" class="px-3 pb-3 overflow-y-auto flex-grow"></div>
+            <div class="p-3 border-t border-gray-700 shrink-0 flex justify-end">
+                <button data-action="visual-lore-close-picker"
+                    class="px-4 py-2 text-xs font-semibold rounded bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">Done</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Error dot: errors collect here instead of throwing a full-width toast over the
          chat. On a phone that toast covered the top of the story for three seconds and
          then vanished whether or not it had been read. -->
@@ -7566,6 +7600,15 @@
                     if (e.target.closest('#dm-options-menu') || e.target.closest('[data-action="toggle-dm-options"]')) return;
                     menu.classList.add('hidden');
                 });
+                // Visual Lore picker search.
+                const vlPickerSearch = document.getElementById('visual-lore-picker-search');
+                if (vlPickerSearch) {
+                    vlPickerSearch.addEventListener('input', debounce((e) => {
+                        UIManager.VISUAL_LORE.pickerQuery = e.target.value;
+                        UIManager.renderVisualLorePicker();
+                    }, 150));
+                }
+
                 // Visual Lore search. Typed filtering, so it re-renders as you go.
                 const vlSearch = document.getElementById('visual-lore-search');
                 if (vlSearch) {
@@ -15499,6 +15542,13 @@ JSON Schema:
                         const char = ReactiveStore.getCharacter(msg.character_id);
                         const name = char ? char.name : (msg.character_id === 'user' ? 'User' : 'Character');
                         p += `### ${name}:\n${replacer(msg.content)}\n\n`;
+                        // Visual Lore attached to this turn. Kept beside its message so it
+                        // leaves the prompt when the message scrolls out of the window,
+                        // rather than needing its own rule for when a detail stops mattering.
+                        if (msg.item_ids && msg.item_ids.length && typeof VisualLoreService !== 'undefined') {
+                            const detail = VisualLoreService.buildContextBlock(msg.item_ids);
+                            if (detail) p += `${detail}\n\n`;
+                        }
                     } else if (msg.type === 'lore_reveal') {
                         p += `### System Note:\n${replacer(msg.content)}\n\n`;
                     } else if (msg.type === 'system_event') {
@@ -21132,6 +21182,111 @@ Write only the character's message.`;
             /**
              * Renders the Visual Lore shelf: filter pills, the item list, and the open item.
              */
+            /**
+             * Items chosen for the turn currently being written, before it is sent.
+             */
+            VISUAL_LORE_PENDING: [],
+
+            /**
+             * Opens the attach picker.
+             */
+            openVisualLorePicker() {
+                const el = document.getElementById('visual-lore-picker');
+                if (!el) return;
+                this.VISUAL_LORE.pickerQuery = '';
+                const search = document.getElementById('visual-lore-picker-search');
+                if (search) search.value = '';
+                this.renderVisualLorePicker();
+                el.classList.remove('hidden');
+                el.classList.add('flex');
+            },
+
+            /**
+             * Closes the attach picker.
+             */
+            closeVisualLorePicker() {
+                const el = document.getElementById('visual-lore-picker');
+                if (!el) return;
+                el.classList.add('hidden');
+                el.classList.remove('flex');
+            },
+
+            /**
+             * Renders the picker list, with what is already attached marked.
+             */
+            renderVisualLorePicker() {
+                const listEl = document.getElementById('visual-lore-picker-list');
+                const filterEl = document.getElementById('visual-lore-picker-filter');
+                if (!listEl || !filterEl) return;
+
+                const cats = [{ id: 'all', label: 'All' }, { id: 'item', label: 'Items' },
+                    { id: 'character', label: 'Characters' }, { id: 'world', label: 'Places' },
+                    { id: 'event', label: 'Events' }, { id: 'other', label: 'Other' }];
+                const active = this.VISUAL_LORE.pickerFilter || 'all';
+                filterEl.innerHTML = cats.map(c => {
+                    const cls = c.id === active
+                        ? 'px-2 py-1 text-xs font-semibold rounded bg-indigo-600 text-white'
+                        : 'px-2 py-1 text-xs font-semibold rounded bg-gray-700/50 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors';
+                    return DOM.html`<button data-action="visual-lore-picker-filter" data-cat="${c.id}" class="${cls}">${c.label}</button>`.toString();
+                }).join('');
+
+                const items = UTILITY.filterVisualLore(
+                    VisualLoreService.all(), active, this.VISUAL_LORE.pickerQuery || '');
+
+                if (items.length === 0) {
+                    listEl.innerHTML = DOM.html`<p class="text-xs text-gray-500 p-2">Nothing on the shelf yet. Add items in Knowledge, Visual Lore.</p>`.toString();
+                    return;
+                }
+
+                listEl.innerHTML = items.map(item => {
+                    const on = this.VISUAL_LORE_PENDING.includes(item.id);
+                    const cls = on ? 'bg-teal-600/30 border-teal-500' : 'bg-black/20 border-transparent hover:bg-black/40';
+                    const thumb = item.imageId
+                        ? DOM.html`<img data-vl-img="${item.imageId}" class="visual-lore-thumb" alt="">`.toString()
+                        : DOM.html`<div class="visual-lore-thumb visual-lore-thumb-empty"></div>`.toString();
+                    const tick = on
+                        ? '<svg class="w-4 h-4 text-teal-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
+                        : '';
+                    return DOM.html`<button data-action="visual-lore-toggle" data-id="${item.id}"
+                        class="w-full text-left flex items-center gap-2 p-2 mb-1 rounded border ${cls} transition-colors">
+                        ${DOM.unsafe(thumb)}
+                        <span class="min-w-0 flex-1">
+                            <span class="block text-xs font-semibold text-gray-100 truncate">${item.title}</span>
+                            <span class="block text-[10px] text-gray-500 truncate">${item.description}</span>
+                        </span>
+                        ${DOM.unsafe(tick)}
+                    </button>`.toString();
+                }).join('');
+
+                this._hydrateVisualLoreThumbs('#visual-lore-picker-list');
+            },
+
+            /**
+             * Renders the attached chips above the message box.
+             */
+            renderVisualLoreChips() {
+                const el = document.getElementById('visual-lore-chips');
+                if (!el) return;
+                const ids = this.VISUAL_LORE_PENDING;
+                if (!ids.length) {
+                    el.classList.add('hidden');
+                    el.classList.remove('flex');
+                    el.innerHTML = '';
+                    return;
+                }
+                el.classList.remove('hidden');
+                el.classList.add('flex');
+                el.innerHTML = ids.map(id => {
+                    const item = VisualLoreService.get(id);
+                    if (!item) return '';
+                    return DOM.html`<button data-action="visual-lore-toggle" data-id="${item.id}"
+                        class="flex items-center gap-1 px-2 py-1 rounded-full bg-teal-600/25 border border-teal-500/40 text-[11px] text-teal-100 hover:bg-teal-600/40 transition-colors"
+                        title="Remove from this message">${item.title}
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>`.toString();
+                }).join('');
+            },
+
             renderVisualLore() {
                 const listEl = document.getElementById('visual-lore-list');
                 const filterEl = document.getElementById('visual-lore-filter-container');
@@ -21178,8 +21333,8 @@ Write only the character's message.`;
              * Loads thumbnails from the image store into the rendered rows.
              * @private
              */
-            async _hydrateVisualLoreThumbs() {
-                const imgs = document.querySelectorAll('#visual-lore-list img[data-vl-img]');
+            async _hydrateVisualLoreThumbs(scope = '#visual-lore-list') {
+                const imgs = document.querySelectorAll(scope + ' img[data-vl-img]');
                 for (const img of imgs) {
                     try {
                         const blob = await DBService.getImage(img.dataset.vlImg);
@@ -34844,6 +34999,15 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                 // 1. Add user message immediately
                 const pendingImg = state.pendingImage;
                 const userMsg = await this.addMessageToHistory(userChar.id, messageContent, 'chat', 'neutral', pendingImg ? [pendingImg] : null);
+
+                // Visual Lore attached to this turn. Stored as ids on the message, never as
+                // images: the picture is a recognition aid in the picker, and re-sending it
+                // every turn would undo the point of describing it once.
+                if (typeof UIManager !== 'undefined' && UIManager.VISUAL_LORE_PENDING && UIManager.VISUAL_LORE_PENDING.length) {
+                    if (userMsg) userMsg.item_ids = UIManager.VISUAL_LORE_PENDING.slice();
+                    UIManager.VISUAL_LORE_PENDING = [];
+                    UIManager.renderVisualLoreChips();
+                }
                 const userImages = userMsg ? userMsg.images : [];
 
                 input.value = '';
@@ -42795,6 +42959,23 @@ Relationship | Alistair & Elara | Alistair has started to trust Elara after she 
                 ActionHandler.register('combine-with-previous', (ds) => NarrativeController.combineWithPrevious(parseInt(ds.index)));
                 ActionHandler.register('recombine-message', (ds) => NarrativeController.recombineMessage(parseInt(ds.index)));
                 ActionHandler.register('split-combined-message', (ds) => NarrativeController.splitCombinedMessage(parseInt(ds.index)));
+                // --- Visual Lore: attaching to a turn ---
+                ActionHandler.register('visual-lore-open-picker', () => UIManager.openVisualLorePicker());
+                ActionHandler.register('visual-lore-close-picker', () => UIManager.closeVisualLorePicker());
+                ActionHandler.register('visual-lore-picker-filter', (ds) => {
+                    UIManager.VISUAL_LORE.pickerFilter = ds.cat || 'all';
+                    UIManager.renderVisualLorePicker();
+                });
+                ActionHandler.register('visual-lore-toggle', (ds) => {
+                    const list = UIManager.VISUAL_LORE_PENDING;
+                    const at = list.indexOf(ds.id);
+                    if (at === -1) list.push(ds.id); else list.splice(at, 1);
+                    UIManager.renderVisualLoreChips();
+                    // The chips are also toggles, so only redraw the picker while it is open.
+                    const picker = document.getElementById('visual-lore-picker');
+                    if (picker && !picker.classList.contains('hidden')) UIManager.renderVisualLorePicker();
+                });
+
                 // --- Visual Lore ---
                 ActionHandler.register('visual-lore-filter', (ds) => {
                     UIManager.VISUAL_LORE.filter = ds.cat || 'all';

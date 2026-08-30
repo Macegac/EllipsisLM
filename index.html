@@ -8315,7 +8315,7 @@
          * =================================================================================================
          * [SEC:JS:SRV:VL]
          * VisualLoreService
-         * Reusable reference items: a dress, a knife, a room.
+         * Reusable reference items: a knight's surcoat, a blade, a hall.
          * =================================================================================================
          */
         const VisualLoreService = {
@@ -8333,8 +8333,8 @@
 
             // The Vision Bridge's own instruction describes a whole shared picture - subject,
             // pose, setting, lighting - which is right when someone drops a photo into the
-            // chat and wrong here. A photo of a dress is usually a photo of a person wearing
-            // one, and the shelf wants the dress. These say so, per category.
+            // chat and wrong here. A picture of a surcoat is usually a picture of the knight
+            // wearing it, and the shelf wants the surcoat. These say so, per category.
             INSTRUCTIONS: {
                 item: "Describe ONLY the object itself, for a writer who cannot see it. If a "
                     + "person is wearing, holding or standing near it, describe the object and "
@@ -8364,7 +8364,7 @@
             instructionFor(item) {
                 const base = this.INSTRUCTIONS[(item && item.category) || 'other'] || this.INSTRUCTIONS.other;
                 const focus = ((item && item.focus) || '').trim();
-                // The note steers subject AND wording: "the necklace, not the dress", or
+                // The note steers subject AND wording: "the crest, not the shield", or
                 // "one short clinical sentence". It goes last so it wins where it disagrees
                 // with the category default.
                 return focus
@@ -13188,7 +13188,7 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
 
             /**
              * Filters Visual Lore items by category and a free-text query, newest first.
-             * The query matches the title and the description, so "black" finds a dress
+             * The query matches the title and the description, so "crimson" finds a banner
              * described as black even when the title does not say so.
              * @param {Array<Object>} items - The stored items.
              * @param {string} category - A category id, or "all".

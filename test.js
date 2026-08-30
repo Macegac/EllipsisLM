@@ -584,9 +584,9 @@ test('collapseErrors: skips junk entries and survives no input', () => {
 // ─── filterVisualLore ────────────────────
 
 const VL = [
-    { id: 'a', title: 'Little Black Dress', category: 'item', description: 'A short black cocktail dress.', created: 100 },
-    { id: 'b', title: 'Butter Knife', category: 'item', description: 'A dull table knife.', created: 300 },
-    { id: 'c', title: 'The Vault', category: 'world', description: 'A cold stone room.', created: 200 }
+    { id: 'a', title: 'Crimson Surcoat', category: 'item', description: 'A crimson surcoat with a worn hem.', created: 100 },
+    { id: 'b', title: 'Squire Dagger', category: 'item', description: 'A dull training dagger.', created: 300 },
+    { id: 'c', title: 'The Keep', category: 'world', description: 'A cold stone hall.', created: 200 }
 ];
 
 test('filterVisualLore: returns everything newest first when unfiltered', () => {
@@ -599,14 +599,14 @@ test('filterVisualLore: narrows to one category', () => {
 });
 
 test('filterVisualLore: query matches the description, not just the title', () => {
-    deepEq(UTILITY.filterVisualLore(VL, 'all', 'cocktail').map(i => i.id), ['a'],
-        'the word cocktail appears only in the description');
-    deepEq(UTILITY.filterVisualLore(VL, 'all', 'knife').map(i => i.id), ['b']);
+    deepEq(UTILITY.filterVisualLore(VL, 'all', 'worn hem').map(i => i.id), ['a'],
+        'the phrase worn hem appears only in the description');
+    deepEq(UTILITY.filterVisualLore(VL, 'all', 'dagger').map(i => i.id), ['b']);
 });
 
 test('filterVisualLore: query is case-insensitive and combines with category', () => {
-    deepEq(UTILITY.filterVisualLore(VL, 'all', 'BLACK').map(i => i.id), ['a']);
-    deepEq(UTILITY.filterVisualLore(VL, 'world', 'black'), [], 'category wins over a title match');
+    deepEq(UTILITY.filterVisualLore(VL, 'all', 'CRIMSON').map(i => i.id), ['a']);
+    deepEq(UTILITY.filterVisualLore(VL, 'world', 'crimson'), [], 'category wins over a title match');
 });
 
 test('filterVisualLore: treats a missing category as other, and survives junk', () => {

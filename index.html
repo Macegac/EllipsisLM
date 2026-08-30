@@ -10022,6 +10022,18 @@
                 let activeSignal = signal;
                 let timeoutId = null;
                 let onVisibilityChange = null;
+
+                // Tracked for every call, not just the ones that own the abort budget,
+                // because the main turn passes its own signal for the stop button. A
+                // network failure that spans a period off screen is a dropped connection,
+                // not a broken setup, and the caller can recover from it.
+                let wentHiddenDuringCall = (typeof document !== 'undefined' && document.visibilityState === 'hidden');
+                const hiddenProbe = () => {
+                    if (document.visibilityState === 'hidden') wentHiddenDuringCall = true;
+                };
+                if (typeof document !== 'undefined') {
+                    document.addEventListener('visibilitychange', hiddenProbe);
+                }
                 if (!activeSignal) {
                     const controller = new AbortController();
                     activeSignal = controller.signal;
@@ -10112,7 +10124,12 @@
                         else if (friendlyProvider === 'openrouter') friendlyProvider = 'OpenRouter';
                         else if (friendlyProvider === 'nanogpt') friendlyProvider = 'NanoGPT';
                         
-                        const msg = `Connection failed: ${friendlyProvider} is offline or unreachable.`;
+                        const msg = wentHiddenDuringCall
+                            ? `Connection dropped while the app was in the background (${friendlyProvider}).`
+                            : `Connection failed: ${friendlyProvider} is offline or unreachable.`;
+                        // Lets the caller tell "your backend is down" apart from "the phone
+                        // cut this off while you were in another app", which is recoverable.
+                        error.interruptedWhileHidden = wentHiddenDuringCall;
                         console.warn(`[APIService] ${msg}`, error);
                         if (!silent && typeof UIManager !== 'undefined' && UIManager.showToast) {
                             UIManager.showToast(msg, true);
@@ -10123,8 +10140,11 @@
                     throw error;
                 } finally {
                     if (timeoutId) clearTimeout(timeoutId);
-                    if (onVisibilityChange && typeof document !== 'undefined') {
-                        document.removeEventListener('visibilitychange', onVisibilityChange);
+                    if (typeof document !== 'undefined') {
+                        document.removeEventListener('visibilitychange', hiddenProbe);
+                        if (onVisibilityChange) {
+                            document.removeEventListener('visibilitychange', onVisibilityChange);
+                        }
                     }
                 }
             },
@@ -34894,6 +34914,31 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                             UIManager.showToast(`AI Error: ${error.message}`, true);
                         } else {
                             console.error(`AI Error: ${error.message}`);
+                        }
+
+                        // The connection was cut while the app was in another app, which
+                        // is the common mobile case: submit, switch away, come back to a
+                        // turn that never happened and no way forward but sending again.
+                        // Take the turn once more as soon as the app is back on screen.
+                        if (error.interruptedWhileHidden && !this.RUNTIME.resumeArmed) {
+                            this.RUNTIME.resumeArmed = true;
+                            const lengthAtFailure = state.chat_history.length;
+                            const resume = () => {
+                                if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+                                if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', resume);
+                                this.RUNTIME.resumeArmed = false;
+                                // A reply that landed in the meantime means there is nothing
+                                // to resume, and retrying would produce a duplicate turn.
+                                if (ReactiveStore.state.chat_history.length !== lengthAtFailure) return;
+                                if (typeof UIManager !== 'undefined') {
+                                    UIManager.showNotification('Connection dropped while you were away. Taking the turn again.', 'info');
+                                }
+                                this.triggerAIResponse(null, '', false, null, null);
+                            };
+                            if (typeof document !== 'undefined') {
+                                document.addEventListener('visibilitychange', resume);
+                                if (document.visibilityState === 'visible') setTimeout(resume, 0);
+                            }
                         }
                     }
                     if (targetMessageIndex !== null && originalContent !== null) {

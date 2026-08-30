@@ -8321,8 +8321,12 @@
             instructionFor(item) {
                 const base = this.INSTRUCTIONS[(item && item.category) || 'other'] || this.INSTRUCTIONS.other;
                 const focus = ((item && item.focus) || '').trim();
-                // A photo can hold more than one thing worth keeping. The note says which.
-                return focus ? `${base}\n\nFocus on: ${focus}. Describe that and nothing else.` : base;
+                // The note steers subject AND wording: "the necklace, not the dress", or
+                // "one short clinical sentence". It goes last so it wins where it disagrees
+                // with the category default.
+                return focus
+                    ? `${base}\n\nThe author has asked specifically for this: ${focus}\nFollow that over anything above it where they disagree.`
+                    : base;
             },
 
             /**
@@ -21234,7 +21238,7 @@ Write only the character's message.`;
                         </div>
                     </div>
                     <input type="text" id="visual-lore-focus" value="${item.focus || ''}"
-                        placeholder="Focus on... (optional, e.g. the dress, not the woman)"
+                        placeholder="What should the AI describe, and how? (optional)"
                         class="w-full bg-black/40 border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-300 outline-none focus:border-indigo-500">
                     <textarea id="visual-lore-description" rows="8" placeholder="What the character knows about this."
                         class="w-full bg-black/40 border border-gray-700 rounded px-2 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500 resize-y">${item.description}</textarea>

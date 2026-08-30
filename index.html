@@ -14,6 +14,7 @@
     [SEC:JS:SRV:BACKUP]     - AutoBackupService (Rolling Auto-Backups)
     [SEC:JS:SRV:IMG_GEN]    - ImageGenerationService
     [SEC:JS:SRV:VB]         - VisionBridgeService (Image Describer for Text-Only Models)
+    [SEC:JS:SRV:VL]         - VisualLoreService (Reusable Reference Items)
     [SEC:JS:UTIL:UTILS]     - UTILITY (Helper Functions)
     [SEC:JS:UTIL:PB]        - PromptBuilder (Context Logic)
     [SEC:JS:SRV:IE]         - ImportExportService
@@ -46,6 +47,7 @@
     [SEC:JS:CORE:BOOT]      - app (Bootstrap/Init)
     [SEC:JS:CTRL:HUB]       - HubController
     [SEC:JS:CTRL:REFINE]    - RefineMaskController
+    [SEC:JS:TODO:TextModeController] - TextModeController
     =================================================================================================
 -->
 <html lang="en">
@@ -3051,6 +3053,30 @@
             animation: pulse-crimson 2s infinite ease-in-out;
         }
 
+        /* Visual Lore. Fixed tiles so rows stay aligned whether or not an item has a
+           picture, and so a tall photo cannot stretch the list. */
+        .visual-lore-thumb {
+            width: 40px;
+            height: 40px;
+            flex: 0 0 40px;
+            border-radius: 4px;
+            object-fit: cover;
+            background-color: rgba(0, 0, 0, 0.35);
+        }
+
+        .visual-lore-thumb-empty {
+            border: 1px dashed rgba(148, 163, 184, 0.35);
+        }
+
+        .visual-lore-preview {
+            width: 140px;
+            height: 140px;
+            flex: 0 0 140px;
+            border-radius: 6px;
+            object-fit: cover;
+            background-color: rgba(0, 0, 0, 0.35);
+        }
+
         /* Error dot: draws the eye briefly, then stops. It stays on screen until it is
            read, but a dot that animated forever would be its own kind of nag. */
         .error-dot-pulse {
@@ -4292,6 +4318,8 @@
                         class="py-2 px-2 font-semibold text-lg border-b-2 border-transparent text-gray-400 hover:text-white">Dynamic</button>
                     <button id="knowledge-tab-gm" onclick="UIManager.switchKnowledgeTab('gm')"
                         class="py-2 px-2 font-semibold text-lg border-b-2 border-transparent text-gray-400 hover:text-white">GM Agent</button>
+                    <button id="knowledge-tab-visual" onclick="UIManager.switchKnowledgeTab('visual')"
+                        class="py-2 px-2 font-semibold text-lg border-b-2 border-transparent text-gray-400 hover:text-white">Visual Lore</button>
                 </div>
                 <div class="flex items-center space-x-2">
                     <button data-action="close-modal" data-id="knowledge-modal"
@@ -4305,6 +4333,20 @@
                 </div>
             </div>
             <div class="p-4 flex-grow overflow-hidden min-h-0">
+                <div id="knowledge-visual-content" class="h-full flex-col md:flex-row gap-4 hidden">
+                    <div class="w-full md:w-1/3 flex flex-col h-1/3 md:h-full gap-2">
+                        <div class="flex gap-2">
+                            <button data-action="visual-lore-add"
+                                class="px-3 py-1.5 text-xs font-semibold rounded bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">Add Item</button>
+                            <input type="text" id="visual-lore-search" placeholder="Search..."
+                                class="flex-grow bg-black/30 border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-indigo-500">
+                        </div>
+                        <div id="visual-lore-filter-container" class="flex flex-wrap gap-1 p-1 bg-black/20 rounded"></div>
+                        <div id="visual-lore-list" class="bg-black/30 rounded-lg p-2 overflow-y-auto flex-grow"></div>
+                    </div>
+                    <div id="visual-lore-details" class="w-full md:w-2/3 bg-black/30 rounded-lg p-4 overflow-y-auto flex-grow"></div>
+                    <input type="file" id="visual-lore-file" class="hidden" accept="image/*">
+                </div>
                 <div id="knowledge-static-content" class="h-full flex flex-col md:flex-row gap-4">
                     <div class="w-full md:w-1/3 flex flex-col h-1/3 md:h-full gap-2">
                         <div id="static-category-filter-container" class="flex flex-wrap gap-1 p-1 bg-black/20 rounded"></div>
@@ -7513,6 +7555,15 @@
                     if (e.target.closest('#dm-options-menu') || e.target.closest('[data-action="toggle-dm-options"]')) return;
                     menu.classList.add('hidden');
                 });
+                // Visual Lore search. Typed filtering, so it re-renders as you go.
+                const vlSearch = document.getElementById('visual-lore-search');
+                if (vlSearch) {
+                    vlSearch.addEventListener('input', debounce((e) => {
+                        UIManager.VISUAL_LORE.query = e.target.value;
+                        UIManager.renderVisualLore();
+                    }, 150));
+                }
+
                 // --- MESSAGE CONTEXT MENU ---
                 // Every trigger below is bound to .bubble-header, never .bubble-body.
                 // Long-press on message text is native copy/select on iOS and Android;
@@ -8208,6 +8259,135 @@
 
         /**
          * =================================================================================================
+         * [SEC:JS:SRV:VL]
+         * VisualLoreService
+         * Reusable reference items: a dress, a knife, a room.
+         * =================================================================================================
+         */
+        const VisualLoreService = {
+            // Each item carries a written description the model reads, and optionally a picture
+            // the AUTHOR reads when choosing one. The picture is a recognition aid in the picker
+            // and nothing more: it is never sent to a model, because the whole point is that the
+            // description was paid for once.
+            //
+            // Global on purpose. An item follows you between stories, which is what makes
+            // building a wardrobe worth the effort.
+            // Records live in globalSettings, which is localStorage and shared by every story.
+            // Image bytes never go here - localStorage is a few megabytes in total. They go to
+            // the characterImages object store, which is already global and already sized for it.
+            IMAGE_MAX_HEIGHT: 768,
+
+            /**
+             * @returns {Array<Object>} - Every stored item.
+             */
+            all() {
+                const gs = StateManager.data.globalSettings || {};
+                return Array.isArray(gs.visualLore) ? gs.visualLore : [];
+            },
+
+            /**
+             * @param {string} id
+             * @returns {Object|null}
+             */
+            get(id) {
+                return this.all().find(i => i && i.id === id) || null;
+            },
+
+            /**
+             * Writes the list back and persists it.
+             * @param {Array<Object>} items
+             * @private
+             */
+            _commit(items) {
+                StateManager.data.globalSettings = StateManager.data.globalSettings || {};
+                StateManager.data.globalSettings.visualLore = items;
+                StateManager.saveGlobalSettings();
+            },
+
+            /**
+             * Creates or updates an item.
+             * @param {Object} item - {id?, title, category, description, imageId}
+             * @returns {Object} - The stored item.
+             */
+            save(item) {
+                const items = this.all().slice();
+                const now = Date.now();
+                const existingIndex = item.id ? items.findIndex(i => i && i.id === item.id) : -1;
+
+                const record = {
+                    id: item.id || UTILITY.uuid(),
+                    title: (item.title || '').trim() || 'Untitled',
+                    category: item.category || 'item',
+                    description: (item.description || '').trim(),
+                    imageId: item.imageId || null,
+                    created: existingIndex !== -1 ? (items[existingIndex].created || now) : now
+                };
+
+                if (existingIndex !== -1) items[existingIndex] = record;
+                else items.push(record);
+
+                this._commit(items);
+                return record;
+            },
+
+            /**
+             * Deletes an item, and its picture with it.
+             * @param {string} id
+             */
+            async remove(id) {
+                const item = this.get(id);
+                this._commit(this.all().filter(i => i && i.id !== id));
+                if (item && item.imageId) {
+                    try { await DBService.deleteImage(item.imageId); }
+                    catch (e) { console.warn('Visual Lore: image cleanup failed.', e); }
+                }
+            },
+
+            /**
+             * Stores a picture for an item, shrunk. A vision model downsizes its input anyway,
+             * so keeping the full-size original would cost megabytes to buy nothing.
+             * @param {Blob|File} file
+             * @returns {Promise<string>} - The image id.
+             */
+            async storeImage(file) {
+                const blob = await ImageProcessor.processImageAsBlob(file, this.IMAGE_MAX_HEIGHT);
+                const imageId = 'vl_' + UTILITY.uuid();
+                await DBService.saveImage(imageId, blob);
+                return imageId;
+            },
+
+            /**
+             * Asks the Vision Bridge to describe a stored picture.
+             * @param {string} imageId
+             * @returns {Promise<string|null>} - The description, or null if unavailable.
+             */
+            async describeImage(imageId) {
+                if (typeof VisionBridgeService === 'undefined' || !VisionBridgeService.isEnabled()) return null;
+                const blob = await DBService.getImage(imageId);
+                if (!blob) return null;
+                const data = await UTILITY.blobToBase64(blob);
+                return VisionBridgeService.describeSingle({ id: imageId, mimeType: blob.type, data });
+            },
+
+            /**
+             * Builds the prompt section for the items attached to a turn. Titles are included
+             * so the model can name the thing rather than describing it from scratch.
+             * @param {Array<string>} ids
+             * @returns {string} - The section, or "" when nothing resolves.
+             */
+            buildContextBlock(ids) {
+                if (!Array.isArray(ids) || ids.length === 0) return '';
+                const lines = ids
+                    .map(id => this.get(id))
+                    .filter(item => item && item.description)
+                    .map(item => `- ${item.title}: ${item.description}`);
+                if (lines.length === 0) return '';
+                return '## PRESENT DETAIL\n' + lines.join('\n');
+            }
+        };
+
+        /**
+         * =================================================================================================
          * [SEC:JS:SRV:BACKUP]
          * AutoBackupService Module
          * Manages seamless, zero-impact rolling auto-backups and automatic recovery from DB loss.
@@ -8869,6 +9049,28 @@
                 const usable = results.filter(r => typeof r === 'string' && r.trim().length > 0);
                 if (usable.length === 0) return null;
                 return UTILITY.buildVisionContextBlock(usable);
+            },
+
+            /**
+             * Describes ONE image and returns the raw prose, without the context block
+             * wrapper describe() adds. Visual Lore stores the description as editable text,
+             * so it wants the sentence, not a formatted prompt section.
+             * @param {Object} img - {id, mimeType, data} as built by _resolveMultimodalPrompt.
+             * @param {string} [instructionOverride] - Optional alternative instruction.
+             * @returns {Promise<string|null>} - The description, or null.
+             */
+            async describeSingle(img, instructionOverride = null) {
+                if (!this.isEnabled() || !img) return null;
+                const gs = StateManager.data.globalSettings || {};
+                const instruction = (instructionOverride || gs.visionBridgeInstruction || '').trim()
+                    || this.DEFAULT_INSTRUCTION;
+                try {
+                    const described = await this._describeOne(img, instruction, null);
+                    return (typeof described === 'string' && described.trim()) ? described.trim() : null;
+                } catch (e) {
+                    console.error('VisionBridge: single description failed.', e);
+                    return null;
+                }
             },
 
             /**
@@ -12888,6 +13090,30 @@ Example output: "Atmospheric dark ambient instrumental, 70 BPM, deep synthesizer
             },
 
             /**
+             * Filters Visual Lore items by category and a free-text query, newest first.
+             * The query matches the title and the description, so "black" finds a dress
+             * described as black even when the title does not say so.
+             * @param {Array<Object>} items - The stored items.
+             * @param {string} category - A category id, or "all".
+             * @param {string} query - Free text; blank matches everything.
+             * @returns {Array<Object>} - The matching items, newest first.
+             */
+            filterVisualLore(items, category, query) {
+                const list = Array.isArray(items) ? items.filter(Boolean) : [];
+                const cat = (category || 'all').toLowerCase();
+                const q = String(query || '').trim().toLowerCase();
+
+                const matched = list.filter(item => {
+                    if (cat !== 'all' && (item.category || 'other').toLowerCase() !== cat) return false;
+                    if (!q) return true;
+                    const haystack = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
+                    return haystack.includes(q);
+                });
+
+                return matched.sort((a, b) => (b.created || 0) - (a.created || 0));
+            },
+
+            /**
              * Safely extracts and parses JSON from a string, handling markdown code blocks.
              * @param {string} str - The string containing JSON.
              * @returns {Object|null} - The parsed object or null.
@@ -16254,9 +16480,9 @@ Write only the character's message.`;
              * @param {File|Blob} imageFile - The image file to process.
              * @returns {Promise<Blob>} - The processed image blob.
              */
-            async processImageAsBlob(imageFile) {
+            async processImageAsBlob(imageFile, maxHeight = 2000) {
                 return new Promise((resolve, reject) => {
-                    const MAX_HEIGHT = 2000;
+                    const MAX_HEIGHT = maxHeight;
                     const QUALITY = 0.85;
                     const reader = new FileReader();
                     reader.onload = (e) => {
@@ -20782,13 +21008,15 @@ Write only the character's message.`;
                 const staticTab = document.getElementById('knowledge-tab-static');
                 const dynamicTab = document.getElementById('knowledge-tab-dynamic');
                 const gmTab = document.getElementById('knowledge-tab-gm');
+                const visualTab = document.getElementById('knowledge-tab-visual');
                 const staticContent = document.getElementById('knowledge-static-content');
                 const dynamicContent = document.getElementById('knowledge-dynamic-content');
                 const gmContent = document.getElementById('knowledge-gm-content');
+                const visualContent = document.getElementById('knowledge-visual-content');
 
                 // Helper to toggle active classes
                 const setActiveTab = (activeTabEl, activeContentEl) => {
-                    [staticTab, dynamicTab, gmTab].forEach(tab => {
+                    [staticTab, dynamicTab, gmTab, visualTab].forEach(tab => {
                         if (tab) {
                             if (tab === activeTabEl) {
                                 tab.classList.add('border-indigo-500', 'text-white');
@@ -20799,7 +21027,7 @@ Write only the character's message.`;
                             }
                         }
                     });
-                    [staticContent, dynamicContent, gmContent].forEach(content => {
+                    [staticContent, dynamicContent, gmContent, visualContent].forEach(content => {
                         if (content) {
                             if (content === activeContentEl) {
                                 content.classList.remove('hidden');
@@ -20819,7 +21047,12 @@ Write only the character's message.`;
                 } else if (tabName === 'gm') {
                     setActiveTab(gmTab, gmContent);
                     this.renderGMRules();
+                } else if (tabName === 'visual') {
+                    setActiveTab(visualTab, visualContent);
+                    if (visualContent) visualContent.classList.add('flex');
+                    this.renderVisualLore();
                 }
+                if (visualContent && tabName !== 'visual') visualContent.classList.remove('flex');
             },
 
             switchKnowledgeTab(tabName) {
@@ -20837,6 +21070,139 @@ Write only the character's message.`;
             /**
              * Renders the list of static lore entries.
              */
+            /**
+             * Visual Lore runtime: which category is filtered, and which item is open.
+             */
+            VISUAL_LORE: { filter: 'all', query: '', selectedId: null, busy: false },
+
+            /**
+             * Renders the Visual Lore shelf: filter pills, the item list, and the open item.
+             */
+            renderVisualLore() {
+                const listEl = document.getElementById('visual-lore-list');
+                const filterEl = document.getElementById('visual-lore-filter-container');
+                if (!listEl || !filterEl) return;
+
+                    const cats = [{ id: 'all', label: 'All' }, { id: 'item', label: 'Items' }, { id: 'character', label: 'Characters' }, { id: 'world', label: 'Places' }, { id: 'event', label: 'Events' }, { id: 'other', label: 'Other' }];
+                const active = this.VISUAL_LORE.filter;
+                filterEl.innerHTML = cats.map(c => {
+                    const cls = c.id === active
+                        ? 'px-2 py-1 text-xs font-semibold rounded bg-indigo-600 text-white shadow'
+                        : 'px-2 py-1 text-xs font-semibold rounded bg-gray-700/50 text-gray-400 hover:text-white hover:bg-gray-700 transition-colors';
+                    return DOM.html`<button data-action="visual-lore-filter" data-cat="${c.id}" class="${cls}">${c.label}</button>`.toString();
+                }).join('');
+
+                const items = UTILITY.filterVisualLore(
+                    VisualLoreService.all(), this.VISUAL_LORE.filter, this.VISUAL_LORE.query);
+
+                if (items.length === 0) {
+                    listEl.innerHTML = DOM.html`<p class="text-xs text-gray-500 p-2">Nothing here yet. Add an item to start your shelf.</p>`.toString();
+                } else {
+                    listEl.innerHTML = items.map(item => {
+                        const sel = item.id === this.VISUAL_LORE.selectedId;
+                        const cls = sel ? 'bg-indigo-600/30 border-indigo-500' : 'bg-black/20 border-transparent hover:bg-black/40';
+                        // A blank tile keeps the rows aligned when an item has no picture.
+                        const thumb = item.imageId
+                            ? DOM.html`<img data-vl-img="${item.imageId}" class="visual-lore-thumb" alt="">`.toString()
+                            : DOM.html`<div class="visual-lore-thumb visual-lore-thumb-empty"></div>`.toString();
+                        return DOM.html`<button data-action="visual-lore-select" data-id="${item.id}"
+                            class="w-full text-left flex items-center gap-2 p-2 mb-1 rounded border ${cls} transition-colors">
+                            ${DOM.unsafe(thumb)}
+                            <span class="min-w-0 flex-1">
+                                <span class="block text-xs font-semibold text-gray-100 truncate">${item.title}</span>
+                                <span class="block text-[10px] text-gray-500">${(cats.find(c => c.id === item.category) || {}).label || item.category}</span>
+                            </span>
+                        </button>`.toString();
+                    }).join('');
+                    this._hydrateVisualLoreThumbs();
+                }
+
+                this.renderVisualLoreDetails();
+            },
+
+            /**
+             * Loads thumbnails from the image store into the rendered rows.
+             * @private
+             */
+            async _hydrateVisualLoreThumbs() {
+                const imgs = document.querySelectorAll('#visual-lore-list img[data-vl-img]');
+                for (const img of imgs) {
+                    try {
+                        const blob = await DBService.getImage(img.dataset.vlImg);
+                        if (blob) img.src = URL.createObjectURL(blob);
+                    } catch (e) { console.warn('Visual Lore: thumbnail load failed.', e); }
+                }
+            },
+
+            /**
+             * Renders the open item, or the empty state.
+             */
+            renderVisualLoreDetails() {
+                const el = document.getElementById('visual-lore-details');
+                if (!el) return;
+
+                const item = this.VISUAL_LORE.selectedId ? VisualLoreService.get(this.VISUAL_LORE.selectedId) : null;
+                if (!item) {
+                    el.innerHTML = DOM.html`<p class="text-sm text-gray-500">Pick an item, or add one.</p>`.toString();
+                    return;
+                }
+
+                    const cats = [{ id: 'all', label: 'All' }, { id: 'item', label: 'Items' }, { id: 'character', label: 'Characters' }, { id: 'world', label: 'Places' }, { id: 'event', label: 'Events' }, { id: 'other', label: 'Other' }];
+                const bridgeReady = (typeof VisionBridgeService !== 'undefined') && VisionBridgeService.isEnabled();
+                const busy = this.VISUAL_LORE.busy;
+
+                const picture = item.imageId
+                    ? DOM.html`<img data-vl-img="${item.imageId}" class="visual-lore-preview" alt="">`.toString()
+                    : DOM.html`<div class="visual-lore-preview visual-lore-thumb-empty flex items-center justify-center"><span class="text-[10px] text-gray-600">No picture</span></div>`.toString();
+
+                const describeLabel = item.description ? "Describe again" : "Describe with AI";
+                const describeBtn = bridgeReady && item.imageId
+                    ? DOM.html`<button data-action="visual-lore-describe" data-id="${item.id}" ${DOM.unsafe(busy ? "disabled" : "")}
+                        class="px-3 py-1.5 text-xs font-semibold rounded bg-teal-600 hover:bg-teal-500 text-white transition-colors">${busy ? "Describing..." : describeLabel}</button>`.toString()
+                    : '';
+
+                const hint = !item.imageId
+                    ? 'Text-only item. Add a picture if it helps you recognise it in the picker.'
+                    : (bridgeReady ? '' : 'Set up the Vision Bridge in Settings to describe pictures automatically.');
+
+                el.innerHTML = DOM.html`<div class="flex flex-col gap-3">
+                    <div class="flex gap-4 items-start">
+                        ${DOM.unsafe(picture)}
+                        <div class="flex-1 flex flex-col gap-2 min-w-0">
+                            <input type="text" id="visual-lore-title" value="${item.title}" placeholder="Name"
+                                class="w-full bg-black/40 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-100 outline-none focus:border-indigo-500">
+                            <select id="visual-lore-category"
+                                class="w-full bg-black/40 border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-200 outline-none focus:border-indigo-500">
+                                ${DOM.unsafe(cats.filter(c => c.id !== 'all').map(c =>
+                                    `<option value="${c.id}"${c.id === item.category ? ' selected' : ''}>${c.label}</option>`).join(''))}
+                            </select>
+                            <div class="flex flex-wrap gap-2">
+                                <button data-action="visual-lore-pick-image" data-id="${item.id}"
+                                    class="px-3 py-1.5 text-xs font-semibold rounded bg-gray-700 hover:bg-gray-600 text-white transition-colors">${item.imageId ? "Replace picture" : "Add picture"}</button>
+                                ${DOM.unsafe(describeBtn)}
+                            </div>
+                        </div>
+                    </div>
+                    <textarea id="visual-lore-description" rows="8" placeholder="What the character knows about this."
+                        class="w-full bg-black/40 border border-gray-700 rounded px-2 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500 resize-y">${item.description}</textarea>
+                    <p class="text-[11px] text-gray-500">${hint}</p>
+                    <div class="flex gap-2">
+                        <button data-action="visual-lore-save" data-id="${item.id}"
+                            class="px-4 py-2 text-xs font-semibold rounded bg-indigo-600 hover:bg-indigo-500 text-white transition-colors">Save</button>
+                        <button data-action="visual-lore-delete" data-id="${item.id}"
+                            class="px-4 py-2 text-xs font-semibold rounded bg-red-900/60 hover:bg-red-800 text-red-100 transition-colors">Delete</button>
+                    </div>
+                </div>`.toString();
+
+                this._hydrateVisualLoreThumbs();
+                const preview = document.querySelector('#visual-lore-details img[data-vl-img]');
+                if (preview) {
+                    DBService.getImage(preview.dataset.vlImg).then(blob => {
+                        if (blob) preview.src = URL.createObjectURL(blob);
+                    }).catch(() => {});
+                }
+            },
+
             renderStaticEntries() {
                 const state = StateManager.getState();
 
@@ -38455,6 +38821,7 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
          * so message indices are untouched and every existing message tool keeps working.
          * =================================================================================================
          */
+        /* [SEC:JS:TODO:TextModeController] -- recategorize and add to the TECHNICAL MAP at the top of the file. */
         const TextModeController = {
 
             RUNTIME: {
@@ -42343,6 +42710,91 @@ Relationship | Alistair & Elara | Alistair has started to trust Elara after she 
                 ActionHandler.register('combine-with-previous', (ds) => NarrativeController.combineWithPrevious(parseInt(ds.index)));
                 ActionHandler.register('recombine-message', (ds) => NarrativeController.recombineMessage(parseInt(ds.index)));
                 ActionHandler.register('split-combined-message', (ds) => NarrativeController.splitCombinedMessage(parseInt(ds.index)));
+                // --- Visual Lore ---
+                ActionHandler.register('visual-lore-filter', (ds) => {
+                    UIManager.VISUAL_LORE.filter = ds.cat || 'all';
+                    UIManager.renderVisualLore();
+                });
+                ActionHandler.register('visual-lore-select', (ds) => {
+                    UIManager.VISUAL_LORE.selectedId = ds.id;
+                    UIManager.renderVisualLore();
+                });
+                ActionHandler.register('visual-lore-add', () => {
+                    const item = VisualLoreService.save({ title: 'New Item', category: 'item', description: '' });
+                    UIManager.VISUAL_LORE.selectedId = item.id;
+                    UIManager.renderVisualLore();
+                });
+                ActionHandler.register('visual-lore-save', (ds) => {
+                    const item = VisualLoreService.get(ds.id);
+                    if (!item) return;
+                    const title = document.getElementById('visual-lore-title');
+                    const category = document.getElementById('visual-lore-category');
+                    const description = document.getElementById('visual-lore-description');
+                    VisualLoreService.save({
+                        id: item.id,
+                        title: title ? title.value : item.title,
+                        category: category ? category.value : item.category,
+                        description: description ? description.value : item.description,
+                        imageId: item.imageId
+                    });
+                    UIManager.renderVisualLore();
+                    UIManager.showNotification('Saved.', 'success');
+                });
+                ActionHandler.register('visual-lore-delete', async (ds) => {
+                    const item = VisualLoreService.get(ds.id);
+                    if (!item) return;
+                    UIManager.showConfirmationModal(`Delete "${item.title}"?`, async () => {
+                        await VisualLoreService.remove(ds.id);
+                        if (UIManager.VISUAL_LORE.selectedId === ds.id) UIManager.VISUAL_LORE.selectedId = null;
+                        UIManager.renderVisualLore();
+                    });
+                });
+                ActionHandler.register('visual-lore-pick-image', (ds) => {
+                    const input = document.getElementById('visual-lore-file');
+                    if (!input) return;
+                    // One-shot handler so the id being edited travels with the pick.
+                    input.onchange = async (e) => {
+                        const file = e.target.files && e.target.files[0];
+                        input.value = '';
+                        if (!file) return;
+                        try {
+                            const item = VisualLoreService.get(ds.id);
+                            if (!item) return;
+                            const previous = item.imageId;
+                            const imageId = await VisualLoreService.storeImage(file);
+                            VisualLoreService.save(Object.assign({}, item, { imageId }));
+                            // Replacing a picture should not leave the old one behind.
+                            if (previous) {
+                                try { await DBService.deleteImage(previous); } catch (err) {}
+                            }
+                            UIManager.renderVisualLore();
+                        } catch (err) {
+                            UIManager.showNotification(err.message || 'Could not store that picture.', 'error');
+                        }
+                    };
+                    input.click();
+                });
+                ActionHandler.register('visual-lore-describe', async (ds) => {
+                    const item = VisualLoreService.get(ds.id);
+                    if (!item || !item.imageId || UIManager.VISUAL_LORE.busy) return;
+                    UIManager.VISUAL_LORE.busy = true;
+                    UIManager.renderVisualLoreDetails();
+                    try {
+                        const described = await VisualLoreService.describeImage(item.imageId);
+                        if (described) {
+                            VisualLoreService.save(Object.assign({}, item, { description: described }));
+                            UIManager.showNotification('Described. Edit it to taste.', 'success');
+                        } else {
+                            UIManager.showNotification('The Vision Bridge returned nothing.', 'error');
+                        }
+                    } catch (err) {
+                        UIManager.showNotification(err.message || 'Describe failed.', 'error');
+                    } finally {
+                        UIManager.VISUAL_LORE.busy = false;
+                        UIManager.renderVisualLore();
+                    }
+                });
+
                 ActionHandler.register('open-error-log', () => UIManager.openErrorLog());
                 ActionHandler.register('close-error-log', () => UIManager.closeErrorLog());
                 ActionHandler.register('clear-error-log', () => UIManager.clearErrorLog());

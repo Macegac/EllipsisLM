@@ -581,6 +581,41 @@ test('collapseErrors: skips junk entries and survives no input', () => {
     assert.equal(rows[0].message, 'real');
 });
 
+// ─── filterVisualLore ────────────────────
+
+const VL = [
+    { id: 'a', title: 'Little Black Dress', category: 'item', description: 'A short black cocktail dress.', created: 100 },
+    { id: 'b', title: 'Butter Knife', category: 'item', description: 'A dull table knife.', created: 300 },
+    { id: 'c', title: 'The Vault', category: 'world', description: 'A cold stone room.', created: 200 }
+];
+
+test('filterVisualLore: returns everything newest first when unfiltered', () => {
+    deepEq(UTILITY.filterVisualLore(VL, 'all', '').map(i => i.id), ['b', 'c', 'a']);
+});
+
+test('filterVisualLore: narrows to one category', () => {
+    deepEq(UTILITY.filterVisualLore(VL, 'world', '').map(i => i.id), ['c']);
+    deepEq(UTILITY.filterVisualLore(VL, 'item', '').map(i => i.id), ['b', 'a']);
+});
+
+test('filterVisualLore: query matches the description, not just the title', () => {
+    deepEq(UTILITY.filterVisualLore(VL, 'all', 'cocktail').map(i => i.id), ['a'],
+        'the word cocktail appears only in the description');
+    deepEq(UTILITY.filterVisualLore(VL, 'all', 'knife').map(i => i.id), ['b']);
+});
+
+test('filterVisualLore: query is case-insensitive and combines with category', () => {
+    deepEq(UTILITY.filterVisualLore(VL, 'all', 'BLACK').map(i => i.id), ['a']);
+    deepEq(UTILITY.filterVisualLore(VL, 'world', 'black'), [], 'category wins over a title match');
+});
+
+test('filterVisualLore: treats a missing category as other, and survives junk', () => {
+    const messy = [null, { id: 'x', title: 'Odd', description: 'no category', created: 1 }];
+    deepEq(UTILITY.filterVisualLore(messy, 'other', '').map(i => i.id), ['x']);
+    deepEq(UTILITY.filterVisualLore(messy, 'item', ''), []);
+    deepEq(UTILITY.filterVisualLore(undefined, 'all', ''), []);
+});
+
 // ─── createDefaultMapGrid ─────────────────────────────────────────────────
 
 test('createDefaultMapGrid: returns an 8x8 grid with empty content', () => {

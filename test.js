@@ -1180,9 +1180,94 @@ test('formatTitleWithCategory: applies and updates category tags on title string
     assert.equal(UTILITY.formatTitleWithCategory('', 'event'), '[Event] Untitled');
 });
 
+// ─── normalizeVisionEndpoint ──────────────────────────────────────────────
 
+test('normalizeVisionEndpoint: bare host gains a scheme', () => {
+    assert.equal(UTILITY.normalizeVisionEndpoint('localhost:5001'), 'http://localhost:5001');
+    assert.equal(UTILITY.normalizeVisionEndpoint('192.168.1.40:1234'), 'http://192.168.1.40:1234');
+});
 
+test('normalizeVisionEndpoint: existing scheme is preserved, including https', () => {
+    assert.equal(UTILITY.normalizeVisionEndpoint('http://localhost:5001'), 'http://localhost:5001');
+    assert.equal(UTILITY.normalizeVisionEndpoint('https://vision.example.com'), 'https://vision.example.com');
+});
 
+test('normalizeVisionEndpoint: trailing slashes are stripped', () => {
+    assert.equal(UTILITY.normalizeVisionEndpoint('http://localhost:5001/'), 'http://localhost:5001');
+    assert.equal(UTILITY.normalizeVisionEndpoint('http://localhost:5001///'), 'http://localhost:5001');
+});
 
+test('normalizeVisionEndpoint: a pasted chat-completions path collapses to the origin', () => {
+    // People copy the full URL out of provider docs. All of these must reach the same base,
+    // or VisionBridgeService would build http://host/v1/chat/completions/v1/chat/completions.
+    assert.equal(UTILITY.normalizeVisionEndpoint('http://localhost:5001/v1/chat/completions'), 'http://localhost:5001');
+    assert.equal(UTILITY.normalizeVisionEndpoint('http://localhost:5001/v1/chat/completions/'), 'http://localhost:5001');
+    assert.equal(UTILITY.normalizeVisionEndpoint('http://localhost:5001/chat/completions'), 'http://localhost:5001');
+    assert.equal(UTILITY.normalizeVisionEndpoint('http://localhost:5001/v1'), 'http://localhost:5001');
+    assert.equal(UTILITY.normalizeVisionEndpoint('http://localhost:5001/v1/'), 'http://localhost:5001');
+});
 
+test('normalizeVisionEndpoint: whitespace is tolerated', () => {
+    assert.equal(UTILITY.normalizeVisionEndpoint('  http://localhost:5001  '), 'http://localhost:5001');
+    assert.equal(UTILITY.normalizeVisionEndpoint('http://local host:5001'), 'http://localhost:5001');
+});
 
+test('normalizeVisionEndpoint: unusable input yields an empty string, never a bare scheme', () => {
+    // The caller treats "" as "fall back to the default port". Returning "http://" would
+    // instead produce a real fetch to a nonsense URL.
+    assert.equal(UTILITY.normalizeVisionEndpoint(''), '');
+    assert.equal(UTILITY.normalizeVisionEndpoint('   '), '');
+    assert.equal(UTILITY.normalizeVisionEndpoint('/v1/chat/completions'), '');
+    assert.equal(UTILITY.normalizeVisionEndpoint(null), '');
+    assert.equal(UTILITY.normalizeVisionEndpoint(undefined), '');
+    assert.equal(UTILITY.normalizeVisionEndpoint(42), '');
+});
+
+// ─── buildVisionContextBlock ──────────────────────────────────────────────
+
+test('buildVisionContextBlock: nothing describable yields an empty string', () => {
+    // "" is the signal that the bridge produced nothing, so callAI falls back to the
+    // original no-vision notice. Any non-empty string here would be injected verbatim.
+    assert.equal(UTILITY.buildVisionContextBlock([]), '');
+    assert.equal(UTILITY.buildVisionContextBlock(['', '   ']), '');
+    assert.equal(UTILITY.buildVisionContextBlock(null), '');
+    assert.equal(UTILITY.buildVisionContextBlock('a string, not an array'), '');
+});
+
+test('buildVisionContextBlock: a single image is not numbered', () => {
+    const out = UTILITY.buildVisionContextBlock(['A red bicycle leaning on a wall.']);
+    assert.ok(out.includes('an image'), 'should read naturally for one image');
+    assert.ok(out.includes('A red bicycle leaning on a wall.'));
+    assert.ok(!out.includes('Image 1:'), 'single image should not be enumerated');
+});
+
+test('buildVisionContextBlock: multiple images are numbered in order', () => {
+    const out = UTILITY.buildVisionContextBlock(['First scene.', 'Second scene.']);
+    assert.ok(out.includes('2 images'));
+    assert.ok(out.includes('Image 1: First scene.'));
+    assert.ok(out.includes('Image 2: Second scene.'));
+    assert.ok(out.indexOf('Image 1:') < out.indexOf('Image 2:'), 'order must match upload order');
+});
+
+test('buildVisionContextBlock: blank entries are dropped without disturbing numbering', () => {
+    const out = UTILITY.buildVisionContextBlock(['Kept one.', '   ', 'Kept two.']);
+    assert.ok(out.includes('2 images'));
+    assert.ok(out.includes('Image 1: Kept one.'));
+    assert.ok(out.includes('Image 2: Kept two.'));
+    assert.ok(!out.includes('Image 3:'));
+});
+
+test('buildVisionContextBlock: entries are trimmed', () => {
+    const out = UTILITY.buildVisionContextBlock(['  padded description  ']);
+    assert.ok(out.includes('padded description'));
+    assert.ok(!out.includes('  padded description  '));
+});
+
+test('buildVisionContextBlock: instructs the model never to reveal the mechanism', () => {
+    // The whole point of silent injection. A character replying "based on the image
+    // description provided" breaks immersion and would make the feature worse than useless.
+    const out = UTILITY.buildVisionContextBlock(['A quiet street at dusk.']);
+    assert.ok(out.includes('[VISUAL CONTEXT]'));
+    assert.ok(/never mention this/i.test(out));
+    assert.ok(/described to you/i.test(out));
+});

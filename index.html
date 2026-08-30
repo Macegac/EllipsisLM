@@ -36489,6 +36489,20 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     ? userMessage
                     : null;
 
+                // Visual Lore chosen for this turn. sendMessage attaches them to the message
+                // it creates and clears the list before getting here, so anything still
+                // pending belongs to a turn with no message of its own - directing a
+                // character, or passing the turn. Without this they were silently ignored
+                // and left sitting on the chip bar, ready to attach themselves to whatever
+                // was sent next.
+                let pendingLoreIds = [];
+                if (typeof UIManager !== 'undefined' && Array.isArray(UIManager.VISUAL_LORE_PENDING)
+                    && UIManager.VISUAL_LORE_PENDING.length) {
+                    pendingLoreIds = UIManager.VISUAL_LORE_PENDING.slice();
+                    UIManager.VISUAL_LORE_PENDING = [];
+                    UIManager.renderVisualLoreChips();
+                }
+
                 // Clear previous error messages before starting new generation
                 this.clearSystemErrors();
                 this._clearResponseOptions();
@@ -36582,6 +36596,22 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                         directiveCustomInstruction =
                             `Generate the next response for ${actingName}. Stay in character.\n\n${directiveInstruction}`;
                     }
+
+                    // There is no message of our own to hang these on, so they ride with the
+                    // instruction. customInstruction REPLACES the default, so restate it when
+                    // there is no directive already doing that.
+                    if (pendingLoreIds.length && typeof VisualLoreService !== 'undefined') {
+                        const detail = VisualLoreService.buildContextBlock(pendingLoreIds);
+                        if (detail) {
+                            if (!directiveCustomInstruction) {
+                                const actingChar = ReactiveStore.getCharacter(targetId);
+                                const actingName = actingChar ? actingChar.name : 'the character';
+                                directiveCustomInstruction =
+                                    `Generate the next response for ${actingName}. Stay in character.`;
+                            }
+                            directiveCustomInstruction += `\n\n${detail}`;
+                        }
+                    }
                     const prompt = PromptBuilder.buildPrompt(targetId, false, historyOverride, directiveCustomInstruction);
 
                     // START REQUEST (Do not await yet if there might be other parallel work, but here we await basic text first)
@@ -36626,12 +36656,17 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                     // never stored. Regenerating the message then quietly dropped the
                     // direction and answered the previous message instead. Keeping it on
                     // the message it produced lets handleRegen apply it again.
-                    if (directiveInstruction) {
+                    if (directiveInstruction || pendingLoreIds.length) {
                         const producedIndex = (targetMessageIndex !== null)
                             ? targetMessageIndex
                             : (state.chat_history.length - 1);
                         const producedMsg = state.chat_history[producedIndex];
-                        if (producedMsg) producedMsg.directive = directiveInstruction;
+                        if (producedMsg) {
+                            if (directiveInstruction) producedMsg.directive = directiveInstruction;
+                            // Kept on the reply so the detail stays in play for the turns
+                            // that follow, and so a rerun of this message still carries it.
+                            if (pendingLoreIds.length) producedMsg.item_ids = pendingLoreIds.slice();
+                        }
                     }
 
                     // 7. Analyze combined interaction (Post-Display Concurrency)

@@ -9017,7 +9017,31 @@
                         swarmMode: currentState.swarmMode || false,
                         swarmNarrativeCapital: JSON.parse(JSON.stringify(currentState.swarmNarrativeCapital || {})),
                         swarmSecrets: JSON.parse(JSON.stringify(currentState.swarmSecrets || {})),
-                        swarmLastIntents: JSON.parse(JSON.stringify(currentState.swarmLastIntents || {}))
+                        swarmLastIntents: JSON.parse(JSON.stringify(currentState.swarmLastIntents || {})),
+
+                        // EVERYTHING THE BACKGROUND AGENTS PRODUCE
+                        // _createEmptyEllipsisNarrative lists these as part of a narrative,
+                        // and load restores whatever is in narrative.state - but nothing here
+                        // ever wrote them, so every reload discarded the timeline, the
+                        // relationship matrix, the journal, evolved personas and the game
+                        // state. Four to five API calls every sixth message went into
+                        // building knowledge that never survived the tab being closed.
+                        // Round-tripped like the swarm fields above, for the same reason.
+                        narrative_timeline: JSON.parse(JSON.stringify(currentState.narrative_timeline || [])),
+                        relationship_matrix: JSON.parse(JSON.stringify(currentState.relationship_matrix || [])),
+                        journal_entries: JSON.parse(JSON.stringify(currentState.journal_entries || [])),
+                        evolved_characters: JSON.parse(JSON.stringify(currentState.evolved_characters || {})),
+                        livingPersonaCounters: JSON.parse(JSON.stringify(currentState.livingPersonaCounters || {})),
+                        gameState: JSON.parse(JSON.stringify(currentState.gameState || null)),
+                        gm_rules: JSON.parse(JSON.stringify(currentState.gm_rules || [])),
+                        gm_ledger: JSON.parse(JSON.stringify(currentState.gm_ledger || [])),
+
+                        // Rollback points for deletions. Each one carries a full world-map
+                        // snapshot, so keeping every revision would grow this record without
+                        // bound against a quota the app already warns about. The most recent
+                        // ones are what a rewind actually reaches for.
+                        knowledge_revisions: JSON.parse(JSON.stringify(
+                            (currentState.knowledge_revisions || []).slice(-10)))
                     }
                 };
 

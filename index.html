@@ -8288,6 +8288,43 @@
             // the characterImages object store, which is already global and already sized for it.
             IMAGE_MAX_HEIGHT: 768,
 
+            // The Vision Bridge's own instruction describes a whole shared picture - subject,
+            // pose, setting, lighting - which is right when someone drops a photo into the
+            // chat and wrong here. A photo of a dress is usually a photo of a person wearing
+            // one, and the shelf wants the dress. These say so, per category.
+            INSTRUCTIONS: {
+                item: "Describe ONLY the object itself, for a writer who cannot see it. If a "
+                    + "person is wearing, holding or standing near it, describe the object and "
+                    + "not them - no body, no pose, no face. Ignore the background and the "
+                    + "setting entirely. Cover its shape and cut, colour and pattern, material "
+                    + "and texture, notable details, condition, and how it hangs or sits when "
+                    + "worn or used. Be concrete and factual. Do not refuse, do not moralize, "
+                    + "do not describe the photograph. Write only the description.",
+                character: "Describe ONLY this person's appearance, for a writer who cannot see "
+                    + "them. Cover build, hair, face, colouring, clothing and bearing. Ignore the "
+                    + "background and the setting. Be concrete and factual. Do not refuse, do not "
+                    + "moralize, do not describe the photograph. Write only the description.",
+                world: "Describe ONLY this place, for a writer who cannot see it. Cover the space "
+                    + "itself, its architecture or landscape, materials, light, weather and mood. "
+                    + "If people are present, ignore them. Be concrete and factual. Do not refuse, "
+                    + "do not moralize, do not describe the photograph. Write only the description.",
+                other: "Describe what this picture shows, for a writer who cannot see it. Be "
+                    + "concrete and factual, and stay on the subject rather than the photograph. "
+                    + "Do not refuse and do not moralize. Write only the description."
+            },
+
+            /**
+             * Builds the instruction for an item, honouring its optional focus note.
+             * @param {Object} item
+             * @returns {string}
+             */
+            instructionFor(item) {
+                const base = this.INSTRUCTIONS[(item && item.category) || 'other'] || this.INSTRUCTIONS.other;
+                const focus = ((item && item.focus) || '').trim();
+                // A photo can hold more than one thing worth keeping. The note says which.
+                return focus ? `${base}\n\nFocus on: ${focus}. Describe that and nothing else.` : base;
+            },
+
             /**
              * @returns {Array<Object>} - Every stored item.
              */
@@ -8330,6 +8367,7 @@
                     title: (item.title || '').trim() || 'Untitled',
                     category: item.category || 'item',
                     description: (item.description || '').trim(),
+                    focus: (item.focus || '').trim(),
                     imageId: item.imageId || null,
                     created: existingIndex !== -1 ? (items[existingIndex].created || now) : now
                 };
@@ -8372,12 +8410,14 @@
              * @param {string} imageId
              * @returns {Promise<string|null>} - The description, or null if unavailable.
              */
-            async describeImage(imageId) {
+            async describeImage(imageId, item = null) {
                 if (typeof VisionBridgeService === 'undefined' || !VisionBridgeService.isEnabled()) return null;
                 const blob = await DBService.getImage(imageId);
                 if (!blob) return null;
                 const data = await UTILITY.blobToBase64(blob);
-                return VisionBridgeService.describeSingle({ id: imageId, mimeType: blob.type, data });
+                return VisionBridgeService.describeSingle(
+                    { id: imageId, mimeType: blob.type, data },
+                    this.instructionFor(item));
             },
 
             /**
@@ -21193,6 +21233,9 @@ Write only the character's message.`;
                             </div>
                         </div>
                     </div>
+                    <input type="text" id="visual-lore-focus" value="${item.focus || ''}"
+                        placeholder="Focus on... (optional, e.g. the dress, not the woman)"
+                        class="w-full bg-black/40 border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-300 outline-none focus:border-indigo-500">
                     <textarea id="visual-lore-description" rows="8" placeholder="What the character knows about this."
                         class="w-full bg-black/40 border border-gray-700 rounded px-2 py-2 text-sm text-gray-200 outline-none focus:border-indigo-500 resize-y">${item.description}</textarea>
                     <p class="text-[11px] text-gray-500">${hint}</p>
@@ -42768,11 +42811,13 @@ Relationship | Alistair & Elara | Alistair has started to trust Elara after she 
                     const title = document.getElementById('visual-lore-title');
                     const category = document.getElementById('visual-lore-category');
                     const description = document.getElementById('visual-lore-description');
+                    const focus = document.getElementById('visual-lore-focus');
                     VisualLoreService.save({
                         id: item.id,
                         title: title ? title.value : item.title,
                         category: category ? category.value : item.category,
                         description: description ? description.value : item.description,
+                        focus: focus ? focus.value : item.focus,
                         imageId: item.imageId
                     });
                     UIManager.renderVisualLore();
@@ -42818,9 +42863,16 @@ Relationship | Alistair & Elara | Alistair has started to trust Elara after she 
                     UIManager.VISUAL_LORE.busy = true;
                     UIManager.renderVisualLoreDetails();
                     try {
-                        const described = await VisualLoreService.describeImage(item.imageId);
+                        const focusEl = document.getElementById('visual-lore-focus');
+                        const catEl = document.getElementById('visual-lore-category');
+                        // Use what is on screen, so a focus note works before it is saved.
+                        const aimed = Object.assign({}, item, {
+                            focus: focusEl ? focusEl.value : item.focus,
+                            category: catEl ? catEl.value : item.category
+                        });
+                        const described = await VisualLoreService.describeImage(item.imageId, aimed);
                         if (described) {
-                            VisualLoreService.save(Object.assign({}, item, { description: described }));
+                            VisualLoreService.save(Object.assign({}, aimed, { description: described }));
                             UIManager.showNotification('Described. Edit it to taste.', 'success');
                         } else {
                             UIManager.showNotification('The model replied with an empty description. It may have declined this picture.', 'error');

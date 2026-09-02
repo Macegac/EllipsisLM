@@ -10355,10 +10355,33 @@
                     });
                 }
 
+                // Sampling. Every other backend gets a full set - KoboldCPP is sent rep_pen,
+                // rep_pen_slope and dry_multiplier, which exist precisely to stop a model
+                // falling into a repeating groove - while this path sent model and messages
+                // and nothing else. With no penalty and no output cap, a run of repetition
+                // had nothing to break it and nothing to stop it, so it ran to the
+                // provider ceiling and came back as a wall of the same clause.
+                //
+                // OpenRouter drops parameters the chosen model does not accept rather than
+                // erroring, so these can be sent unconditionally: Gemini takes only the
+                // first three and ignores the penalties, DeepSeek and GLM take them all.
                 const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-                    body: JSON.stringify({ model: model, messages: messagesPayload }),
+                    body: JSON.stringify({
+                        model: model,
+                        messages: messagesPayload,
+                        // Generous, but bounded. A turn never legitimately needs this much,
+                        // and it means a failure costs seconds rather than minutes.
+                        max_tokens: 2048,
+                        temperature: 1.0,
+                        top_p: 1.0,
+                        // Deliberately mild. Roleplay reuses names and pronouns constantly,
+                        // so a heavy hand here reads as a model avoiding the words it needs.
+                        frequency_penalty: 0.2,
+                        presence_penalty: 0.0,
+                        repetition_penalty: 1.05
+                    }),
                     signal
                 });
 
@@ -33210,6 +33233,12 @@ Return ONLY the physical description. Write in the 3rd person. No preamble.`;
                                         character_name: entry.character_name || '',
                                         content: entry.content
                                     });
+                                    // Capped like narrative_timeline is. This used to be
+                                    // emptied by every reload, which hid the fact that it
+                                    // grows without limit; now that it persists, an old
+                                    // story would carry an ever longer list of near-identical
+                                    // lines into every prompt.
+                                    if (state.journal_entries.length > 50) state.journal_entries.shift();
                                 }
 
                                 UIManager.showToast("New journal entries extracted.");

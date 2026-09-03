@@ -7714,6 +7714,91 @@
                 });
                 // Capture phase so scrolling any container, not just the window, dismisses.
                 window.addEventListener('scroll', () => UIManager.closeMessageMenu(), true);
+
+                // --- NARRATIVE LIST: LONG PRESS / RIGHT CLICK TO MULTI-SELECT ---
+                // Bulk selection already exists behind the "Select" button above the list.
+                // A long press is the quicker way in on a phone: it switches the mode on
+                // AND ticks the row that was pressed, so clearing out a few narratives is
+                // one gesture and some taps rather than a trip to the header button first.
+
+                // Ticks the pressed row, turning the mode on if it is not already. Setting
+                // checked rather than toggling keeps a second long press on the same row
+                // from undoing the first, and lets the touch and contextmenu paths both
+                // fire on Android without cancelling each other out.
+                const armNarrativeSelection = (item) => {
+                    if (!item) return;
+                    const container = document.getElementById('narratives-list-container');
+                    if (container && container.dataset.selectionMode !== 'true') {
+                        UIManager.toggleSelectionMode('narrative');
+                    }
+                    const cb = item.querySelector('.narrative-select-check');
+                    if (!cb) return;
+                    cb.checked = true;
+                    UIManager.updateBulkActionUI();
+                };
+
+                let narPressTimer = null;
+                let narPressStart = null;
+                // The row carries an inline onclick that toggles its own tick, so the
+                // synthetic click after a long press has to be consumed rather than
+                // allowed to undo the selection the press just made.
+                let narSwallowClick = false;
+                const cancelNarPress = () => {
+                    if (narPressTimer) clearTimeout(narPressTimer);
+                    narPressTimer = null;
+                    narPressStart = null;
+                };
+
+                // Desktop right-click. Android Chrome raises this too, after the timer
+                // below has already armed the same row, which is harmless.
+                document.body.addEventListener('contextmenu', (e) => {
+                    const item = e.target.closest('.narrative-item');
+                    if (!item) return;
+                    // The checkbox is its own control sitting inside the row.
+                    if (e.target.closest('.narrative-checkbox-container')) return;
+                    e.preventDefault();
+                    armNarrativeSelection(item);
+                });
+
+                // iOS Safari never raises contextmenu, so long-press needs its own timer.
+                // 300ms + haptic matches the message menu and the story card drag.
+                document.body.addEventListener('touchstart', (e) => {
+                    const item = e.target.closest('.narrative-item');
+                    if (!item || !e.touches || !e.touches[0]) return;
+                    if (e.target.closest('.narrative-checkbox-container')) return;
+                    const t = e.touches[0];
+                    narPressStart = { x: t.clientX, y: t.clientY };
+                    narPressTimer = setTimeout(() => {
+                        if (navigator.vibrate) navigator.vibrate(50);
+                        armNarrativeSelection(item);
+                        narSwallowClick = true;
+                        cancelNarPress();
+                    }, 300);
+                }, { passive: true });
+
+                // Scrolling the list away cancels the press instead of selecting mid-scroll.
+                document.body.addEventListener('touchmove', (e) => {
+                    if (!narPressStart || !e.touches || !e.touches[0]) return;
+                    const t = e.touches[0];
+                    if (Math.abs(t.clientX - narPressStart.x) > 10 || Math.abs(t.clientY - narPressStart.y) > 10) {
+                        cancelNarPress();
+                    }
+                }, { passive: true });
+                document.body.addEventListener('touchend', cancelNarPress);
+                document.body.addEventListener('touchcancel', cancelNarPress);
+
+                // Capture phase: the row's handler is an inline onclick on the row itself,
+                // so stopping the event at the document is the only place it can be caught
+                // before that handler runs. The flag clears on the first click either way,
+                // so a press that never raised one cannot swallow an unrelated tap later.
+                document.addEventListener('click', (e) => {
+                    if (!narSwallowClick) return;
+                    narSwallowClick = false;
+                    if (e.target.closest('.narrative-item')) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }
+                }, true);
             }
         };
 
@@ -19538,7 +19623,8 @@ Write only the character's message.`;
 
                 return DOM.html`
             <div class="narrative-item p-3 rounded-lg flex justify-between items-center gap-2 relative group border transition-all cursor-pointer hover:bg-gray-600/40 ${activeClass}" 
-                 onclick="UIManager.selectNarrative('${narrative.id}', this)" data-narrative-id="${narrative.id}">
+                 onclick="UIManager.selectNarrative('${narrative.id}', this)" data-narrative-id="${narrative.id}"
+                 title="Long press or right click to select several">
                 <div class="absolute left-3 z-10 flex items-center justify-center h-6 w-6 hidden narrative-checkbox-container" onclick="event.stopPropagation()">
                     <input type="checkbox" 
                            class="narrative-select-check w-4 h-4 rounded border-gray-500 bg-black/40 text-sky-500 focus:ring-0 cursor-pointer" 

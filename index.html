@@ -3628,18 +3628,11 @@
                             </svg>
                         </button>
 
-                        <!-- Image Upload -->
-                        <button id="visual-lore-attach-btn" data-action="visual-lore-open-picker"
-                            title="Attach from Visual Lore"
-                            class="text-gray-500 hover:text-teal-400 transition-colors p-1">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M5 8h14M5 12h14M5 16h6"></path>
-                            </svg>
-                        </button>
+                        <!-- Image Upload. Long press or right click opens the Visual Lore
+                             picker instead, so the shelf costs the composer no extra button. -->
                         <button id="upload-image-btn" onclick="document.getElementById('image-upload-input').click()"
                             class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                            title="Upload Image">
+                            title="Upload Image (long press or right click for Visual Lore)">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-image">
@@ -7600,6 +7593,72 @@
                     if (e.target.closest('#dm-options-menu') || e.target.closest('[data-action="toggle-dm-options"]')) return;
                     menu.classList.add('hidden');
                 });
+                // --- VISUAL LORE: LONG PRESS / RIGHT CLICK THE IMAGE BUTTON ---
+                // The shelf attaches to the turn being written, so its trigger belongs in
+                // the composer - but it does not earn a button of its own beside Send. It
+                // rides the image button instead: tap uploads a picture, hold opens the
+                // shelf. Both are "put something visual in this turn", so they read as one
+                // control with a second gear rather than two unrelated icons.
+
+                let vlPressTimer = null;
+                let vlPressStart = null;
+                // The button opens the file dialog from an inline onclick. The synthetic
+                // click after a long press would open it on top of the picker, so that one
+                // click gets consumed.
+                let vlSwallowClick = false;
+                const cancelVlPress = () => {
+                    if (vlPressTimer) clearTimeout(vlPressTimer);
+                    vlPressTimer = null;
+                    vlPressStart = null;
+                };
+
+                // Desktop right-click. Android Chrome raises this too, after the timer
+                // below has already opened the picker; opening it twice is a no-op.
+                document.body.addEventListener('contextmenu', (e) => {
+                    if (!e.target.closest('#upload-image-btn')) return;
+                    e.preventDefault();
+                    UIManager.openVisualLorePicker();
+                });
+
+                // iOS Safari never raises contextmenu, so long-press needs its own timer.
+                // 300ms + haptic matches the message menu and the story card drag.
+                document.body.addEventListener('touchstart', (e) => {
+                    const btn = e.target.closest('#upload-image-btn');
+                    if (!btn || !e.touches || !e.touches[0]) return;
+                    const t = e.touches[0];
+                    vlPressStart = { x: t.clientX, y: t.clientY };
+                    vlPressTimer = setTimeout(() => {
+                        if (navigator.vibrate) navigator.vibrate(50);
+                        UIManager.openVisualLorePicker();
+                        vlSwallowClick = true;
+                        cancelVlPress();
+                    }, 300);
+                }, { passive: true });
+
+                // Sliding off the button cancels, so a mis-aimed press still uploads.
+                document.body.addEventListener('touchmove', (e) => {
+                    if (!vlPressStart || !e.touches || !e.touches[0]) return;
+                    const t = e.touches[0];
+                    if (Math.abs(t.clientX - vlPressStart.x) > 10 || Math.abs(t.clientY - vlPressStart.y) > 10) {
+                        cancelVlPress();
+                    }
+                }, { passive: true });
+                document.body.addEventListener('touchend', cancelVlPress);
+                document.body.addEventListener('touchcancel', cancelVlPress);
+
+                // Capture phase: the file dialog is opened by an inline onclick on the
+                // button itself, so the document is the only place the click can be caught
+                // ahead of it. The flag clears on the first click either way, so a press
+                // that never raised one cannot swallow an unrelated tap later.
+                document.addEventListener('click', (e) => {
+                    if (!vlSwallowClick) return;
+                    vlSwallowClick = false;
+                    if (e.target.closest('#upload-image-btn')) {
+                        e.stopPropagation();
+                        e.preventDefault();
+                    }
+                }, true);
+
                 // Visual Lore picker search.
                 const vlPickerSearch = document.getElementById('visual-lore-picker-search');
                 if (vlPickerSearch) {
@@ -43110,7 +43169,8 @@ Relationship | Alistair & Elara | Alistair has started to trust Elara after she 
                 ActionHandler.register('recombine-message', (ds) => NarrativeController.recombineMessage(parseInt(ds.index)));
                 ActionHandler.register('split-combined-message', (ds) => NarrativeController.splitCombinedMessage(parseInt(ds.index)));
                 // --- Visual Lore: attaching to a turn ---
-                ActionHandler.register('visual-lore-open-picker', () => UIManager.openVisualLorePicker());
+                // Opening the picker has no data-action of its own: it hangs off a long
+                // press of the image button, bound with the other gestures in init().
                 ActionHandler.register('visual-lore-close-picker', () => UIManager.closeVisualLorePicker());
                 ActionHandler.register('visual-lore-picker-filter', (ds) => {
                     UIManager.VISUAL_LORE.pickerFilter = ds.cat || 'all';

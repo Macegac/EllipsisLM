@@ -3249,11 +3249,11 @@
                             </svg>
                         </button>
 
-                        <!-- Image Upload. Long press or right click opens the Visual Lore
-                             picker instead, so the shelf costs the composer no extra button. -->
+                        <!-- Image Upload. Long press or right click opens a small menu with
+                             this and the Visual Lore shelf, so the shelf costs no extra button. -->
                         <button id="upload-image-btn" onclick="document.getElementById('image-upload-input').click()"
                             class="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                            title="Upload Image (long press or right click for Visual Lore)">
+                            title="Upload Image (long press or right click for more)">
                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                                 fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                                 stroke-linejoin="round" class="lucide lucide-image">
@@ -3343,6 +3343,26 @@
     <div id="message-context-menu"
         class="hidden fixed z-50 bg-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-xl py-1 overflow-hidden"
         style="min-width: 210px;"></div>
+
+    <!-- Image button menu: opened by a long press or right click on the image button,
+         the same way the generate button opens its own. Both entries are ways to put
+         something visual into the turn being written - a picture off the device, or an
+         item off the Visual Lore shelf - which is why they share one button. -->
+    <!-- [UI:MENU:IMAGE] -->
+    <div id="image-context-menu"
+        class="hidden fixed z-50 bg-gray-900/90 backdrop-blur-md border border-gray-700 rounded-lg shadow-xl py-1 overflow-hidden"
+        style="min-width: 210px;">
+        <button data-action="upload-image"
+            class="w-full text-left px-4 py-2 hover:bg-indigo-600/50 text-white text-sm transition-colors flex items-center">
+            <svg class="w-4 h-4 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            Upload Image
+        </button>
+        <button data-action="visual-lore-open-picker"
+            class="w-full text-left px-4 py-2 hover:bg-teal-600/50 text-white text-sm transition-colors flex items-center">
+            <svg class="w-4 h-4 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 12h14M5 16h6"></path></svg>
+            Attach from Visual Lore
+        </button>
+    </div>
 
     <!-- Visual Lore picker: choose items to attach to the turn being written. -->
     <!-- [UI:MENU:VISUAL_LORE] -->
@@ -7008,31 +7028,31 @@
                     }
                 });
 
-                // --- VISUAL LORE: LONG PRESS / RIGHT CLICK THE IMAGE BUTTON ---
-                // The shelf attaches to the turn being written, so its trigger belongs in
-                // the composer - but it does not earn a button of its own beside Send. It
-                // rides the image button instead: tap uploads a picture, hold opens the
-                // shelf. Both are "put something visual in this turn", so they read as one
-                // control with a second gear rather than two unrelated icons.
+                // --- IMAGE BUTTON MENU: LONG PRESS / RIGHT CLICK ---
+                // The Visual Lore shelf attaches to the turn being written, so its trigger
+                // belongs in the composer - but it does not earn a button of its own beside
+                // Send. It shares the image button, which opens a small menu the way the
+                // generate button does: upload a picture, or attach from the shelf. Both
+                // are "put something visual in this turn", so one button covers them.
 
-                let vlPressTimer = null;
-                let vlPressStart = null;
+                let imgPressTimer = null;
+                let imgPressStart = null;
                 // The button opens the file dialog from an inline onclick. The synthetic
-                // click after a long press would open it on top of the picker, so that one
-                // click gets consumed.
-                let vlSwallowClick = false;
-                const cancelVlPress = () => {
-                    if (vlPressTimer) clearTimeout(vlPressTimer);
-                    vlPressTimer = null;
-                    vlPressStart = null;
+                // click a long press raises when the finger lifts would open that dialog
+                // behind the menu, so it gets consumed.
+                let imgSwallowClick = false;
+                const cancelImgPress = () => {
+                    if (imgPressTimer) clearTimeout(imgPressTimer);
+                    imgPressTimer = null;
+                    imgPressStart = null;
                 };
 
                 // Desktop right-click. Android Chrome raises this too, after the timer
-                // below has already opened the picker; opening it twice is a no-op.
+                // below has already opened the menu; opening it twice only repositions it.
                 document.body.addEventListener('contextmenu', (e) => {
                     if (!e.target.closest('#upload-image-btn')) return;
                     e.preventDefault();
-                    UIManager.openVisualLorePicker();
+                    UIManager.openImageMenu(e.clientX, e.clientY);
                 });
 
                 // iOS Safari never raises contextmenu, so long-press needs its own timer.
@@ -7041,38 +7061,67 @@
                     const btn = e.target.closest('#upload-image-btn');
                     if (!btn || !e.touches || !e.touches[0]) return;
                     const t = e.touches[0];
-                    vlPressStart = { x: t.clientX, y: t.clientY };
-                    vlPressTimer = setTimeout(() => {
+                    imgPressStart = { x: t.clientX, y: t.clientY };
+                    imgPressTimer = setTimeout(() => {
                         if (navigator.vibrate) navigator.vibrate(50);
-                        UIManager.openVisualLorePicker();
-                        vlSwallowClick = true;
-                        cancelVlPress();
+                        UIManager.openImageMenu(imgPressStart.x, imgPressStart.y);
+                        imgSwallowClick = true;
+                        cancelImgPress();
                     }, 300);
                 }, { passive: true });
 
                 // Sliding off the button cancels, so a mis-aimed press still uploads.
                 document.body.addEventListener('touchmove', (e) => {
-                    if (!vlPressStart || !e.touches || !e.touches[0]) return;
+                    if (!imgPressStart || !e.touches || !e.touches[0]) return;
                     const t = e.touches[0];
-                    if (Math.abs(t.clientX - vlPressStart.x) > 10 || Math.abs(t.clientY - vlPressStart.y) > 10) {
-                        cancelVlPress();
+                    if (Math.abs(t.clientX - imgPressStart.x) > 10 || Math.abs(t.clientY - imgPressStart.y) > 10) {
+                        cancelImgPress();
                     }
                 }, { passive: true });
-                document.body.addEventListener('touchend', cancelVlPress);
-                document.body.addEventListener('touchcancel', cancelVlPress);
+                document.body.addEventListener('touchend', cancelImgPress);
+                document.body.addEventListener('touchcancel', cancelImgPress);
 
                 // Capture phase: the file dialog is opened by an inline onclick on the
-                // button itself, so the document is the only place the click can be caught
-                // ahead of it. The flag clears on the first click either way, so a press
-                // that never raised one cannot swallow an unrelated tap later.
+                // button itself, so the document is the only place a click can be caught
+                // ahead of it. Two get consumed here - the synthetic one the long press
+                // raises, and a tap on the button while the menu is open, which should put
+                // the menu away rather than also opening the dialog behind it. The flag
+                // clears on the first click either way, so a press that never raised one
+                // cannot swallow an unrelated tap later.
                 document.addEventListener('click', (e) => {
-                    if (!vlSwallowClick) return;
-                    vlSwallowClick = false;
-                    if (e.target.closest('#upload-image-btn')) {
+                    const onButton = !!e.target.closest('#upload-image-btn');
+                    const menu = document.getElementById('image-context-menu');
+                    const menuOpen = !!menu && !menu.classList.contains('hidden');
+
+                    if (imgSwallowClick) {
+                        imgSwallowClick = false;
+                        if (onButton) {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            return;
+                        }
+                    }
+                    if (onButton && menuOpen) {
                         e.stopPropagation();
                         e.preventDefault();
+                        UIManager.closeImageMenu();
                     }
                 }, true);
+
+                // Dismissal. Choosing an entry closes it too: ActionHandler's own listener
+                // is on document.body, so the action has already run by the time this one
+                // sees the click on its way up.
+                document.addEventListener('click', (e) => {
+                    const menu = document.getElementById('image-context-menu');
+                    if (!menu || menu.classList.contains('hidden')) return;
+                    if (e.target.closest('#upload-image-btn')) return;
+                    UIManager.closeImageMenu();
+                });
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') UIManager.closeImageMenu();
+                });
+                // Capture phase so scrolling any container, not just the window, dismisses.
+                window.addEventListener('scroll', () => UIManager.closeImageMenu(), true);
 
                 // Visual Lore picker search.
                 const vlPickerSearch = document.getElementById('visual-lore-picker-search');
@@ -19162,10 +19211,19 @@ Write only the character's message.`;
 
                 menu.innerHTML = items.join('');
                 menu.classList.remove('hidden');
+                this._placeMenuAt(menu, clientX, clientY);
+            },
 
-                // Measure after unhiding, then clamp to all four edges. The existing
-                // generate-context-menu only clamps top-left, which runs off a phone screen
-                // when opened near the bottom.
+            /**
+             * Positions an already-visible menu at a viewport point, clamped to all four
+             * edges. Measuring needs the menu unhidden, so this runs after showing it. The
+             * older generate-context-menu clamps top-left only, which runs off the bottom
+             * of a phone screen; anything opened from the composer sits down there.
+             * @param {HTMLElement} menu - The menu element, already unhidden.
+             * @param {number} clientX - Viewport X to anchor to.
+             * @param {number} clientY - Viewport Y to anchor to.
+             */
+            _placeMenuAt(menu, clientX, clientY) {
                 const rect = menu.getBoundingClientRect();
                 const margin = 8;
                 let left = clientX;
@@ -19177,6 +19235,28 @@ Write only the character's message.`;
 
                 menu.style.left = `${left}px`;
                 menu.style.top = `${top}px`;
+            },
+
+            /**
+             * Opens the image button's menu at the given viewport point. Contents are
+             * static markup, so unlike the message menu there is nothing to build first.
+             * @param {number} clientX - Viewport X to anchor to.
+             * @param {number} clientY - Viewport Y to anchor to.
+             */
+            openImageMenu(clientX, clientY) {
+                const menu = document.getElementById('image-context-menu');
+                if (!menu) return;
+                menu.classList.remove('hidden');
+                this._placeMenuAt(menu, clientX, clientY);
+            },
+
+            /**
+             * Hides the image button's menu if it is open.
+             */
+            closeImageMenu() {
+                const menu = document.getElementById('image-context-menu');
+                if (!menu) return;
+                menu.classList.add('hidden');
             },
 
             /**
@@ -41329,8 +41409,13 @@ Relationship | Alistair & Elara | Alistair has started to trust Elara after she 
                     UIManager.openMessageMenu(parseInt(ds.index), x, y);
                 });
                 // --- Visual Lore: attaching to a turn ---
-                // Opening the picker has no data-action of its own: it hangs off a long
-                // press of the image button, bound with the other gestures in init().
+                // Both entries in the image button's menu. Upload duplicates what a plain
+                // tap does, so the menu reads as a choice rather than a single stray item.
+                ActionHandler.register('upload-image', () => {
+                    const input = document.getElementById('image-upload-input');
+                    if (input) input.click();
+                });
+                ActionHandler.register('visual-lore-open-picker', () => UIManager.openVisualLorePicker());
                 ActionHandler.register('visual-lore-close-picker', () => UIManager.closeVisualLorePicker());
                 ActionHandler.register('visual-lore-picker-filter', (ds) => {
                     UIManager.VISUAL_LORE.pickerFilter = ds.cat || 'all';
